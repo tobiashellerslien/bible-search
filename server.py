@@ -8,13 +8,11 @@ import json
 import os
 import re
 import sys
-import webbrowser
 import urllib.parse
-import threading
-import time
 from pathlib import Path
 
-PORT = 8421
+PORT = int(os.environ.get("PORT", 8421))
+HOST = os.environ.get("HOST", "0.0.0.0")
 BASE_DIR = Path(__file__).parent
 BIBLE_DIR = BASE_DIR / "bible_versions"
 
@@ -775,7 +773,6 @@ def search_text(bible_data, version, query, limit=150):
 # ──────────────────────────────────────────────
 
 bible_data = None
-last_heartbeat = time.time()
 
 
 class BibleHandler(http.server.BaseHTTPRequestHandler):
@@ -799,7 +796,6 @@ class BibleHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        global last_heartbeat
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
         params = urllib.parse.parse_qs(parsed.query)
@@ -862,7 +858,6 @@ class BibleHandler(http.server.BaseHTTPRequestHandler):
             self._send_json({"results": all_results, "query": query})
 
         elif path == "/api/heartbeat":
-            last_heartbeat = time.time()
             self._send_json({"ok": True})
 
         else:
@@ -877,26 +872,12 @@ def run_server():
         print("Error: No Bible versions found. Make sure bible_versions/ directory has version folders with JSON files.")
         sys.exit(1)
 
-    server = http.server.HTTPServer(("127.0.0.1", PORT), BibleHandler)
-    server.timeout = 1
+    server = http.server.HTTPServer((HOST, PORT), BibleHandler)
 
-    print(f"Server running at http://127.0.0.1:{PORT}")
-    webbrowser.open(f"http://127.0.0.1:{PORT}")
-
-    def watchdog():
-        """Shut down when no heartbeat received for 10 seconds."""
-        while True:
-            time.sleep(3)
-            if time.time() - last_heartbeat > 10:
-                print("\nBrowser closed. Shutting down...")
-                os._exit(0)
-
-    t = threading.Thread(target=watchdog, daemon=True)
-    t.start()
+    print(f"Server running at http://{HOST}:{PORT}")
 
     try:
-        while True:
-            server.handle_request()
+        server.serve_forever()
     except KeyboardInterrupt:
         print("\nShutting down...")
         server.server_close()
