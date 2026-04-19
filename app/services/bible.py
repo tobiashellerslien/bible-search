@@ -1,24 +1,11 @@
-"""
-Bible Gateway Norsk - Local Bible search server
-Run this file to start the server and open the website in your browser.
-"""
-
-import http.server
-import json
-import os
+﻿import json
 import re
-import sys
-import urllib.parse
 from pathlib import Path
 
-PORT = int(os.environ.get("PORT", 8421))
-HOST = os.environ.get("HOST", "0.0.0.0")
-BASE_DIR = Path(__file__).parent
-BIBLE_DIR = BASE_DIR / "bible_versions"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+BIBLE_DIR = PROJECT_ROOT / "bible_versions"
 
-# ──────────────────────────────────────────────
-# Book alias mapping: alias → USFM code
-# ──────────────────────────────────────────────
+# Book alias mapping:
 
 BOOKS = [
     # (usfm, order, norwegian_name, [aliases...])
@@ -332,7 +319,7 @@ USFM_TO_ENG = {
     "REV": "Revelation",
 }
 
-# Build alias lookup: lowercase alias → USFM code
+# Build alias lookup: lowercase alias to USFM code
 ALIAS_MAP = {}
 USFM_TO_NAME = {}
 USFM_TO_ORDER = {}
@@ -352,15 +339,13 @@ for usfm, order, norw_name, aliases in BOOKS:
 SORTED_ALIASES = sorted(ALIAS_MAP.keys(), key=len, reverse=True)
 
 
-# ──────────────────────────────────────────────
 # Bible data loading
-# ──────────────────────────────────────────────
 
 class BibleData:
     def __init__(self):
-        self.versions = {}  # version_name → { usfm_code → { "BOOK.CH.VS": text } }
-        self.version_books = {}  # version_name → [usfm_codes in order]
-        self.book_chapters = {}  # version_name → { usfm_code → max_chapter }
+        self.versions = {}  # version_name -> { usfm_code -> { "BOOK.CH.VS": text } }
+        self.version_books = {}  # version_name -> [usfm_codes in order]
+        self.book_chapters = {}  # version_name -> { usfm_code -> max_chapter }
         self._load_all()
 
     def _load_all(self):
@@ -483,9 +468,7 @@ class BibleData:
         return results, None
 
 
-# ──────────────────────────────────────────────
 # Search query parser
-# ──────────────────────────────────────────────
 
 def identify_book(text):
     """Try to identify a book name at the start of text. Returns (usfm_code, remaining_text) or (None, text)."""
@@ -592,7 +575,7 @@ def parse_query(query):
 
         if ref is None and remainder.strip() == "":
             if book_code:
-                # Just a book name with no reference — could be a single-chapter book
+                # Just a book name with no reference - could be a single-chapter book
                 # We'll treat it as chapter 1 (whole chapter)
                 blocks.append({
                     "book": book,
@@ -651,14 +634,14 @@ def parse_query(query):
         elif ref["type"] == "number":
             val = ref["value"]
             if ctx_had_verse and ctx_chapter is not None:
-                # Bare number after chapter:verse context → verse in same chapter
+                # Bare number after chapter:verse context -> verse in same chapter
                 label = f"{book_name} {ctx_chapter}:{val}"
                 blocks.append({
                     "book": book, "label": label, "type": "single_verse",
                     "chapter": ctx_chapter, "verse": val,
                 })
             else:
-                # Bare number → chapter
+                # Bare number -> chapter
                 label = f"{book_name} {val}"
                 blocks.append({
                     "book": book, "label": label, "type": "whole_chapter",
@@ -768,120 +751,4 @@ def search_text(bible_data, version, query, limit=150):
     return results
 
 
-# ──────────────────────────────────────────────
-# HTTP Server
-# ──────────────────────────────────────────────
 
-bible_data = None
-
-
-class BibleHandler(http.server.BaseHTTPRequestHandler):
-    def log_message(self, format, *args):
-        pass  # Suppress default logging
-
-    def _send_json(self, data, status=200):
-        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", len(body))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def _send_html(self, html):
-        body = html.encode("utf-8")
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Length", len(body))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def do_GET(self):
-        parsed = urllib.parse.urlparse(self.path)
-        path = parsed.path
-        params = urllib.parse.parse_qs(parsed.query)
-
-        if path == "/":
-            html_path = BASE_DIR / "index.html"
-            if html_path.exists():
-                self._send_html(html_path.read_text(encoding="utf-8"))
-            else:
-                self._send_html("<h1>index.html not found</h1>")
-
-        elif path == "/api/versions":
-            versions = list(bible_data.versions.keys())
-            self._send_json({"versions": versions})
-
-        elif path == "/api/books":
-            version = params.get("version", [""])[0]
-            if not version or version not in bible_data.versions:
-                version = list(bible_data.versions.keys())[0] if bible_data.versions else ""
-            books_list = []
-            for code in bible_data.version_books.get(version, []):
-                books_list.append({
-                    "code": code,
-                    "name": USFM_TO_NAME.get(code, code),
-                    "name_en": USFM_TO_ENG.get(code, code),
-                    "chapters": bible_data.book_chapters.get(version, {}).get(code, 0),
-                })
-            self._send_json({"books": books_list, "version": version})
-
-        elif path == "/api/search":
-            query = params.get("q", [""])[0]
-            version = params.get("version", [""])[0]
-            if not query:
-                self._send_json({"error": "No search query provided"}, 400)
-                return
-            if not version or version not in bible_data.versions:
-                version = list(bible_data.versions.keys())[0] if bible_data.versions else ""
-            if not version:
-                self._send_json({"error": "No Bible versions available"}, 400)
-                return
-
-            if is_reference_query(query):
-                blocks = parse_query(query)
-                results = [resolve_block(bible_data, version, b) for b in blocks]
-                self._send_json({"type": "reference", "results": results, "version": version})
-            else:
-                results = search_text(bible_data, version, query)
-                self._send_json({"type": "text_search", "results": results, "query": query, "version": version})
-
-        elif path == "/api/all_versions":
-            query = params.get("q", [""])[0]
-            if not query:
-                self._send_json({"error": "No query provided"}, 400)
-                return
-            all_results = {}
-            for vname in bible_data.versions:
-                blocks = parse_query(query)
-                resolved = [resolve_block(bible_data, vname, b) for b in blocks]
-                all_results[vname] = resolved
-            self._send_json({"results": all_results, "query": query})
-
-        elif path == "/api/heartbeat":
-            self._send_json({"ok": True})
-
-        else:
-            self.send_error(404)
-
-
-def run_server():
-    global bible_data
-    bible_data = BibleData()
-
-    if not bible_data.versions:
-        print("Error: No Bible versions found. Make sure bible_versions/ directory has version folders with JSON files.")
-        print("The server will start, but searches will not work until Bible data is added.")
-
-    server = http.server.HTTPServer((HOST, PORT), BibleHandler)
-
-    print(f"Server running at http://{HOST}:{PORT}")
-
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\nShutting down...")
-        server.server_close()
-
-
-if __name__ == "__main__":
-    run_server()

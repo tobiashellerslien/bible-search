@@ -1,0 +1,71 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BibleGateway at home</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+
+<div class="header">
+    <h1 style="cursor:pointer" onclick="goHome()">BibleGateway at home</h1>
+    <div style="display:flex;gap:8px;align-items:center;">
+        <button class="dark-toggle" id="langToggle" title="Toggle book name language">NO</button>
+        <button class="dark-toggle" id="darkToggle" title="Toggle dark mode">&#9790;</button>
+    </div>
+</div>
+
+<div class="controls">
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Search... e.g. Johannes 3:16 or 1. Mosebok 1:1-3"
+               autocomplete="off" autofocus>
+    </div>
+    <select id="versionSelect"></select>
+    <button class="btn btn-primary" id="searchBtn">Search</button>
+    <button class="btn btn-secondary" id="compareBtn">Compare</button>
+</div>
+
+<div class="browser-bar">
+    <label>Browse:</label>
+    <select id="bookSelect" style="width:230px"><option value="">-- Book --</option></select>
+    <select id="chapterSelect" disabled><option value="">-- Ch --</option></select>
+</div>
+
+<div class="toggles">
+    <label class="toggle-group">
+        <span>Verse numbers</span>
+        <div class="toggle">
+            <input type="checkbox" id="toggleVerseNums" checked>
+            <span class="toggle-slider"></span>
+        </div>
+    </label>
+    <label class="toggle-group">
+        <span>New line per verse</span>
+        <div class="toggle">
+            <input type="checkbox" id="toggleNewlines">
+            <span class="toggle-slider"></span>
+        </div>
+    </label>
+    <select id="compareVersionSelect" style="display:none;"></select>
+</div>
+
+<div class="results-wrapper" id="resultsWrapper">
+    <div class="empty-state" id="emptyState">
+        <h2>Search the Bible</h2>
+        <p>
+            Look up verses by reference: <code>Johannes 3:16</code>, <code>1. Mosebok 1:1-3</code>, <code>Salme 23</code><br>
+            Use <code>;</code> to look up multiple passages: <code>Joh 3:16;17</code>, <code>1. Mos 1:1;Josva 1:8</code><br>
+            Abbreviations and English names work too: <code>joh</code>, <code>1. mos</code>, <code>rom</code>, <code>genesis</code><br>
+            Or just type any word to search the entire Bible.
+        </p>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+</body>
+</html>
+

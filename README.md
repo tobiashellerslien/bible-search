@@ -5,7 +5,8 @@ A fast and powerful Bible search app. Look up multiple verses by reference, do f
 ## Run locally
 
 ```bash
-python server.py
+pip install -r requirements.txt
+python main.py
 ```
 
 Runs website on `http://localhost:8421`
@@ -31,4 +32,4 @@ Drop a folder into `bible_versions/` containing 66 JSON files named `NN_USFM_Boo
 }
 ```
 
-The server auto-discovers the new version on next start. Add an entry to `VERSION_DISPLAY` in `index.html` if the folder name needs a prettier display label. Take a look at my bible-scraper repo to scrape your own versions to this format.
+The server auto-discovers the new version on next start. Add an entry to `VERSION_DISPLAY` in `static/js/app.js` if the folder name needs a prettier display label. Take a look at my bible-scraper repo to scrape your own versions to this format.

@@ -5,16 +5,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Running the App
 
 ```bash
-python server.py
+python main.py
 ```
 
 Starts an HTTP server at `http://127.0.0.1:8421`, auto-opens the browser, and shuts down when the browser tab is closed. No build step, no external dependencies — only Python standard library.
 
+Starts a Flask server at `http://127.0.0.1:8421`.
+
 ## Architecture
 
-**Two-file application**: `server.py` (Python backend) and `index.html` (single-page frontend with embedded JS/CSS).
+**Flask package structure**:
+- `main.py`: Entrypoint (`python main.py`)
+- `app/__init__.py`: App factory + Bible data initialization
+- `app/routes.py`: HTTP routes and API endpoints
+- `app/services/bible.py`: Alias map, parsing, and search/data logic
+- `templates/index.html`: Single-page frontend template
+- `static/css/main.css`: Frontend styles
+- `static/js/app.js`: Frontend logic
 
-### server.py
+### bible.py service
 
 - HTTP server on port 8421 using `http.server`
 - Loads all Bible versions from `bible_versions/` into memory at startup (`BibleData` class)
@@ -29,9 +38,9 @@ Starts an HTTP server at `http://127.0.0.1:8421`, auto-opens the browser, and sh
   - `/api/all_versions?q=...` → runs reference parse across every loaded version; `{results: {versionName: [blocks]}}`
   - `/api/heartbeat` → resets shutdown timer
 
-### index.html
+### index.html + static assets
 
-- All JS inline in a `<script>` block, all CSS inline in `<style>`
+- `templates/index.html` loads `/static/css/main.css` and `/static/js/app.js`
 - State variables track current view (`normal`, `text_search`, `all_versions`), compare mode, and cached data for re-rendering on toggle changes (`allVersionsCache`, `textSearchCache`, `mainData`, `compareData`). `previousState` enables back-navigation from text search drill-down.
 - **Compare mode**: calls `/api/search` twice (once per version) and renders results side-by-side. **All versions mode**: calls `/api/all_versions` and renders a column per version.
 - `VERSION_DISPLAY` maps folder names to display names (e.g., `NB88` → `NB88/07`). Falls back to the raw folder name if no entry.
@@ -54,7 +63,7 @@ Keys are `BOOK.CHAPTER.VERSE`. All data is loaded into memory at startup.
 
 ## Key Patterns
 
-- **Adding a new Bible version**: Drop a folder with correctly-named JSON files into `bible_versions/`. The server auto-discovers it. Add a display name entry to `VERSION_DISPLAY` in index.html if the folder name isn't presentation-ready.
-- **Adding a new book alias**: Add to the relevant tuple in the `BOOKS` list in server.py. Aliases are lowercase.
+- **Adding a new Bible version**: Drop a folder with correctly-named JSON files into `bible_versions/`. The server auto-discovers it. Add a display name entry to `VERSION_DISPLAY` in static/js/app.js if the folder name isn't presentation-ready.
+- **Adding a new book alias**: Add to the relevant tuple in the `BOOKS` list in app/services/bible.py. Aliases are lowercase.
 - **Adding a new USFM book code**: If a scraped Bible uses a non-standard USFM code (like `NAM` instead of `NAH` for Nahum), the `BOOKS` entry must match the code used in the JSON filenames.
 - **Theming**: CSS variables in `:root` and `[data-theme="dark"]` control all colors. Accent color is red (`#a83232` light / `#c94444` dark). The `data-theme` attribute is set on `<html>`.
