@@ -23,7 +23,7 @@ Abbreviations and English book names work too: `joh`, `1. mos`, `rom`, `genesis`
 
 ## Adding a Bible version
 
-Drop a folder into `bible_versions/` containing 66 JSON files named `NN_USFM_BookName.json` (e.g. `43_JHN_Johannes.json`). Each file maps `BOOK.CHAPTER.VERSE` keys to verse text:
+Drop a folder into `bibles/` containing 66 JSON files named `NN_USFM_BookName.json` (e.g. `43_JHN_Johannes.json`). Each file maps `BOOK.CHAPTER.VERSE` keys to verse text:
 
 ```json
 {

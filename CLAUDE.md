@@ -26,7 +26,7 @@ Starts a Flask server at `http://127.0.0.1:8421`.
 ### bible.py service
 
 - HTTP server on port 8421 using `http.server`
-- Loads all Bible versions from `bible_versions/` into memory at startup (`BibleData` class)
+- Loads all Bible versions from `bibles/` into memory at startup (`BibleData` class)
 - **Book alias system**: `BOOKS` list defines USFM codes, Norwegian names, and aliases (Norwegian, English, abbreviations). `ALIAS_MAP` provides case-insensitive lookup, `SORTED_ALIASES` enables longest-match-first parsing. `USFM_TO_ENG` maps codes to English display names.
 - **Query parser**: `parse_query()` splits on `;` into blocks. Context carries across blocks: a bare number after a `chapter:verse` block becomes a verse in the same chapter (e.g., `Joh 3:16;17` → John 3:16 and John 3:17); a bare number without prior verse context becomes a chapter. `identify_book()` uses longest-match-first against `SORTED_ALIASES`. `is_reference_query()` returns true if the first semicolon-part resolves to a known book.
 - **Text search** (`search_text()`): case-insensitive substring AND-match across all words, hard-capped at 150 results.
@@ -50,7 +50,7 @@ Starts a Flask server at `http://127.0.0.1:8421`.
 
 ## Bible Data Format
 
-Each version is a folder under `bible_versions/` containing 66 JSON files named `NN_USFM_BookName.json` (e.g., `43_JHN_Johannes.json`). The USFM code in the filename is what the server uses as the book identifier.
+Each version is a folder under `bibles/` containing 66 JSON files named `NN_USFM_BookName.json` (e.g., `43_JHN_Johannes.json`). The USFM code in the filename is what the server uses as the book identifier.
 
 ```json
 {
@@ -63,7 +63,7 @@ Keys are `BOOK.CHAPTER.VERSE`. All data is loaded into memory at startup.
 
 ## Key Patterns
 
-- **Adding a new Bible version**: Drop a folder with correctly-named JSON files into `bible_versions/`. The server auto-discovers it. Add a display name entry to `VERSION_DISPLAY` in static/js/app.js if the folder name isn't presentation-ready.
+- **Adding a new Bible version**: Drop a folder with correctly-named JSON files into `bibles/`. The server auto-discovers it. Add a display name entry to `VERSION_DISPLAY` in static/js/app.js if the folder name isn't presentation-ready.
 - **Adding a new book alias**: Add to the relevant tuple in the `BOOKS` list in app/services/bible.py. Aliases are lowercase.
 - **Adding a new USFM book code**: If a scraped Bible uses a non-standard USFM code (like `NAM` instead of `NAH` for Nahum), the `BOOKS` entry must match the code used in the JSON filenames.
 - **Theming**: CSS variables in `:root` and `[data-theme="dark"]` control all colors. Accent color is red (`#a83232` light / `#c94444` dark). The `data-theme` attribute is set on `<html>`.

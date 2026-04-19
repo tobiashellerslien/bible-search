@@ -18,7 +18,7 @@ def create_app():
 
     bible_data = BibleData()
     if not bible_data.versions:
-        print("Error: No Bible versions found. Make sure bible_versions/ directory has version folders with JSON files.")
+        print("Error: No Bible versions found. Make sure bibles/ directory has version folders with JSON files.")
         print("The server will start, but searches will not work until Bible data is added.")
 
     app.config["BIBLE_DATA"] = bible_data

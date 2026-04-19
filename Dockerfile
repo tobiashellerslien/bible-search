@@ -5,7 +5,7 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY bible_versions/ ./bible_versions/
+COPY bibles/ ./bibles/
 COPY app/ ./app/
 COPY templates/ ./templates/
 COPY static/ ./static/

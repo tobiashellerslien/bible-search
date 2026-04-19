@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-BIBLE_DIR = PROJECT_ROOT / "bible_versions"
+BIBLE_DIR = PROJECT_ROOT / "bibles"
 
 # Book alias mapping:
 
