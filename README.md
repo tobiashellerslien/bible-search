@@ -1,14 +1,14 @@
-# BibleGateway at home
+# Tobias' Bible Search Tool
 
-A local Bible search app with some Norwegian and English translations. Look up multiple verses by reference, search full text, and compare versions side by side.
+A fast and powerful Bible search app. Look up multiple verses by reference, do fast and advanced search, and compare versions. Uses local copies of bibles stored as JSON files, and includes some Norwegian and English translations. Inspired by [biblegateway.com](https://biblegateway.com)
 
-## Usage
+## Run locally
 
 ```bash
 python server.py
 ```
 
-Opens `http://127.0.0.1:8421` in your browser automatically. The server shuts down when you close the tab.
+Runs website on `http://localhost:8421`
 
 ## Search examples
 
@@ -31,4 +31,4 @@ Drop a folder into `bible_versions/` containing 66 JSON files named `NN_USFM_Boo
 }
 ```
 
-The server auto-discovers the new version on next start. Add an entry to `VERSION_DISPLAY` in `index.html` if the folder name needs a prettier display label.
+The server auto-discovers the new version on next start. Add an entry to `VERSION_DISPLAY` in `index.html` if the folder name needs a prettier display label. Take a look at my bible-scraper repo to scrape your own versions to this format.
