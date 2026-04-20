@@ -5,30 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tobias' Bible Search Tool</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.png') }}">
 </head>
 <body>
 
 <div class="header">
-    <h1 style="cursor:pointer" onclick="goHome()">Tobias' Bible Search Tool</h1>
-    <div style="display:flex;gap:8px;align-items:center;">
-        <button class="dark-toggle" id="langToggle" title="Toggle book name language">NO</button>
-        <button class="dark-toggle" id="darkToggle" title="Toggle dark mode">&#9790;</button>
+    <h1 onclick="goHome()">Tobias' Bible Search Tool</h1>
+    <div class="header-right">
+        <div class="font-size-ctrl" title="Verse font size">
+            <span>Aa</span>
+            <input type="range" id="fontSizeSlider" min="1" max="5" value="3" step="1">
+        </div>
+        <button class="header-btn" id="darkToggle" title="Toggle dark mode">&#9790;</button>
+        <button class="header-btn" id="helpToggle" title="Help — press ? anytime">?</button>
     </div>
 </div>
 
 <div class="controls">
-    <div class="search-box">
-        <input type="text" id="searchInput" placeholder="Search... e.g. Johannes 3:16 or 1. Mosebok 1:1-3"
-               autocomplete="off" autofocus>
+    <div class="search-wrap">
+        <input type="text" id="searchInput"
+               placeholder="/  focus   ?  help   [ ]  version   ←→  chapters"
+               autocomplete="off" autocorrect="off" spellcheck="false">
+        <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
     </div>
     <select id="versionSelect"></select>
     <button class="btn btn-primary" id="searchBtn">Search</button>
     <button class="btn btn-secondary" id="compareBtn">Compare</button>
 </div>
 
+<div class="scope-bar" id="scopeBar"></div>
+
 <div class="browser-bar">
     <label>Browse:</label>
-    <select id="bookSelect" style="width:230px"><option value="">-- Book --</option></select>
+    <select id="bookSelect"><option value="">-- Book --</option></select>
     <select id="chapterSelect" disabled><option value="">-- Ch --</option></select>
 </div>
 
@@ -54,18 +63,96 @@
     <div class="empty-state" id="emptyState">
         <h2>Search the Bible</h2>
         <p>
-            Look up verses by reference: <code>Johannes 3:16</code>, <code>1. Mosebok 1:1-3</code>, <code>Salme 23</code><br>
-            Use <code>;</code> to look up multiple passages: <code>Joh 3:16;17</code>, <code>1. Mos 1:1;Josva 1:8</code><br>
-            Abbreviations and English names work too: <code>joh</code>, <code>1. mos</code>, <code>rom</code>, <code>genesis</code><br>
-            Or just type any word to search the entire Bible.
+            Reference: <code>Johannes 3:16</code>, <code>Salme 23</code>, <code>1. Mos 1:1-3</code><br>
+            Multi-reference: <code>Joh 3:16;17</code>, <code>1. Mos 1:1;Josva 1:8</code><br>
+            Text search: <code>kjærlighet</code>, <code>nåde OR barmhjertighet</code>, <code>"evig liv"</code><br>
+            Scoped: <code>GT: frelse</code>, <code>evangeliene: disippel</code>, <code>Johannes: lys</code><br>
+            Exclude: <code>tro -gjerninger</code>
         </p>
+        <p class="empty-help-hint">Press <code>?</code> or <button class="help-inline-link" onclick="openHelp()">click here</button> for full search syntax &amp; hotkeys.</p>
     </div>
 </div>
+
+<!-- Pinned panel -->
+<div class="pinned-panel" id="pinnedPanel">
+    <div class="pinned-panel-header" id="pinnedPanelHeader">
+        <span>&#128204; Pinned</span>
+        <span class="pinned-count-badge" id="pinnedCountBadge">0</span>
+        <span class="spacer"></span>
+        <button class="pinned-action-btn" id="clearPinnedBtn" title="Clear all pinned">clear</button>
+        <span id="pinnedChevron">&#9650;</span>
+    </div>
+    <div class="pinned-items-wrap" id="pinnedItemsWrap"></div>
+</div>
+
+<!-- Help modal -->
+<div class="modal-overlay" id="helpModal">
+    <div class="modal-panel">
+        <div class="modal-header">
+            <span>// Help</span>
+            <button class="modal-close" id="helpClose">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="help-section">
+                <h3>Reference lookup</h3>
+                <div class="help-row"><span class="help-key">Joh 3:16</span><span class="help-desc">Single verse</span></div>
+                <div class="help-row"><span class="help-key">Salme 23</span><span class="help-desc">Whole chapter</span></div>
+                <div class="help-row"><span class="help-key">1. Mos 1:1-3</span><span class="help-desc">Verse range</span></div>
+                <div class="help-row"><span class="help-key">Joh 3:1-4:6</span><span class="help-desc">Cross-chapter range</span></div>
+                <div class="help-row"><span class="help-key">Joh 3:16;17</span><span class="help-desc">Multiple passages (context carries)</span></div>
+                <div class="help-row"><span class="help-key">joh, john, jhn</span><span class="help-desc">Abbreviations &amp; English names work</span></div>
+            </div>
+            <div class="help-section">
+                <h3>Text search operators</h3>
+                <div class="help-row"><span class="help-key">kjærlighet</span><span class="help-desc">All verses containing word</span></div>
+                <div class="help-row"><span class="help-key">"evig liv"</span><span class="help-desc">Exact phrase</span></div>
+                <div class="help-row"><span class="help-key">nåde -dom</span><span class="help-desc">Exclude word with -</span></div>
+                <div class="help-row"><span class="help-key">nåde OR frelse</span><span class="help-desc">Either word (OR must be uppercase)</span></div>
+                <div class="help-row"><span class="help-key">nåde frelse</span><span class="help-desc">Both words (AND, implicit)</span></div>
+            </div>
+            <div class="help-section">
+                <h3>Scoped search</h3>
+                <div class="help-row"><span class="help-key">GT: ord</span><span class="help-desc">Gamle Testamentet</span></div>
+                <div class="help-row"><span class="help-key">NT: ord</span><span class="help-desc">Nye Testamentet</span></div>
+                <div class="help-row"><span class="help-key">evangeliene: ord</span><span class="help-desc">Matt, Mark, Luk, Joh</span></div>
+                <div class="help-row"><span class="help-key">mosebøkene: ord</span><span class="help-desc">1–5 Mosebok</span></div>
+                <div class="help-row"><span class="help-key">profetene: ord</span><span class="help-desc">Jesaja – Malaki</span></div>
+                <div class="help-row"><span class="help-key">historiske: ord</span><span class="help-desc">Josva – Ester</span></div>
+                <div class="help-row"><span class="help-key">poetiske: ord</span><span class="help-desc">Job, Salme, Ordsp, Fork, Høys</span></div>
+                <div class="help-row"><span class="help-key">brev: ord</span><span class="help-desc">Alle NT-brev</span></div>
+                <div class="help-row"><span class="help-key">paulusbrevene: ord</span><span class="help-desc">Romerne – Filemon</span></div>
+                <div class="help-row"><span class="help-key">Johannes: lys</span><span class="help-desc">BookName: text — scope to single book</span></div>
+            </div>
+            <div class="help-section">
+                <h3>Keyboard shortcuts</h3>
+                <div class="hotkey-row"><span class="hotkey-badge">/</span><span class="help-desc">Focus search</span></div>
+                <div class="hotkey-row"><span class="hotkey-badge">Esc</span><span class="help-desc">Blur search / close modal</span></div>
+                <div class="hotkey-row"><span class="hotkey-badge">?</span><span class="help-desc">Open/close help</span></div>
+                <div class="hotkey-row"><span class="hotkey-badge">← →</span><span class="help-desc">Prev / next chapter</span></div>
+                <div class="hotkey-row"><span class="hotkey-badge">[ ]</span><span class="help-desc">Previous / next Bible version</span></div>
+                <div class="hotkey-row"><span class="hotkey-badge">Tab</span><span class="help-desc">Accept first autocomplete suggestion</span></div>
+                <div class="hotkey-row"><span class="hotkey-badge">↑ ↓</span><span class="help-desc">Navigate autocomplete suggestions</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stats modal -->
+<div class="modal-overlay" id="statsModal">
+    <div class="modal-panel" style="max-width:740px;">
+        <div class="modal-header">
+            <span id="statsModalTitle">// Stats</span>
+            <button class="modal-close" id="statsClose">&times;</button>
+        </div>
+        <div class="modal-body" id="statsBody"></div>
+    </div>
+</div>
+
+<!-- Chart tooltip -->
+<div class="chart-tooltip" id="chartTooltip"></div>
 
 <div class="toast" id="toast"></div>
 
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-
 </body>
 </html>
-
