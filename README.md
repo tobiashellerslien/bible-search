@@ -1,6 +1,6 @@
 # Tobias' Bible Search Tool
 
-A fast and powerful Bible search app. Look up multiple verses by reference, do fast and advanced search, and compare versions. Uses local copies of bibles stored as JSON files, and includes some Norwegian and English translations. Inspired by [biblegateway.com](https://biblegateway.com)
+A fast and powerful Bible search app. Look up multiple verses by reference, do fast and advanced search, and compare versions. Uses local copies of bibles stored as JSON files. Inspired by [biblegateway.com](https://biblegateway.com)
 
 ## Run locally
 
