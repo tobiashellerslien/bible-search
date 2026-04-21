@@ -70,6 +70,15 @@ const SEARCH_GROUPS = [
 
 const FONT_SIZES = [null, '0.85rem', '1.0rem', '1.1rem', '1.3rem', '1.5rem'];
 
+const COLOR_PRESETS = [
+    { name: 'Blue',   l: '#2870e8', lh: '#1d5cc8', ld: 'rgba(40,112,232,0.12)',   d: '#5aafff', dh: '#4a9eee', dd: 'rgba(90,175,255,0.12)' },
+    { name: 'Green',  l: '#16a34a', lh: '#15803d', ld: 'rgba(22,163,74,0.12)',    d: '#4ade80', dh: '#22c55e', dd: 'rgba(74,222,128,0.12)' },
+    { name: 'Red',    l: '#b53232', lh: '#922222', ld: 'rgba(181,50,50,0.12)',    d: '#e06060', dh: '#c94444', dd: 'rgba(224,96,96,0.12)' },
+    { name: 'Purple', l: '#7c3aed', lh: '#6d28d9', ld: 'rgba(124,58,237,0.12)',  d: '#a78bfa', dh: '#8b5cf6', dd: 'rgba(167,139,250,0.12)' },
+    { name: 'Orange', l: '#c97a06', lh: '#a86205', ld: 'rgba(201,122,6,0.12)',   d: '#fbbf24', dh: '#f59e0b', dd: 'rgba(251,191,36,0.12)' },
+    { name: 'Teal',   l: '#0d9488', lh: '#0f766e', ld: 'rgba(13,148,136,0.12)',  d: '#2dd4bf', dh: '#14b8a6', dd: 'rgba(45,212,191,0.12)' },
+];
+
 // ── State ──
 let compareMode = false;
 let lastQuery = '';
@@ -81,6 +90,7 @@ let allVersionsCache = null;
 let textSearchCache = null;
 let currentChapterInfo = null;
 let allVersionsList = [];
+let currentAccentIdx = parseInt(localStorage.getItem('accentColor') || '0');
 let pinnedVerses = JSON.parse(localStorage.getItem('pinnedVerses') || '[]');
 let pinnedPanelExpanded = false;
 let lastTextSearchQuery = '';
@@ -319,23 +329,25 @@ function renderAll() {
     const compareLang = versionLang(compareVersionSelect.value);
     let html = '';
 
-    if (showCompare) {
-        html += `<div class="compare-columns-header">
-            <div class="column-label">${escHtml(versionLabel(versionSelect.value))}</div>
-            <div class="column-label"><select id="compareVersionInline"></select></div>
-        </div>`;
-    }
-
     const count = Math.max(mainData.length, showCompare ? compareData.length : 0);
-    for (let idx = 0; idx < count; idx++) {
-        const mainBlock = idx < mainData.length ? mainData[idx] : null;
-        const compBlock = showCompare && idx < compareData.length ? compareData[idx] : null;
-        if (showCompare) {
-            html += '<div class="verse-row">';
+    if (showCompare) {
+        html += '<div class="compare-grid">';
+        html += `<div class="col-header-main column-label">${escHtml(versionLabel(versionSelect.value))}</div>`;
+        html += `<div class="col-header-compare column-label"><select id="compareVersionInline"></select></div>`;
+        for (let idx = 0; idx < count; idx++) {
+            const mainBlock = idx < mainData.length ? mainData[idx] : null;
+            const compBlock = idx < compareData.length ? compareData[idx] : null;
+            html += '<div class="compare-cell compare-cell-main">';
             html += buildCardHtml(mainBlock, idx, false, showNums, showNewlines, mainLang, versionSelect.value);
+            html += '</div>';
+            html += '<div class="compare-cell compare-cell-compare">';
             html += buildCardHtml(compBlock, idx, true, showNums, showNewlines, compareLang, compareVersionSelect.value);
             html += '</div>';
-        } else {
+        }
+        html += '</div>';
+    } else {
+        for (let idx = 0; idx < count; idx++) {
+            const mainBlock = mainData[idx];
             html += buildCardHtml(mainBlock, idx, false, showNums, showNewlines, mainLang, versionSelect.value);
         }
     }
@@ -395,7 +407,7 @@ function buildCardHtml(block, idx, isCompare, showNums, showNewlines, lang, ver)
         const allSameCh = block.verses.every(v => v.chapter === ch);
 
         html += `<div class="verse-card-footer">
-            <button class="card-action-btn" onclick="readChapter('${escAttr(block.book)}', ${ch}, '${escAttr(bName)}')">&#128214; ${escHtml(translateLabel(block.book + ' ' + ch, block.book, lang))} ${ch}</button>
+            <button class="card-action-btn" onclick="readChapter('${escAttr(block.book)}', ${ch}, '${escAttr(bName)}')">&#128214; ${escHtml(bookName(block.book, lang))} ${ch}</button>
             <button class="card-action-btn" onclick="showAllVersions('${escAttr(block.label)}')">all versions</button>`;
         if (ilUrl) {
             html += `<a class="card-action-btn" href="${ilUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;"><img src="/static/biblehub.png" style="height:12px;opacity:0.8;" alt=""> interlinear</a>`;
@@ -665,8 +677,11 @@ function renderStatsModal(data) {
     const lang = versionLang(versionSelect.value);
 
     function displayBookName(s) {
-        return lang === 'en' ? (s.name_en || s.name) : s.name;
+        return bookName(s.code, lang);
     }
+
+    const otIsTop = topOT && topOverall && topOT.code === topOverall.code;
+    const ntIsTop = topNT && topOverall && topNT.code === topOverall.code;
 
     let html = `<div class="stats-summary">
         <div class="stats-card"><div class="stats-card-label">Total hits</div><div class="stats-card-value">${total}</div></div>
@@ -674,21 +689,15 @@ function renderStatsModal(data) {
         <div class="stats-card"><div class="stats-card-label">GT hits</div><div class="stats-card-value">${otHits}</div></div>
         <div class="stats-card"><div class="stats-card-label">NT hits</div><div class="stats-card-value">${ntHits}</div></div>`;
 
-    if (topOverall) {
-        html += `<div class="stats-card" style="cursor:pointer;border-color:var(--accent)" onclick="navigateToBookInResults('${topOverall.code}')" title="Go to results">
-            <div class="stats-card-label">&#127942; Top overall</div>
-            <div class="stats-card-value" style="font-size:0.85rem;">${escHtml(displayBookName(topOverall))}<br><span style="font-size:0.75rem;opacity:0.7">${topOverall.count} hits</span></div>
-        </div>`;
-    }
     if (topOT) {
-        html += `<div class="stats-card" style="cursor:pointer" onclick="navigateToBookInResults('${topOT.code}')" title="Go to results">
-            <div class="stats-card-label">Top GT</div>
+        html += `<div class="stats-card" style="cursor:pointer${otIsTop ? ';border-color:var(--accent)' : ''}" onclick="navigateToBookInResults('${topOT.code}')" title="Go to results">
+            <div class="stats-card-label">${otIsTop ? '&#127942; ' : ''}Top GT</div>
             <div class="stats-card-value" style="font-size:0.85rem;">${escHtml(displayBookName(topOT))}<br><span style="font-size:0.75rem;opacity:0.7">${topOT.count} hits</span></div>
         </div>`;
     }
     if (topNT) {
-        html += `<div class="stats-card" style="cursor:pointer" onclick="navigateToBookInResults('${topNT.code}')" title="Go to results">
-            <div class="stats-card-label">Top NT</div>
+        html += `<div class="stats-card" style="cursor:pointer${ntIsTop ? ';border-color:var(--accent)' : ''}" onclick="navigateToBookInResults('${topNT.code}')" title="Go to results">
+            <div class="stats-card-label">${ntIsTop ? '&#127942; ' : ''}Top NT</div>
             <div class="stats-card-value" style="font-size:0.85rem;">${escHtml(displayBookName(topNT))}<br><span style="font-size:0.75rem;opacity:0.7">${topNT.count} hits</span></div>
         </div>`;
     }
@@ -1007,13 +1016,48 @@ function applyFontSize(val) {
     document.documentElement.style.setProperty('--verse-font-size', size);
 }
 
-// ── Dark mode ──
+// ── Dark mode & accent color ──
 const darkToggle = document.getElementById('darkToggle');
+
+function applyAccent(idx) {
+    const c = COLOR_PRESETS[idx] || COLOR_PRESETS[0];
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const accent = isDark ? c.d : c.l;
+    const hover  = isDark ? c.dh : c.lh;
+    const dim    = isDark ? c.dd : c.ld;
+    const root   = document.documentElement;
+    root.style.setProperty('--accent', accent);
+    root.style.setProperty('--accent-hover', hover);
+    root.style.setProperty('--accent-dim', dim);
+    root.style.setProperty('--verse-num', accent);
+    document.querySelectorAll('.color-swatch').forEach((sw, i) => sw.classList.toggle('active', i === idx));
+}
+
 function applyTheme(dark) {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
     darkToggle.innerHTML = dark ? '&#9788;' : '&#9790;';
     localStorage.setItem('theme', dark ? 'dark' : 'light');
+    applyAccent(currentAccentIdx);
 }
+
+// Build color swatches
+(function() {
+    const picker = document.getElementById('colorPicker');
+    COLOR_PRESETS.forEach((c, i) => {
+        const sw = document.createElement('button');
+        sw.className = 'color-swatch' + (i === currentAccentIdx ? ' active' : '');
+        sw.style.background = c.l;
+        sw.title = c.name;
+        sw.setAttribute('aria-label', c.name + ' accent');
+        sw.addEventListener('click', () => {
+            currentAccentIdx = i;
+            localStorage.setItem('accentColor', i);
+            applyAccent(i);
+        });
+        picker.appendChild(sw);
+    });
+})();
+
 darkToggle.addEventListener('click', () => applyTheme(document.documentElement.getAttribute('data-theme') !== 'dark'));
 applyTheme(localStorage.getItem('theme') === 'dark');
 
@@ -1078,5 +1122,5 @@ function escHtml(s) {
 
 function escAttr(s) {
     if (s == null) return '';
-    return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
 }

@@ -109,6 +109,29 @@
             cursor: pointer;
         }
 
+        .color-picker {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .color-swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            padding: 0;
+            cursor: pointer;
+            outline: none;
+            flex-shrink: 0;
+            transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+        }
+        .color-swatch:hover { transform: scale(1.3); }
+        .color-swatch.active {
+            border-color: var(--text);
+            transform: scale(1.15);
+            box-shadow: 0 0 0 1px var(--bg);
+        }
+
         /* ── Controls row ── */
         .controls {
             max-width: 1400px;
@@ -121,9 +144,22 @@
             position: relative;
         }
 
+        .search-group {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            align-items: stretch;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--card-bg);
+            transition: border-color 0.15s;
+            overflow: visible;
+        }
+        .search-group:focus-within { border-color: var(--accent); }
+
         .search-wrap {
             flex: 1;
-            min-width: 220px;
+            min-width: 0;
             position: relative;
         }
         .search-wrap input {
@@ -131,15 +167,25 @@
             padding: 10px 14px;
             font-size: 0.9rem;
             font-family: var(--font-mono);
-            border: 1.5px solid var(--border);
-            border-radius: var(--radius);
-            background: var(--card-bg);
+            border: none;
+            border-radius: var(--radius) 0 0 var(--radius);
+            background: transparent;
             color: var(--text);
             outline: none;
-            transition: border-color 0.15s;
         }
-        .search-wrap input:focus { border-color: var(--accent); }
         .search-wrap input::placeholder { color: var(--text-muted); opacity: 0.7; }
+
+        .search-group #versionSelect {
+            border: none;
+            border-left: 1.5px solid var(--border);
+            border-radius: 0;
+            padding: 9px 10px;
+            background: transparent;
+        }
+        .search-group #searchBtn {
+            border-radius: 0 calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0;
+            border-left: 1.5px solid transparent;
+        }
 
         /* ── Autocomplete ── */
         .autocomplete-dropdown {
@@ -315,26 +361,15 @@
             padding: 0 20px 80px;
         }
 
-        /* ── Verse cards ── */
-        .verse-row {
-            display: flex;
-            gap: 16px;
-            margin-bottom: 14px;
+        /* ── Compare grid ── */
+        .compare-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            column-gap: 16px;
+            row-gap: 14px;
             align-items: stretch;
         }
-        .verse-row > .verse-card {
-            flex: 1;
-            min-width: 0;
-            margin-bottom: 0;
-        }
-        .compare-columns-header {
-            display: flex;
-            gap: 16px;
-            margin-bottom: 10px;
-        }
-        .column-label {
-            flex: 1;
-            min-width: 0;
+        .col-header-main, .col-header-compare {
             display: flex;
             align-items: center;
             gap: 8px;
@@ -344,12 +379,20 @@
             letter-spacing: 0.5px;
             color: var(--text-muted);
         }
-        .column-label select {
+        .col-header-compare select {
             padding: 4px 8px;
             font-size: 0.8rem;
             text-transform: none;
             letter-spacing: 0;
             font-weight: 400;
+        }
+        .compare-cell {
+            display: flex;
+            flex-direction: column;
+        }
+        .compare-cell .verse-card {
+            flex: 1;
+            margin-bottom: 0;
         }
 
         .verse-card {
@@ -756,7 +799,8 @@
             border-radius: var(--radius);
             padding: 10px 16px;
             flex: 1;
-            min-width: 100px;
+            min-width: 80px;
+            overflow: hidden;
         }
         .stats-card-label {
             font-size: 0.72rem;
@@ -771,6 +815,8 @@
             font-weight: 700;
             color: var(--accent);
             font-family: var(--font-mono);
+            word-break: break-word;
+            overflow-wrap: break-word;
         }
         .stats-btn {
             padding: 4px 12px;
@@ -909,17 +955,35 @@
         /* ── Responsive ── */
         @media (max-width: 700px) {
             .controls { gap: 8px; }
-            .search-wrap { min-width: 100%; order: -1; }
             .header h1 { font-size: 0.9rem; }
             .font-size-ctrl { display: none; }
-            .verse-row { flex-direction: column; }
-            .compare-columns-header { flex-direction: column; gap: 6px; }
+            .compare-grid { grid-template-columns: 1fr; }
+            .col-header-main { order: 1; }
+            .compare-cell-main { order: 2; }
+            .col-header-compare { order: 3; }
+            .compare-cell-compare { order: 4; }
             .chapter-nav { margin-left: 0; width: 100%; justify-content: flex-end; }
             .modal-panel { max-height: 92vh; }
             .stats-card-value { font-size: 1.1rem; }
             .pinned-items-wrap { max-height: 160px; }
             .header-right { gap: 5px; }
             .header-btn { padding: 4px 7px; font-size: 0.75rem; }
+
+            /* Search group: shrink selector and button, compare on own line */
+            .search-group #versionSelect { font-size: 0.75rem; padding: 9px 5px; max-width: 80px; }
+            .search-group #searchBtn { padding: 9px 10px; font-size: 0.8rem; }
+            #compareBtn { width: 100%; }
+
+            /* Browser bar: one line, compact selects */
+            .browser-bar { flex-wrap: nowrap; overflow-x: auto; gap: 6px; }
+            .browser-bar select { padding: 5px 6px; font-size: 0.78rem; flex-shrink: 1; min-width: 0; }
+            .browser-bar label { flex-shrink: 0; }
+
+            /* Card header: title on own line, actions below */
+            .verse-card-header { flex-wrap: wrap; }
+            .verse-card-header-left { flex: 1 1 100%; }
+            .verse-card-header-actions { gap: 4px; }
+            .copy-btn, .pin-btn { padding: 3px 8px; font-size: 0.72rem; }
         }
 
         @media (max-width: 420px) {

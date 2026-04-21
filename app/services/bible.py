@@ -562,8 +562,11 @@ def parse_search_query(query):
             query = remainder[1:].strip()
             query_lower = query.lower()
 
-    # Extract exact phrases
-    exact_phrases = [p.lower() for p in re.findall(r'"([^"]+)"', query)]
+    # Extract exact phrases — compiled with word-boundary anchors so "tro" won't match "troende"
+    exact_phrases = [
+        re.compile(r'(?<!\w)' + re.escape(p.lower()) + r'(?!\w)')
+        for p in re.findall(r'"([^"]+)"', query)
+    ]
     query = re.sub(r'"[^"]+"', '', query).strip()
 
     # Parse excluded words and OR groups
@@ -599,8 +602,8 @@ def matches_parsed_query(text_lower, parsed):
     for exc in parsed['excluded']:
         if exc in text_lower:
             return False
-    for phrase in parsed['exact']:
-        if phrase not in text_lower:
+    for pattern in parsed['exact']:
+        if not pattern.search(text_lower):
             return False
     if parsed['or_groups']:
         if not any(all(w in text_lower for w in group) for group in parsed['or_groups']):
