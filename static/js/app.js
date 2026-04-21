@@ -48,7 +48,6 @@ const ENG_NAMES = {
     JUD:'Jude',REV:'Revelation'
 };
 
-// Book name overrides for "book display" contexts (not reference labels)
 const BOOK_DISPLAY_OVERRIDES_NO = { PSA: 'Salmene' };
 
 const OT_BOOKS = new Set(['GEN','EXO','LEV','NUM','DEU','JOS','JDG','RUT','1SA','2SA','1KI','2KI','1CH','2CH','EZR','NEH','EST','JOB','PSA','PRO','ECC','SNG','ISA','JER','LAM','EZK','DAN','HOS','JOL','AMO','OBA','JON','MIC','NAM','HAB','ZEP','HAG','ZEC','MAL']);
@@ -80,10 +79,8 @@ const COLOR_PRESETS = [
 ];
 
 // ── State ──
-let compareMode = false;
 let lastQuery = '';
 let mainData = null;
-let compareData = null;
 let currentView = 'normal';
 let booksData = [];
 let allVersionsCache = null;
@@ -91,31 +88,24 @@ let textSearchCache = null;
 let currentChapterInfo = null;
 let allVersionsList = [];
 let currentAccentIdx = parseInt(localStorage.getItem('accentColor') || '0');
-let pinnedVerses = JSON.parse(localStorage.getItem('pinnedVerses') || '[]');
-let pinnedPanelExpanded = false;
 let lastTextSearchQuery = '';
+const cardCompare = {};  // { [idx]: { version, data, visible } }
 
 // ── Elements ──
 const searchInput = document.getElementById('searchInput');
+const searchHighlightOverlay = document.getElementById('searchHighlightOverlay');
+const searchHighlightContent = document.getElementById('searchHighlightContent');
 const versionSelect = document.getElementById('versionSelect');
 const searchBtn = document.getElementById('searchBtn');
-const compareBtn = document.getElementById('compareBtn');
 const toggleVerseNums = document.getElementById('toggleVerseNums');
 const toggleNewlines = document.getElementById('toggleNewlines');
 const resultsWrapper = document.getElementById('resultsWrapper');
-const compareVersionSelect = document.getElementById('compareVersionSelect');
 const emptyState = document.getElementById('emptyState');
 const emptyStateHtml = emptyState.outerHTML;
 const toast = document.getElementById('toast');
 const bookSelect = document.getElementById('bookSelect');
 const chapterSelect = document.getElementById('chapterSelect');
 const autocompleteDropdown = document.getElementById('autocompleteDropdown');
-const scopeBar = document.getElementById('scopeBar');
-const pinnedPanel = document.getElementById('pinnedPanel');
-const pinnedItemsWrap = document.getElementById('pinnedItemsWrap');
-const pinnedCountBadge = document.getElementById('pinnedCountBadge');
-const pinnedPanelHeader = document.getElementById('pinnedPanelHeader');
-const clearPinnedBtn = document.getElementById('clearPinnedBtn');
 const chartTooltip = document.getElementById('chartTooltip');
 
 // ── Init ──
@@ -125,15 +115,10 @@ async function init() {
     allVersionsList = data.versions;
     data.versions.forEach(v => {
         versionSelect.add(new Option(versionLabel(v), v));
-        compareVersionSelect.add(new Option(versionLabel(v), v));
     });
     if (data.versions.includes('NB88')) versionSelect.value = 'NB88';
-    if (data.versions.length > 1) {
-        compareVersionSelect.value = data.versions.find(v => v !== versionSelect.value) || data.versions[1];
-    }
     await loadBooks();
     restoreFromURL();
-    renderPinnedPanel();
 }
 init();
 
@@ -180,25 +165,25 @@ chapterSelect.addEventListener('change', () => {
     const book = booksData.find(b => b.code === code);
     if (!book) return;
     searchInput.value = `${book.name} ${ch}`;
+    updateSearchHighlight();
     doSearch();
 });
 
 setInterval(() => fetch('/api/heartbeat').catch(() => {}), 3000);
 
 // ── URL / History ──
-function buildURL(q, version, mode, compareVersion) {
+function buildURL(q, version, mode) {
     const p = new URLSearchParams();
     if (q) p.set('q', q);
     if (version) p.set('v', version);
     if (mode && mode !== 'normal') p.set('mode', mode);
-    if (mode === 'compare' && compareVersion) p.set('v2', compareVersion);
     const qs = p.toString();
     return qs ? `?${qs}` : '/';
 }
 
-function pushState(q, version, mode, compareVersion) {
-    const url = buildURL(q, version, mode, compareVersion);
-    history.pushState({ q, version, mode: mode || 'normal', compareVersion }, '', url);
+function pushState(q, version, mode) {
+    const url = buildURL(q, version, mode);
+    history.pushState({ q, version, mode: mode || 'normal' }, '', url);
 }
 
 function restoreFromURL() {
@@ -206,15 +191,10 @@ function restoreFromURL() {
     const q = p.get('q') || '';
     const v = p.get('v') || '';
     const mode = p.get('mode') || 'normal';
-    const v2 = p.get('v2') || '';
     if (q) {
         if (v && allVersionsList.includes(v)) versionSelect.value = v;
-        if (mode === 'compare') {
-            compareMode = true;
-            compareBtn.classList.add('active');
-            if (v2 && allVersionsList.includes(v2)) compareVersionSelect.value = v2;
-        }
         searchInput.value = q;
+        updateSearchHighlight();
         if (mode === 'allversions') executeAllVersions(q);
         else doSearch(false, false);
     }
@@ -222,13 +202,16 @@ function restoreFromURL() {
 
 window.addEventListener('popstate', e => {
     if (e.state) {
-        const { q, version, mode, compareVersion } = e.state;
+        const { q, version, mode } = e.state;
         if (version && allVersionsList.includes(version)) versionSelect.value = version;
-        compareMode = mode === 'compare';
-        compareBtn.classList.toggle('active', compareMode);
-        if (compareVersion && allVersionsList.includes(compareVersion)) compareVersionSelect.value = compareVersion;
-        if (q) { searchInput.value = q; doSearch(false, false); }
-        else goHome(false);
+        if (q) {
+            searchInput.value = q;
+            updateSearchHighlight();
+            if (mode === 'allversions') executeAllVersions(q);
+            else doSearch(false, false);
+        } else {
+            goHome(false);
+        }
     } else {
         restoreFromURL();
     }
@@ -247,9 +230,10 @@ async function doSearch(pushHistory = true, resetAC = true) {
     lastQuery = query;
     currentView = 'normal';
     currentChapterInfo = null;
+    Object.keys(cardCompare).forEach(k => delete cardCompare[k]);
     const version = versionSelect.value;
-    if (pushHistory) pushState(query, version, compareMode ? 'compare' : 'normal', compareVersionSelect.value);
-    updateScopeChips(query);
+    if (pushHistory) pushState(query, version);
+    updateSearchHighlight();
 
     try {
         const resp = await fetch(`/api/search?q=${encodeURIComponent(query)}&version=${encodeURIComponent(version)}`);
@@ -266,8 +250,6 @@ async function doSearch(pushHistory = true, resetAC = true) {
 
         mainData = data.results;
         detectChapterInfo(mainData);
-        if (compareMode) await fetchCompareData(query);
-        else compareData = null;
         renderAll();
     } catch (err) {
         resultsWrapper.innerHTML = errorCardHtml('Error', 'Failed to connect to server.');
@@ -282,35 +264,6 @@ function detectChapterInfo(results) {
     currentChapterInfo = { book: first.book, chapter: ch, bookName: bookRefName(first.book) };
 }
 
-async function fetchCompareData(query) {
-    const version = compareVersionSelect.value;
-    try {
-        const resp = await fetch(`/api/search?q=${encodeURIComponent(query)}&version=${encodeURIComponent(version)}`);
-        const data = await resp.json();
-        compareData = (data.type === 'reference' && !data.error) ? data.results : null;
-    } catch { compareData = null; }
-}
-
-// ── Compare toggle ──
-compareBtn.addEventListener('click', async () => {
-    compareMode = !compareMode;
-    compareBtn.classList.toggle('active', compareMode);
-    if (compareMode && lastQuery && currentView === 'normal') await fetchCompareData(lastQuery);
-    else compareData = null;
-    if (currentView === 'normal') {
-        pushState(lastQuery, versionSelect.value, compareMode ? 'compare' : 'normal', compareVersionSelect.value);
-        renderAll();
-    }
-});
-
-compareVersionSelect.addEventListener('change', async () => {
-    if (compareMode && lastQuery && currentView === 'normal') {
-        await fetchCompareData(lastQuery);
-        pushState(lastQuery, versionSelect.value, 'compare', compareVersionSelect.value);
-        renderAll();
-    }
-});
-
 function onToggleChange() {
     if (currentView === 'normal' && mainData) renderAll();
     else if (currentView === 'all_versions' && allVersionsCache) renderAllVersions(allVersionsCache.results, allVersionsCache.label);
@@ -324,51 +277,18 @@ function renderAll() {
     if (!mainData || mainData.length === 0) { resultsWrapper.innerHTML = emptyStateHtml; return; }
     const showNums = toggleVerseNums.checked;
     const showNewlines = toggleNewlines.checked;
-    const showCompare = compareMode && compareData;
     const mainLang = versionLang(versionSelect.value);
-    const compareLang = versionLang(compareVersionSelect.value);
     let html = '';
 
-    const count = Math.max(mainData.length, showCompare ? compareData.length : 0);
-    if (showCompare) {
-        html += '<div class="compare-grid">';
-        html += `<div class="col-header-main column-label">${escHtml(versionLabel(versionSelect.value))}</div>`;
-        html += `<div class="col-header-compare column-label"><select id="compareVersionInline"></select></div>`;
-        for (let idx = 0; idx < count; idx++) {
-            const mainBlock = idx < mainData.length ? mainData[idx] : null;
-            const compBlock = idx < compareData.length ? compareData[idx] : null;
-            html += '<div class="compare-cell compare-cell-main">';
-            html += buildCardHtml(mainBlock, idx, false, showNums, showNewlines, mainLang, versionSelect.value);
-            html += '</div>';
-            html += '<div class="compare-cell compare-cell-compare">';
-            html += buildCardHtml(compBlock, idx, true, showNums, showNewlines, compareLang, compareVersionSelect.value);
-            html += '</div>';
-        }
-        html += '</div>';
-    } else {
-        for (let idx = 0; idx < count; idx++) {
-            const mainBlock = mainData[idx];
-            html += buildCardHtml(mainBlock, idx, false, showNums, showNewlines, mainLang, versionSelect.value);
-        }
-    }
+    mainData.forEach((block, idx) => {
+        html += buildCardHtml(block, idx, showNums, showNewlines, mainLang, versionSelect.value);
+    });
 
     resultsWrapper.innerHTML = html;
-
-    if (showCompare) {
-        const inline = document.getElementById('compareVersionInline');
-        if (inline) {
-            Array.from(compareVersionSelect.options).forEach(o => inline.add(new Option(o.text, o.value)));
-            inline.value = compareVersionSelect.value;
-            inline.addEventListener('change', () => {
-                compareVersionSelect.value = inline.value;
-                compareVersionSelect.dispatchEvent(new Event('change'));
-            });
-        }
-    }
 }
 
-function buildCardHtml(block, idx, isCompare, showNums, showNewlines, lang, ver) {
-    if (!block) return '<div class="verse-card" style="visibility:hidden;"></div>';
+function buildCardHtml(block, idx, showNums, showNewlines, lang, ver) {
+    if (!block) return '';
     if (block.error) {
         const lbl = block.book ? translateLabel(block.label || 'Error', block.book, lang) : (block.label || 'Error');
         return `<div class="verse-card error-card">
@@ -378,9 +298,10 @@ function buildCardHtml(block, idx, isCompare, showNums, showNewlines, lang, ver)
     }
 
     const displayLabel = translateLabel(block.label, block.book, lang);
-    const cardId = isCompare ? `compare-card-${idx}` : `card-${idx}`;
-    const isPinned = pinnedVerses.some(p => p.label === block.label && p.version === ver);
-    const verDisplay = escAttr(versionLabel(ver));
+    const cardId = `card-${idx}`;
+    const cs = cardCompare[idx];
+    const compareVisible = !!(cs && cs.visible);
+    const compareVer = cs ? cs.version : (allVersionsList.find(v => v !== ver) || ver);
 
     let html = `<div class="verse-card" id="${cardId}">
         <div class="verse-card-header">
@@ -388,9 +309,9 @@ function buildCardHtml(block, idx, isCompare, showNums, showNewlines, lang, ver)
                 <span class="verse-card-label">${escHtml(displayLabel)}</span>
             </div>
             <div class="verse-card-header-actions">
-                <button class="pin-btn${isPinned ? ' pinned' : ''}" onclick="togglePinBlock(${idx}, ${isCompare})" title="Pin">&#128204;</button>
-                <button class="copy-btn" onclick="copyBlockText(${idx}, ${isCompare})" title="Copy text only">copy txt</button>
-                <button class="copy-btn" onclick="copyBlockRef(${idx}, ${isCompare})" title="Copy with reference">copy w/ ref</button>
+                <button class="copy-btn" onclick="copyBlockText(${idx})" title="Copy text only">copy txt</button>
+                <button class="copy-btn" onclick="copyBlockRef(${idx})" title="Copy with reference">copy w/ ref</button>
+                <button class="copy-btn compare-header-btn${compareVisible ? ' active' : ''}" onclick="toggleCardCompare(${idx})" title="Compare versions">compare</button>
             </div>
         </div>
         <div class="verse-text">`;
@@ -398,13 +319,34 @@ function buildCardHtml(block, idx, isCompare, showNums, showNewlines, lang, ver)
     html += renderVerseTextHtml(block.verses, showNums, showNewlines, block.book, lang, ver);
     html += '</div>';
 
-    if (!isCompare && block.book && block.verses.length > 0) {
+    if (block.book && block.verses.length > 0) {
         const ch = block.verses[0].chapter;
         const bName = bookRefName(block.book);
         const maxCh = (booksData.find(b => b.code === block.book) || {}).chapters || 0;
         const isSingleVerse = block.verses.length === 1;
         const ilUrl = interlinearUrl(block.book, ch, isSingleVerse ? block.verses[0].num : null);
         const allSameCh = block.verses.every(v => v.chapter === ch);
+
+        // Compare section sits between verse text and footer
+        html += `<div class="card-compare-section${compareVisible ? ' visible' : ''}" id="compare-section-${idx}">
+            <div class="card-compare-header">
+                <select class="card-compare-select" id="compare-select-${idx}" onchange="changeCardCompareVersion(${idx})">`;
+        allVersionsList.forEach(v => {
+            html += `<option value="${escAttr(v)}"${v === compareVer ? ' selected' : ''}>${escHtml(versionLabel(v))}</option>`;
+        });
+        html += `</select></div>
+            <div class="card-compare-body" id="compare-body-${idx}">`;
+
+        if (compareVisible) {
+            if (cs && cs.data) {
+                const compLang = versionLang(cs.version);
+                html += `<div class="verse-text">${renderVerseTextHtml(cs.data.verses, showNums, showNewlines, cs.data.book, compLang, cs.version)}</div>`;
+            } else {
+                html += '<span style="color:var(--text-muted);font-size:0.85rem;">Loading...</span>';
+            }
+        }
+
+        html += `</div></div>`;
 
         html += `<div class="verse-card-footer">
             <button class="card-action-btn" onclick="readChapter('${escAttr(block.book)}', ${ch}, '${escAttr(bName)}')">&#128214; ${escHtml(bookName(block.book, lang))} ${ch}</button>
@@ -420,8 +362,46 @@ function buildCardHtml(block, idx, isCompare, showNums, showNewlines, lang, ver)
         }
         html += `</div>`;
     }
+
     html += '</div>';
     return html;
+}
+
+// ── Card compare ──
+window.toggleCardCompare = async function(idx) {
+    if (!cardCompare[idx]) {
+        const defaultVer = allVersionsList.find(v => v !== versionSelect.value) || allVersionsList[0];
+        cardCompare[idx] = { version: defaultVer, data: null, visible: true };
+        renderAll();
+        await loadCardCompareData(idx);
+        renderAll();
+    } else {
+        cardCompare[idx].visible = !cardCompare[idx].visible;
+        renderAll();
+    }
+};
+
+window.changeCardCompareVersion = async function(idx) {
+    const sel = document.getElementById(`compare-select-${idx}`);
+    if (!sel || !cardCompare[idx]) return;
+    cardCompare[idx].version = sel.value;
+    cardCompare[idx].data = null;
+    renderAll();
+    await loadCardCompareData(idx);
+    renderAll();
+};
+
+async function loadCardCompareData(idx) {
+    if (!mainData || !mainData[idx] || !cardCompare[idx]) return;
+    const block = mainData[idx];
+    const version = cardCompare[idx].version;
+    try {
+        const resp = await fetch(`/api/search?q=${encodeURIComponent(block.label)}&version=${encodeURIComponent(version)}`);
+        const data = await resp.json();
+        if (data.type === 'reference' && !data.error && data.results && data.results[0]) {
+            cardCompare[idx].data = data.results[0];
+        }
+    } catch {}
 }
 
 function renderVerseTextHtml(verses, showNums, showNewlines, bookCode, lang, ver) {
@@ -455,11 +435,13 @@ function renderVerseTextHtml(verses, showNums, showNewlines, bookCode, lang, ver
 
 window.goChapter = function(bookCode, chapter, bName) {
     searchInput.value = `${bName} ${chapter}`;
+    updateSearchHighlight();
     doSearch();
 };
 
 window.openSingleVerse = function(bookCode, chapter, verse, bName) {
     searchInput.value = `${bName} ${chapter}:${verse}`;
+    updateSearchHighlight();
     doSearch();
 };
 
@@ -468,7 +450,11 @@ function renderTextSearch(results, query) {
     textSearchCache = { results, query };
     let html = '';
     if (results.length === 0) {
-        html = `<div class="empty-state"><h2>No results</h2><p>No verses found for "${escHtml(query)}".</p></div>`;
+        html = `<div class="empty-state">
+            <h2>No results</h2>
+            <p>No verses found for "${escHtml(query)}" in ${escHtml(versionLabel(versionSelect.value))}.</p>
+            <button class="btn btn-secondary all-versions-search-btn" onclick="searchAllVersionsText('${escAttr(query)}')">Search in all versions</button>
+        </div>`;
         resultsWrapper.innerHTML = html;
         return;
     }
@@ -543,16 +529,79 @@ function highlightWords(htmlText, query) {
 
 window.goToVerse = function(ref) {
     searchInput.value = ref;
+    updateSearchHighlight();
+    doSearch();
+};
+
+// ── All versions text search (no-results fallback) ──
+window.searchAllVersionsText = async function(query) {
+    currentView = 'text_search_all';
+    resultsWrapper.innerHTML = '<div class="empty-state"><h2>Searching...</h2><p>Searching all versions for "' + escHtml(query) + '"</p></div>';
+    try {
+        const resp = await fetch(`/api/all_text_search?q=${encodeURIComponent(query)}`);
+        const data = await resp.json();
+        if (data.error) { resultsWrapper.innerHTML = errorCardHtml('Error', data.error); return; }
+        renderAllVersionsTextSearch(data.results, data.query);
+    } catch {
+        resultsWrapper.innerHTML = errorCardHtml('Error', 'Failed to search.');
+    }
+};
+
+function renderAllVersionsTextSearch(results, query) {
+    const versionNames = Object.keys(results);
+    if (versionNames.length === 0) {
+        resultsWrapper.innerHTML = `<div class="empty-state"><h2>No results</h2><p>No verses found for "${escHtml(query)}" in any version.</p></div>`;
+        return;
+    }
+
+    let totalCount = 0;
+    versionNames.forEach(v => totalCount += results[v].length);
+
+    let html = `<div class="search-controls">
+        <div class="search-result-count">${totalCount} result${totalCount !== 1 ? 's' : ''} across ${versionNames.length} version${versionNames.length !== 1 ? 's' : ''} for "${escHtml(query)}"</div>
+    </div>`;
+
+    versionNames.forEach(vName => {
+        const vResults = results[vName];
+        if (vResults.length === 0) return;
+        const lang = versionLang(vName);
+
+        html += `<div class="book-group">
+            <div class="book-group-header" onclick="toggleGroup(this)">
+                <span>${escHtml(versionLabel(vName))}<span class="book-group-count">(${vResults.length})</span></span>
+                <span class="chevron">&#9654;</span>
+            </div>
+            <div class="book-group-items">`;
+
+        vResults.forEach(r => {
+            const ref = translateLabel(r.ref, r.book, lang);
+            html += `<div class="search-result-item" onclick="goToVerseInVersion('${escAttr(r.ref)}', '${escAttr(vName)}')">
+                <div class="search-result-ref">${escHtml(ref)}</div>
+                <div class="search-result-text">${highlightWords(escHtml(r.text), query)}</div>
+            </div>`;
+        });
+
+        html += `</div></div>`;
+    });
+
+    resultsWrapper.innerHTML = html;
+}
+
+window.goToVerseInVersion = function(ref, version) {
+    if (allVersionsList.includes(version)) versionSelect.value = version;
+    searchInput.value = ref;
+    updateSearchHighlight();
     doSearch();
 };
 
 // ── Read chapter ──
 window.readChapter = async function(bookCode, chapter, bName) {
     searchInput.value = `${bName} ${chapter}`;
+    updateSearchHighlight();
     doSearch();
 };
 
-// ── All versions ──
+// ── All versions (reference) ──
 async function executeAllVersions(label) {
     currentView = 'all_versions';
     try {
@@ -564,7 +613,7 @@ async function executeAllVersions(label) {
 }
 
 window.showAllVersions = async function(label) {
-    pushState(label, versionSelect.value, 'allversions', '');
+    pushState(label, versionSelect.value, 'allversions');
     await executeAllVersions(label);
 };
 
@@ -595,19 +644,17 @@ function renderAllVersions(allResults, label) {
 }
 
 // ── Copy ──
-window.copyBlockText = function(blockIdx, isCompare) {
-    const source = isCompare ? compareData : mainData;
-    if (!source || !source[blockIdx]) return;
-    const block = source[blockIdx];
+window.copyBlockText = function(blockIdx) {
+    if (!mainData || !mainData[blockIdx]) return;
+    const block = mainData[blockIdx];
     const text = block.verses.map(v => v.text).join(' ').trim();
     navigator.clipboard.writeText(text).then(() => showToast('Copied!'));
 };
 
-window.copyBlockRef = function(blockIdx, isCompare) {
-    const source = isCompare ? compareData : mainData;
-    if (!source || !source[blockIdx]) return;
-    const block = source[blockIdx];
-    const ver = isCompare ? compareVersionSelect.value : versionSelect.value;
+window.copyBlockRef = function(blockIdx) {
+    if (!mainData || !mainData[blockIdx]) return;
+    const block = mainData[blockIdx];
+    const ver = versionSelect.value;
     const lang = versionLang(ver);
     const text = block.verses.map(v => v.text).join(' ').trim();
     const label = translateLabel(block.label, block.book, lang);
@@ -619,35 +666,91 @@ window.copyBlockRef = function(blockIdx, isCompare) {
 window.goHome = function(pushHistory = true) {
     lastQuery = '';
     mainData = null;
-    compareData = null;
     currentView = 'normal';
     textSearchCache = null;
     allVersionsCache = null;
     currentChapterInfo = null;
+    Object.keys(cardCompare).forEach(k => delete cardCompare[k]);
     searchInput.value = '';
-    scopeBar.innerHTML = '';
+    updateSearchHighlight();
     resultsWrapper.innerHTML = emptyStateHtml;
     if (pushHistory) history.pushState({}, '', '/');
 };
 
-// ── Scope chips ──
-function updateScopeChips(query) {
-    const m = query.match(/^(GT|NT|evangeliene|mosebøkene|mosebøker|historiske|poetiske|visdom|profetene|store profeter|små profeter|brev|paulusbrevene|almenne brev|book:\S+|[A-ZÆØÅa-zæøå0-9. ]+?):/i);
-    if (m) {
-        const scope = m[1];
-        scopeBar.innerHTML = `<div class="scope-chip">
-            <span>scope: ${escHtml(scope)}</span>
-            <button onclick="clearScope()" title="Remove scope">&times;</button>
-        </div>`;
-    } else {
-        scopeBar.innerHTML = '';
+// ── Search input highlighting ──
+function updateSearchHighlight() {
+    const raw = searchInput.value;
+    if (!raw) {
+        searchHighlightContent.innerHTML = '';
+        searchHighlightContent.style.transform = '';
+        return;
     }
+    searchHighlightContent.innerHTML = highlightQuery(raw);
+    // Sync horizontal scroll: translateX the inner span to follow input scrollLeft
+    searchHighlightContent.style.transform = `translateX(${-searchInput.scrollLeft}px)`;
 }
 
-window.clearScope = function() {
-    searchInput.value = searchInput.value.replace(/^[^:]+:\s*/, '');
-    doSearch();
-};
+// Fast HTML escape that avoids DOM creation (used inside the hot highlight loop)
+function escHtmlFast(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function highlightQuery(text) {
+    // Split on semicolons, preserving them as tokens
+    const parts = text.split(/(;)/);
+    return parts.map(part => part === ';' ? `<span class="qs">;</span>` : highlightSegment(part)).join('');
+}
+
+function highlightSegment(text) {
+    let result = '';
+    let i = 0;
+
+    // Scope prefix: "letters_ending_in_letter:" at segment start.
+    // Last char before ":" must be a letter, which distinguishes "GT:" from "Joh 3:" (ends in digit).
+    const scopeMatch = text.match(/^((?:[A-ZÆØÅa-zæøå0-9. ]*?)?[A-ZÆØÅa-zæøå]:)/);
+    if (scopeMatch) {
+        result += `<span class="qs">${escHtmlFast(scopeMatch[1])}</span>`;
+        i = scopeMatch[1].length;
+    }
+
+    while (i < text.length) {
+        const ch = text[i];
+
+        if (ch === '"') {
+            // Color both opening and closing quote; content inside is plain
+            const end = text.indexOf('"', i + 1);
+            if (end !== -1) {
+                result += `<span class="qs">"</span>${escHtmlFast(text.slice(i + 1, end))}<span class="qs">"</span>`;
+                i = end + 1;
+            } else {
+                // Unclosed quote: color just the opening
+                result += `<span class="qs">"</span>`;
+                i++;
+            }
+        } else if (ch === '-' && i + 1 < text.length && text[i + 1] !== ' ') {
+            // Exclusion dash (must be followed by non-space)
+            result += `<span class="qs">-</span>`;
+            i++;
+        } else if (text.slice(i, i + 2) === 'OR' && (i + 2 >= text.length || /[\s;]/.test(text[i + 2]))) {
+            // Standalone OR operator
+            result += `<span class="qs">OR</span>`;
+            i += 2;
+        } else {
+            // Collect a run of plain characters to minimize span count
+            let j = i + 1;
+            while (j < text.length) {
+                const c = text[j];
+                if (c === '"' || c === ';') break;
+                if (c === '-' && j + 1 < text.length && text[j + 1] !== ' ') break;
+                if (text.slice(j, j + 2) === 'OR' && (j + 2 >= text.length || /[\s;]/.test(text[j + 2]))) break;
+                j++;
+            }
+            result += escHtmlFast(text.slice(i, j));
+            i = j;
+        }
+    }
+    return result;
+}
 
 // ── Stats ──
 window.openStats = async function(query) {
@@ -676,9 +779,7 @@ function renderStatsModal(data) {
     const topNT = ntStats.filter(s => s.count > 0).reduce((a, b) => b && b.count > (a?.count || 0) ? b : a, null);
     const lang = versionLang(versionSelect.value);
 
-    function displayBookName(s) {
-        return bookName(s.code, lang);
-    }
+    function displayBookName(s) { return bookName(s.code, lang); }
 
     const otIsTop = topOT && topOverall && topOT.code === topOverall.code;
     const ntIsTop = topNT && topOverall && topNT.code === topOverall.code;
@@ -777,91 +878,15 @@ document.getElementById('helpModal').addEventListener('click', e => {
     if (e.target === document.getElementById('helpModal')) document.getElementById('helpModal').classList.remove('open');
 });
 
-// ── Pinning ──
-function savePinned() { localStorage.setItem('pinnedVerses', JSON.stringify(pinnedVerses)); }
-
-window.togglePinBlock = function(blockIdx, isCompare) {
-    const source = isCompare ? compareData : mainData;
-    if (!source || !source[blockIdx]) return;
-    const block = source[blockIdx];
-    const ver = isCompare ? compareVersionSelect.value : versionSelect.value;
-    const key = block.label + '|' + ver;
-    const existing = pinnedVerses.findIndex(p => p.label + '|' + p.version === key);
-    if (existing >= 0) {
-        pinnedVerses.splice(existing, 1);
-        showToast('Unpinned');
-    } else {
-        pinnedVerses.push({
-            label: block.label,
-            book: block.book,
-            version: ver,
-            preview: block.verses.slice(0, 2).map(v => v.text).join(' '),
-        });
-        showToast('Pinned!');
-    }
-    savePinned();
-    renderPinnedPanel();
-    if (mainData) renderAll();
-};
-
-function renderPinnedPanel() {
-    pinnedCountBadge.textContent = pinnedVerses.length;
-    pinnedPanel.style.display = pinnedVerses.length > 0 ? '' : 'none';
-    if (pinnedVerses.length === 0) pinnedPanelExpanded = false;
-    pinnedPanel.classList.toggle('expanded', pinnedPanelExpanded);
-    document.getElementById('pinnedChevron').textContent = pinnedPanelExpanded ? '▼' : '▲';
-
-    const lang = versionLang(versionSelect.value);
-    let html = '';
-    pinnedVerses.forEach((p, i) => {
-        const label = translateLabel(p.label, p.book, lang);
-        html += `<div class="pinned-item">
-            <span class="pinned-item-ref" onclick="goToVerse('${escAttr(p.label)}')">${escHtml(label)}</span>
-            <span class="pinned-item-text">${escHtml(p.preview || '')}</span>
-            <div class="pinned-item-actions">
-                <button class="pinned-action-btn" onclick="copyPinned(${i})" title="Copy">&#128203;</button>
-                <button class="pinned-action-btn" onclick="unpinItem(${i})" title="Unpin">&times;</button>
-            </div>
-        </div>`;
-    });
-    pinnedItemsWrap.innerHTML = html;
-}
-
-pinnedPanelHeader.addEventListener('click', e => {
-    if (e.target === clearPinnedBtn) return;
-    if (pinnedVerses.length === 0) return;
-    pinnedPanelExpanded = !pinnedPanelExpanded;
-    renderPinnedPanel();
-});
-
-clearPinnedBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    pinnedVerses = [];
-    savePinned();
-    renderPinnedPanel();
-    if (mainData) renderAll();
-});
-
-window.unpinItem = function(i) {
-    pinnedVerses.splice(i, 1);
-    savePinned();
-    renderPinnedPanel();
-    if (mainData) renderAll();
-};
-
-window.copyPinned = function(i) {
-    const p = pinnedVerses[i];
-    if (!p) return;
-    const lang = versionLang(p.version);
-    const label = translateLabel(p.label, p.book, lang);
-    navigator.clipboard.writeText(`"${p.preview}"\n\n${label} ${versionLabel(p.version)}`).then(() => showToast('Copied!'));
-};
-
 // ── Autocomplete ──
 let acItems = [];
 let acSelectedIndex = -1;
 
-searchInput.addEventListener('input', handleAutocomplete);
+searchInput.addEventListener('input', () => {
+    handleAutocomplete();
+    updateSearchHighlight();
+});
+searchInput.addEventListener('scroll', updateSearchHighlight);
 searchInput.addEventListener('keydown', handleAcKeydown);
 document.addEventListener('click', e => {
     if (!e.target.closest('.search-wrap')) closeAutocomplete();
@@ -960,6 +985,7 @@ function applyAutocomplete(idx) {
     searchInput.value = newVal;
     searchInput.setSelectionRange(beforeToken.length + insert.length, beforeToken.length + insert.length);
     closeAutocomplete();
+    updateSearchHighlight();
     searchInput.focus();
 }
 
@@ -1072,7 +1098,6 @@ function bookName(code, lang) {
     return b ? b.name : code;
 }
 
-// Reference name (used for building queries) — uses server-side Norwegian name directly
 function bookRefName(code) {
     if (!code) return '';
     const b = booksData.find(x => x.code === code);
@@ -1082,13 +1107,12 @@ function bookRefName(code) {
 function translateLabel(label, bookCode, lang) {
     if (!bookCode) return label;
     const effectiveLang = lang || versionLang(versionSelect.value);
-    if (effectiveLang === 'no') return label;  // Already in Norwegian, keep as-is
+    if (effectiveLang === 'no') return label;
     const engName = ENG_NAMES[bookCode];
     if (!engName) return label;
     const b = booksData.find(x => x.code === bookCode);
     const norwName = b ? b.name : null;
     if (norwName && label.startsWith(norwName)) return engName + label.slice(norwName.length);
-    // Fallback for edge cases (label already in English or different form)
     return label;
 }
 

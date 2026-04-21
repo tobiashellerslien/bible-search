@@ -31,9 +31,8 @@ Abbreviations and English names work: `joh`, `gen`, `1. mos`, `romans`.
 
 ## Features
 
-- **Compare mode** — view two translations side by side
+- **Compare** — view two translations simultaneously
 - **Stats** — word frequency chart across all books
-- **Pin** — save verses to a persistent pinned panel
 - **Dark mode** and **accent color** picker in the header
 - **Interlinear links** to BibleHub for Hebrew/Greek
 

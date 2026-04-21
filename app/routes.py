@@ -101,6 +101,20 @@ def api_stats():
     })
 
 
+@bp.get("/api/all_text_search")
+def api_all_text_search():
+    bible_data = _bible_data()
+    query = request.args.get("q", "")
+    if not query:
+        return jsonify({"error": "No query provided"}), 400
+    all_results = {}
+    for version_name in bible_data.versions:
+        results = search_text(bible_data, version_name, query)
+        if results:
+            all_results[version_name] = results
+    return jsonify({"results": all_results, "query": query})
+
+
 @bp.get("/api/groups")
 def api_groups():
     groups = [{"key": k, "books": v} for k, v in BOOK_GROUPS.items()]
