@@ -1,6 +1,6 @@
 # Tobias' Bible Search Tool
 
-A fast and powerful Bible search app. Look up multiple verses by reference, do fast and advanced search, and compare versions. Uses local copies of bibles stored as JSON files. Inspired by [biblegateway.com](https://biblegateway.com)
+A fast and powerful Bible search app. Look up verses by reference, search the full text with advanced operators, and compare translations side by side. Uses local Bible files stored as JSON. Inspired by [biblegateway.com](https://biblegateway.com).
 
 ## Run locally
 
@@ -9,27 +9,34 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Runs website on `http://localhost:8421`
+Runs at `http://localhost:8421`
 
-## Search examples
+## Search syntax
 
-- `Johannes 3:16` — single verse
-- `1. Mosebok 1:1-3` — verse range
-- `Salme 23` — whole chapter
-- `Joh 3:16;17` — multiple passages (semicolon-separated, context carries over)
-- `nåde` — full-text search across the entire Bible
+| Example | What it does |
+|---|---|
+| `Johannes 3:16` | Single verse |
+| `Salme 23` | Whole chapter |
+| `1. Mos 1:1-3` | Verse range |
+| `Joh 3:16;17` | Multiple passages (context carries) |
+| `nåde` | Full-text search (substring) |
+| `"tro"` | Exact word only (not "troende") |
+| `"evig liv"` | Exact phrase |
+| `nåde OR frelse` | Either word |
+| `nåde -dom` | Exclude word |
+| `GT: frelser` | Scope to OT / NT / book group |
+| `Johannes: lys` | Scope to single book |
 
-Abbreviations and English book names work too: `joh`, `1. mos`, `rom`, `genesis`.
+Abbreviations and English names work: `joh`, `gen`, `1. mos`, `romans`.
+
+## Features
+
+- **Compare mode** — view two translations side by side
+- **Stats** — word frequency chart across all books
+- **Pin** — save verses to a persistent pinned panel
+- **Dark mode** and **accent color** picker in the header
+- **Interlinear links** to BibleHub for Hebrew/Greek
 
 ## Adding a Bible version
 
-Drop a folder into `bibles/` containing 66 JSON files named `NN_USFM_BookName.json` (e.g. `43_JHN_Johannes.json`). Each file maps `BOOK.CHAPTER.VERSE` keys to verse text:
-
-```json
-{
-  "JHN.1.1": "I begynnelsen var Ordet...",
-  "JHN.1.2": "Han var i begynnelsen hos Gud."
-}
-```
-
-The server auto-discovers the new version on next start. Add an entry to `VERSION_DISPLAY` in `static/js/app.js` if the folder name needs a prettier display label. Take a look at my [bible-scraper](https://github.com/tobiashellerslien/bible-scraper) to scrape your own versions to this format.
+Drop a folder into `bibles/` with 66 JSON files named `NN_USFM_BookName.json` (e.g. `43_JHN_Johannes.json`), each mapping `BOOK.CHAPTER.VERSE` to verse text. The server auto-discovers it on next start. See [bible-scraper](https://github.com/tobiashellerslien/bible-scraper) to scrape versions into this format.
