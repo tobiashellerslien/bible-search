@@ -1,9 +1,9 @@
 import json
+import os
 import re
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-BIBLE_DIR = PROJECT_ROOT / "bibles"
+BIBLE_DIR = Path(os.environ.get("BIBLE_DIR", str(Path(__file__).resolve().parents[2] / "bibles")))
 
 BOOKS = [
     ("GEN", 1, "1. Mosebok", [
