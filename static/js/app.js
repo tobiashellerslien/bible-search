@@ -517,13 +517,24 @@ function updateExpandCollapseBtn() {
 }
 
 function highlightWords(htmlText, query) {
-    const phrases = [...query.matchAll(/"([^"]+)"/g)].map(m => m[1]);
-    let q2 = query.replace(/"[^"]+"/g, '');
-    const words = q2.split(/\s+/).filter(w => w && w.toUpperCase() !== 'OR' && !w.startsWith('-'));
-    [...phrases, ...words].forEach(w => {
-        const regex = new RegExp(`(${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-        htmlText = htmlText.replace(regex, '<b style="color:var(--highlight)">$1</b>');
-    });
+    const WBL = '(?<![a-zA-ZÀ-ɏ0-9])';
+    const WBR = '(?![a-zA-ZÀ-ɏ0-9])';
+    // Quoted phrases → exact word-boundary match
+    for (const m of query.matchAll(/"([^"]+)"/g)) {
+        const esc = m[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        try {
+            htmlText = htmlText.replace(new RegExp(WBL + '(' + esc + ')' + WBR, 'gi'), '<b style="color:var(--highlight)">$1</b>');
+        } catch {}
+    }
+    // Plain words → substring match (mirrors backend behavior)
+    const q2 = query.replace(/"[^"]+"/g, '');
+    for (const w of q2.split(/\s+/)) {
+        if (!w || w.toUpperCase() === 'OR' || w.startsWith('-')) continue;
+        const esc = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        try {
+            htmlText = htmlText.replace(new RegExp('(' + esc + ')', 'gi'), '<b style="color:var(--highlight)">$1</b>');
+        } catch {}
+    }
     return htmlText;
 }
 
@@ -727,8 +738,8 @@ function highlightSegment(text) {
                 result += `<span class="qs">"</span>`;
                 i++;
             }
-        } else if (ch === '-' && i + 1 < text.length && text[i + 1] !== ' ') {
-            // Exclusion dash (must be followed by non-space)
+        } else if (ch === '-' && i + 1 < text.length && /[a-zA-ZÆØÅæøå"]/.test(text[i + 1])) {
+            // Exclusion dash — only highlight when followed by a letter, not a digit (verse ranges like 3:16-17)
             result += `<span class="qs">-</span>`;
             i++;
         } else if (text.slice(i, i + 2) === 'OR' && (i + 2 >= text.length || /[\s;]/.test(text[i + 2]))) {
@@ -884,7 +895,8 @@ let acSelectedIndex = -1;
 
 searchInput.addEventListener('input', () => {
     handleAutocomplete();
-    updateSearchHighlight();
+    // Use RAF so scrollLeft is read after the browser scrolls the input to follow the cursor
+    requestAnimationFrame(updateSearchHighlight);
 });
 searchInput.addEventListener('scroll', updateSearchHighlight);
 searchInput.addEventListener('keydown', handleAcKeydown);

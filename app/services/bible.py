@@ -485,7 +485,13 @@ def resolve_block(bible_data, version, block):
         verses, err = bible_data.get_verses(version, book, block["chapter"], block["vs_start"], block["vs_end"])
         if err:
             return {**base, "error": err, "verses": []}
-        return {**base, "verses": [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses]}
+        result_verses = [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses]
+        if result_verses:
+            a, z = result_verses[0]["num"], result_verses[-1]["num"]
+            ch = block["chapter"]
+            book_name = USFM_TO_NAME.get(book, book)
+            base = {**base, "label": f"{book_name} {ch}:{a}" if a == z else f"{book_name} {ch}:{a}-{z}"}
+        return {**base, "verses": result_verses}
     elif btype == "whole_chapter":
         verses, err = bible_data.get_verses(version, book, block["chapter"])
         if err:
@@ -500,7 +506,18 @@ def resolve_block(bible_data, version, block):
         verses, err = bible_data.get_verses_cross_chapter(version, book, block["ch_start"], block["vs_start"], block["ch_end"], block["vs_end"])
         if err:
             return {**base, "error": err, "verses": []}
-        return {**base, "verses": [{"num": v, "chapter": ch, "text": t} for v, t, ch in verses]}
+        result_verses = [{"num": v, "chapter": ch, "text": t} for v, t, ch in verses]
+        if result_verses:
+            fa, fz = result_verses[0]["chapter"], result_verses[0]["num"]
+            la, lz = result_verses[-1]["chapter"], result_verses[-1]["num"]
+            book_name = USFM_TO_NAME.get(book, book)
+            if fa == la and fz == lz:
+                base = {**base, "label": f"{book_name} {fa}:{fz}"}
+            elif fa == la:
+                base = {**base, "label": f"{book_name} {fa}:{fz}-{lz}"}
+            else:
+                base = {**base, "label": f"{book_name} {fa}:{fz}-{la}:{lz}"}
+        return {**base, "verses": result_verses}
 
     return {"label": block.get("label", "?"), "error": "Unknown block type", "verses": []}
 
@@ -529,8 +546,64 @@ def is_reference_query(query):
 
 # ── Advanced text search ──
 
+# Word-boundary patterns covering ASCII + Latin Extended block (includes æøå and all European accents).
+# Python's \w doesn't reliably cover these in lookbehind, so we use an explicit char class.
+_WBL = r'(?<![a-zA-ZÀ-ɏ0-9_])'
+_WBR = r'(?![a-zA-ZÀ-ɏ0-9_])'
+
+
+def _make_word_pattern(term):
+    return re.compile(_WBL + re.escape(term.lower()) + _WBR, re.IGNORECASE)
+
+
+def _tokenize_query(text):
+    """Yield (type, value) tokens. Types: 'phrase', 'word', 'OR', 'exclude'."""
+    i = 0
+    text = text.strip()
+    while i < len(text):
+        c = text[i]
+        if c == ' ':
+            i += 1
+        elif c == '"':
+            j = text.find('"', i + 1)
+            if j == -1:
+                phrase, i = text[i + 1:], len(text)
+            else:
+                phrase, i = text[i + 1:j], j + 1
+            if phrase.strip():
+                yield ('phrase', phrase.strip())
+        elif c == '-':
+            j = i + 1
+            while j < len(text) and text[j] != ' ':
+                j += 1
+            word = text[i + 1:j]
+            i = j
+            if word:
+                yield ('exclude', word)
+        else:
+            j = i
+            while j < len(text) and text[j] not in (' ', '"'):
+                j += 1
+            word = text[i:j]
+            i = j
+            if not word:
+                continue
+            if word.startswith('-') and len(word) > 1:
+                yield ('exclude', word[1:])
+            elif word == 'OR':
+                yield ('OR',)
+            else:
+                yield ('word', word)
+
+
 def parse_search_query(query):
-    """Parse advanced operators: OR, -exclude, "exact phrase", scope prefixes."""
+    """Parse advanced operators: OR, -exclude, "exact phrase", scope prefixes.
+
+    Both quoted phrases and plain words get word-boundary regex patterns so
+    short words like "en" won't match inside longer words. OR splits the token
+    stream into independent AND-groups: A OR B means (A) or (B) independently,
+    and "tro" OR "en" correctly works as OR between two exact phrases.
+    """
     scope_codes = None
     query = query.strip()
     query_lower = query.lower()
@@ -562,37 +635,28 @@ def parse_search_query(query):
             query = remainder[1:].strip()
             query_lower = query.lower()
 
-    # Extract exact phrases — compiled with word-boundary anchors so "tro" won't match "troende"
-    exact_phrases = [
-        re.compile(r'(?<!\w)' + re.escape(p.lower()) + r'(?!\w)')
-        for p in re.findall(r'"([^"]+)"', query)
-    ]
-    query = re.sub(r'"[^"]+"', '', query).strip()
-
-    # Parse excluded words and OR groups
     excluded = []
-    tokens_for_or = []
-    for token in query.split():
-        if token.startswith('-') and len(token) > 1:
-            excluded.append(token[1:].lower())
-        else:
-            tokens_for_or.append(token)
-
     or_groups = []
-    current_group = []
-    for token in tokens_for_or:
-        if token.upper() == 'OR':
-            if current_group:
-                or_groups.append([t.lower() for t in current_group])
-                current_group = []
-        else:
-            current_group.append(token)
-    if current_group:
-        or_groups.append([t.lower() for t in current_group])
+    current_and = []
+
+    for tok in _tokenize_query(query):
+        kind = tok[0]
+        if kind == 'exclude':
+            excluded.append(tok[1].lower())
+        elif kind == 'OR':
+            if current_and:
+                or_groups.append(current_and)
+                current_and = []
+        elif kind == 'phrase':  # "quoted" → exact word-boundary match
+            current_and.append(_make_word_pattern(tok[1]))
+        else:  # plain word → substring match (matches inside longer words)
+            current_and.append(re.compile(re.escape(tok[1].lower()), re.IGNORECASE))
+
+    if current_and:
+        or_groups.append(current_and)
 
     return {
         'scope': scope_codes,
-        'exact': exact_phrases,
         'excluded': excluded,
         'or_groups': or_groups,
     }
@@ -602,11 +666,8 @@ def matches_parsed_query(text_lower, parsed):
     for exc in parsed['excluded']:
         if exc in text_lower:
             return False
-    for pattern in parsed['exact']:
-        if not pattern.search(text_lower):
-            return False
     if parsed['or_groups']:
-        if not any(all(w in text_lower for w in group) for group in parsed['or_groups']):
+        if not any(all(pat.search(text_lower) for pat in group) for group in parsed['or_groups']):
             return False
     return True
 
@@ -614,7 +675,7 @@ def matches_parsed_query(text_lower, parsed):
 def search_text(bible_data, version, query):
     """Full-text search with advanced operators. No result limit."""
     parsed = parse_search_query(query)
-    if not parsed['or_groups'] and not parsed['exact']:
+    if not parsed['or_groups']:
         return []
 
     scope = parsed['scope']
@@ -654,7 +715,7 @@ def search_text(bible_data, version, query):
 def get_search_stats(bible_data, version, query):
     """Return per-book hit counts for a text search query."""
     parsed = parse_search_query(query)
-    if not parsed['or_groups'] and not parsed['exact']:
+    if not parsed['or_groups']:
         return []
 
     stats = []
