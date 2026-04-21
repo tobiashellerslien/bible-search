@@ -1073,7 +1073,7 @@ function applyAccent(idx) {
 
 function applyTheme(dark) {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
-    darkToggle.innerHTML = dark ? '&#9788;' : '&#9790;';
+    darkToggle.innerHTML = dark ? '&#9728;' : '&#9790;';
     localStorage.setItem('theme', dark ? 'dark' : 'light');
     applyAccent(currentAccentIdx);
 }

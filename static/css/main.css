@@ -97,9 +97,13 @@
             font-size: 0.8rem;
             transition: all 0.15s;
             white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
         .header-btn:hover { border-color: var(--accent); color: var(--accent); }
         .header-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+        #darkToggle, #helpToggle { width: 2rem; height: 2rem; padding: 0; }
 
         .font-size-ctrl {
             display: flex;
@@ -894,6 +898,7 @@
 
             /* Prevent iOS zoom on input focus — font-size must be ≥16px */
             .search-wrap input,
+            .search-highlight-overlay,
             select {
                 font-size: 16px;
             }
