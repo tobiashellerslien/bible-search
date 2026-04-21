@@ -32,4 +32,4 @@ Drop a folder into `bibles/` containing 66 JSON files named `NN_USFM_BookName.js
 }
 ```
 
-The server auto-discovers the new version on next start. Add an entry to `VERSION_DISPLAY` in `static/js/app.js` if the folder name needs a prettier display label. Take a look at my bible-scraper repo to scrape your own versions to this format.
+The server auto-discovers the new version on next start. Add an entry to `VERSION_DISPLAY` in `static/js/app.js` if the folder name needs a prettier display label. Take a look at my [bible-scraper](https://github.com/tobiashellerslien/bible-scraper) to scrape your own versions to this format.

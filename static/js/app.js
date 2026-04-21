@@ -1,634 +1,1126 @@
-﻿    // ── State ──
-    let compareMode = false;
-    let lastQuery = '';
-    let mainData = null;
-    let compareData = null;
-    let currentView = 'normal'; // 'normal', 'text_search', 'all_versions'
-    let booksData = [];
-    let previousState = null; // for back button
-    let allVersionsCache = null; // {results, label} for re-rendering
-    let textSearchCache = null; // {results, query} for re-rendering
-    let bookLang = localStorage.getItem('bookLang') || 'no'; // 'no' or 'en'
-    let collapsed = true; // default: search results grouped by book
+// ── Constants ──
+const VERSION_DISPLAY = { 'NB88': 'NB88/07' };
+function versionLabel(v) { return VERSION_DISPLAY[v] || v; }
 
-    // ── BibleHub interlinear URL mapping ──
-    const BIBLEHUB_SLUGS = {
-        GEN:'genesis',EXO:'exodus',LEV:'leviticus',NUM:'numbers',DEU:'deuteronomy',
-        JOS:'joshua',JDG:'judges',RUT:'ruth',
-        '1SA':'1_samuel','2SA':'2_samuel','1KI':'1_kings','2KI':'2_kings',
-        '1CH':'1_chronicles','2CH':'2_chronicles',
-        EZR:'ezra',NEH:'nehemiah',EST:'esther',JOB:'job',PSA:'psalms',
-        PRO:'proverbs',ECC:'ecclesiastes',SNG:'songs',
-        ISA:'isaiah',JER:'jeremiah',LAM:'lamentations',EZK:'ezekiel',DAN:'daniel',
-        HOS:'hosea',JOL:'joel',AMO:'amos',OBA:'obadiah',JON:'jonah',MIC:'micah',
-        NAM:'nahum',HAB:'habakkuk',ZEP:'zephaniah',HAG:'haggai',ZEC:'zechariah',MAL:'malachi',
-        MAT:'matthew',MRK:'mark',LUK:'luke',JHN:'john',ACT:'acts',ROM:'romans',
-        '1CO':'1_corinthians','2CO':'2_corinthians',
-        GAL:'galatians',EPH:'ephesians',PHP:'philippians',COL:'colossians',
-        '1TH':'1_thessalonians','2TH':'2_thessalonians',
-        '1TI':'1_timothy','2TI':'2_timothy',TIT:'titus',PHM:'philemon',
-        HEB:'hebrews',JAS:'james',
-        '1PE':'1_peter','2PE':'2_peter',
-        '1JN':'1_john','2JN':'2_john','3JN':'3_john',
-        JUD:'jude',REV:'revelation'
-    };
+// Versions that use English book names
+const ENGLISH_VERSIONS = new Set(['ESV', 'KJV', 'NASB1995', 'NIV', 'NKJV']);
+function versionLang(v) { return ENGLISH_VERSIONS.has(v) ? 'en' : 'no'; }
 
-    // ── Book name language helper ──
-    const ENG_NAMES = {
-        GEN:'Genesis',EXO:'Exodus',LEV:'Leviticus',NUM:'Numbers',DEU:'Deuteronomy',
-        JOS:'Joshua',JDG:'Judges',RUT:'Ruth',
-        '1SA':'1 Samuel','2SA':'2 Samuel','1KI':'1 Kings','2KI':'2 Kings',
-        '1CH':'1 Chronicles','2CH':'2 Chronicles',
-        EZR:'Ezra',NEH:'Nehemiah',EST:'Esther',JOB:'Job',PSA:'Psalms',
-        PRO:'Proverbs',ECC:'Ecclesiastes',SNG:'Song of Solomon',
-        ISA:'Isaiah',JER:'Jeremiah',LAM:'Lamentations',EZK:'Ezekiel',DAN:'Daniel',
-        HOS:'Hosea',JOL:'Joel',AMO:'Amos',OBA:'Obadiah',JON:'Jonah',MIC:'Micah',
-        NAM:'Nahum',HAB:'Habakkuk',ZEP:'Zephaniah',HAG:'Haggai',ZEC:'Zechariah',MAL:'Malachi',
-        MAT:'Matthew',MRK:'Mark',LUK:'Luke',JHN:'John',ACT:'Acts',ROM:'Romans',
-        '1CO':'1 Corinthians','2CO':'2 Corinthians',
-        GAL:'Galatians',EPH:'Ephesians',PHP:'Philippians',COL:'Colossians',
-        '1TH':'1 Thessalonians','2TH':'2 Thessalonians',
-        '1TI':'1 Timothy','2TI':'2 Timothy',TIT:'Titus',PHM:'Philemon',
-        HEB:'Hebrews',JAS:'James',
-        '1PE':'1 Peter','2PE':'2 Peter',
-        '1JN':'1 John','2JN':'2 John','3JN':'3 John',
-        JUD:'Jude',REV:'Revelation'
-    };
+const BIBLEHUB_SLUGS = {
+    GEN:'genesis',EXO:'exodus',LEV:'leviticus',NUM:'numbers',DEU:'deuteronomy',
+    JOS:'joshua',JDG:'judges',RUT:'ruth',
+    '1SA':'1_samuel','2SA':'2_samuel','1KI':'1_kings','2KI':'2_kings',
+    '1CH':'1_chronicles','2CH':'2_chronicles',
+    EZR:'ezra',NEH:'nehemiah',EST:'esther',JOB:'job',PSA:'psalms',
+    PRO:'proverbs',ECC:'ecclesiastes',SNG:'songs',
+    ISA:'isaiah',JER:'jeremiah',LAM:'lamentations',EZK:'ezekiel',DAN:'daniel',
+    HOS:'hosea',JOL:'joel',AMO:'amos',OBA:'obadiah',JON:'jonah',MIC:'micah',
+    NAM:'nahum',HAB:'habakkuk',ZEP:'zephaniah',HAG:'haggai',ZEC:'zechariah',MAL:'malachi',
+    MAT:'matthew',MRK:'mark',LUK:'luke',JHN:'john',ACT:'acts',ROM:'romans',
+    '1CO':'1_corinthians','2CO':'2_corinthians',
+    GAL:'galatians',EPH:'ephesians',PHP:'philippians',COL:'colossians',
+    '1TH':'1_thessalonians','2TH':'2_thessalonians',
+    '1TI':'1_timothy','2TI':'2_timothy',TIT:'titus',PHM:'philemon',
+    HEB:'hebrews',JAS:'james',
+    '1PE':'1_peter','2PE':'2_peter',
+    '1JN':'1_john','2JN':'2_john','3JN':'3_john',
+    JUD:'jude',REV:'revelation'
+};
 
-    function bookName(code) {
-        if (bookLang === 'en' && ENG_NAMES[code]) return ENG_NAMES[code];
-        const b = booksData.find(x => x.code === code);
-        return b ? b.name : code;
-    }
+const ENG_NAMES = {
+    GEN:'Genesis',EXO:'Exodus',LEV:'Leviticus',NUM:'Numbers',DEU:'Deuteronomy',
+    JOS:'Joshua',JDG:'Judges',RUT:'Ruth',
+    '1SA':'1 Samuel','2SA':'2 Samuel','1KI':'1 Kings','2KI':'2 Kings',
+    '1CH':'1 Chronicles','2CH':'2 Chronicles',
+    EZR:'Ezra',NEH:'Nehemiah',EST:'Esther',JOB:'Job',PSA:'Psalms',
+    PRO:'Proverbs',ECC:'Ecclesiastes',SNG:'Song of Solomon',
+    ISA:'Isaiah',JER:'Jeremiah',LAM:'Lamentations',EZK:'Ezekiel',DAN:'Daniel',
+    HOS:'Hosea',JOL:'Joel',AMO:'Amos',OBA:'Obadiah',JON:'Jonah',MIC:'Micah',
+    NAM:'Nahum',HAB:'Habakkuk',ZEP:'Zephaniah',HAG:'Haggai',ZEC:'Zechariah',MAL:'Malachi',
+    MAT:'Matthew',MRK:'Mark',LUK:'Luke',JHN:'John',ACT:'Acts',ROM:'Romans',
+    '1CO':'1 Corinthians','2CO':'2 Corinthians',
+    GAL:'Galatians',EPH:'Ephesians',PHP:'Philippians',COL:'Colossians',
+    '1TH':'1 Thessalonians','2TH':'2 Thessalonians',
+    '1TI':'1 Timothy','2TI':'2 Timothy',TIT:'Titus',PHM:'Philemon',
+    HEB:'Hebrews',JAS:'James',
+    '1PE':'1 Peter','2PE':'2 Peter',
+    '1JN':'1 John','2JN':'2 John','3JN':'3 John',
+    JUD:'Jude',REV:'Revelation'
+};
 
-    // Translate a label like "Johannes 3:16" or "2. Samuelsbok 16:23" to current language
-    function translateLabel(label, bookCode) {
-        if (!bookCode) return label;
-        const newName = bookName(bookCode);
-        // Find the Norwegian name for this book to strip it from the label
-        const b = booksData.find(x => x.code === bookCode);
-        const norwName = b ? b.name : null;
-        if (norwName && label.startsWith(norwName)) {
-            return newName + label.slice(norwName.length);
-        }
-        // Fallback: try English name
-        const engName = ENG_NAMES[bookCode];
-        if (engName && label.startsWith(engName)) {
-            return newName + label.slice(engName.length);
-        }
-        return label;
-    }
+// Book name overrides for "book display" contexts (not reference labels)
+const BOOK_DISPLAY_OVERRIDES_NO = { PSA: 'Salmene' };
 
-    function interlinearUrl(bookCode, chapter, verseNum) {
-        const slug = BIBLEHUB_SLUGS[bookCode];
-        if (!slug) return null;
-        if (verseNum != null) {
-            return `https://biblehub.com/interlinear/${slug}/${chapter}-${verseNum}.htm`;
-        }
-        return `https://biblehub.com/interlinear/${slug}/${chapter}.htm`;
-    }
+const OT_BOOKS = new Set(['GEN','EXO','LEV','NUM','DEU','JOS','JDG','RUT','1SA','2SA','1KI','2KI','1CH','2CH','EZR','NEH','EST','JOB','PSA','PRO','ECC','SNG','ISA','JER','LAM','EZK','DAN','HOS','JOL','AMO','OBA','JON','MIC','NAM','HAB','ZEP','HAG','ZEC','MAL']);
 
-    // ── Elements ──
-    const searchInput = document.getElementById('searchInput');
-    const versionSelect = document.getElementById('versionSelect');
-    const searchBtn = document.getElementById('searchBtn');
-    const compareBtn = document.getElementById('compareBtn');
-    const toggleVerseNums = document.getElementById('toggleVerseNums');
-    const toggleNewlines = document.getElementById('toggleNewlines');
-    const resultsWrapper = document.getElementById('resultsWrapper');
-    const compareVersionSelect = document.getElementById('compareVersionSelect');
-    const emptyState = document.getElementById('emptyState');
-    const emptyStateHtml = emptyState.outerHTML;
-    const toast = document.getElementById('toast');
-    const bookSelect = document.getElementById('bookSelect');
-    const chapterSelect = document.getElementById('chapterSelect');
+const SEARCH_GROUPS = [
+    { label: 'GT:', desc: 'Gamle Testamentet' },
+    { label: 'NT:', desc: 'Nye Testamentet' },
+    { label: 'evangeliene:', desc: 'Matt, Mark, Luk, Joh' },
+    { label: 'mosebøkene:', desc: '1–5 Mosebok' },
+    { label: 'profetene:', desc: 'Jesaja – Malaki' },
+    { label: 'historiske:', desc: 'Josva – Ester' },
+    { label: 'poetiske:', desc: 'Job, Salme, Ordsp, Fork, Høys' },
+    { label: 'brev:', desc: 'Alle NT-brev' },
+    { label: 'paulusbrevene:', desc: 'Romerne – Filemon' },
+    { label: 'almenne brev:', desc: 'Hebr – Judas' },
+    { label: 'store profeter:', desc: 'Jes, Jer, Klag, Esek, Dan' },
+    { label: 'små profeter:', desc: 'Hosea – Malaki' },
+];
 
-    // ── Version display names (folder name → display name) ──
-    const VERSION_DISPLAY = {
-        'NB88': 'NB88/07',
-    };
-    function versionLabel(v) { return VERSION_DISPLAY[v] || v; }
+const FONT_SIZES = [null, '0.85rem', '1.0rem', '1.1rem', '1.3rem', '1.5rem'];
 
-    // ── Init ──
-    async function init() {
-        const resp = await fetch('/api/versions');
-        const data = await resp.json();
-        data.versions.forEach(v => {
-            versionSelect.add(new Option(versionLabel(v), v));
-            compareVersionSelect.add(new Option(versionLabel(v), v));
-        });
-        // Default to NB88 if available
-        if (data.versions.includes('NB88')) {
-            versionSelect.value = 'NB88';
-        }
-        if (data.versions.length > 1) {
-            compareVersionSelect.value = data.versions.find(v => v !== versionSelect.value) || data.versions[1];
-        }
-        loadBooks();
-    }
-    init();
+const COLOR_PRESETS = [
+    { name: 'Blue',   l: '#2870e8', lh: '#1d5cc8', ld: 'rgba(40,112,232,0.12)',   d: '#5aafff', dh: '#4a9eee', dd: 'rgba(90,175,255,0.12)' },
+    { name: 'Green',  l: '#16a34a', lh: '#15803d', ld: 'rgba(22,163,74,0.12)',    d: '#4ade80', dh: '#22c55e', dd: 'rgba(74,222,128,0.12)' },
+    { name: 'Red',    l: '#b53232', lh: '#922222', ld: 'rgba(181,50,50,0.12)',    d: '#e06060', dh: '#c94444', dd: 'rgba(224,96,96,0.12)' },
+    { name: 'Purple', l: '#7c3aed', lh: '#6d28d9', ld: 'rgba(124,58,237,0.12)',  d: '#a78bfa', dh: '#8b5cf6', dd: 'rgba(167,139,250,0.12)' },
+    { name: 'Orange', l: '#c97a06', lh: '#a86205', ld: 'rgba(201,122,6,0.12)',   d: '#fbbf24', dh: '#f59e0b', dd: 'rgba(251,191,36,0.12)' },
+    { name: 'Teal',   l: '#0d9488', lh: '#0f766e', ld: 'rgba(13,148,136,0.12)',  d: '#2dd4bf', dh: '#14b8a6', dd: 'rgba(45,212,191,0.12)' },
+];
 
-    async function loadBooks() {
-        const version = versionSelect.value || '';
-        const resp = await fetch(`/api/books?version=${encodeURIComponent(version)}`);
-        const data = await resp.json();
-        booksData = data.books;
-        refreshBookDropdown();
-    }
+// ── State ──
+let compareMode = false;
+let lastQuery = '';
+let mainData = null;
+let compareData = null;
+let currentView = 'normal';
+let booksData = [];
+let allVersionsCache = null;
+let textSearchCache = null;
+let currentChapterInfo = null;
+let allVersionsList = [];
+let currentAccentIdx = parseInt(localStorage.getItem('accentColor') || '0');
+let pinnedVerses = JSON.parse(localStorage.getItem('pinnedVerses') || '[]');
+let pinnedPanelExpanded = false;
+let lastTextSearchQuery = '';
 
-    function refreshBookDropdown() {
-        const prev = bookSelect.value;
-        bookSelect.innerHTML = '<option value="">-- Book --</option>';
-        booksData.forEach(b => {
-            const name = bookLang === 'en' ? b.name_en : b.name;
-            bookSelect.add(new Option(name, b.code));
-        });
-        bookSelect.value = prev;
-        chapterSelect.innerHTML = '<option value="">-- Ch --</option>';
-        chapterSelect.disabled = true;
-    }
+// ── Elements ──
+const searchInput = document.getElementById('searchInput');
+const versionSelect = document.getElementById('versionSelect');
+const searchBtn = document.getElementById('searchBtn');
+const compareBtn = document.getElementById('compareBtn');
+const toggleVerseNums = document.getElementById('toggleVerseNums');
+const toggleNewlines = document.getElementById('toggleNewlines');
+const resultsWrapper = document.getElementById('resultsWrapper');
+const compareVersionSelect = document.getElementById('compareVersionSelect');
+const emptyState = document.getElementById('emptyState');
+const emptyStateHtml = emptyState.outerHTML;
+const toast = document.getElementById('toast');
+const bookSelect = document.getElementById('bookSelect');
+const chapterSelect = document.getElementById('chapterSelect');
+const autocompleteDropdown = document.getElementById('autocompleteDropdown');
+const scopeBar = document.getElementById('scopeBar');
+const pinnedPanel = document.getElementById('pinnedPanel');
+const pinnedItemsWrap = document.getElementById('pinnedItemsWrap');
+const pinnedCountBadge = document.getElementById('pinnedCountBadge');
+const pinnedPanelHeader = document.getElementById('pinnedPanelHeader');
+const clearPinnedBtn = document.getElementById('clearPinnedBtn');
+const chartTooltip = document.getElementById('chartTooltip');
 
-    versionSelect.addEventListener('change', () => {
-        loadBooks();
-        if (lastQuery) doSearch();
+// ── Init ──
+async function init() {
+    const resp = await fetch('/api/versions');
+    const data = await resp.json();
+    allVersionsList = data.versions;
+    data.versions.forEach(v => {
+        versionSelect.add(new Option(versionLabel(v), v));
+        compareVersionSelect.add(new Option(versionLabel(v), v));
     });
-
-    bookSelect.addEventListener('change', () => {
-        const code = bookSelect.value;
-        chapterSelect.innerHTML = '<option value="">-- Ch --</option>';
-        if (!code) { chapterSelect.disabled = true; return; }
-        const book = booksData.find(b => b.code === code);
-        if (!book) return;
-        for (let i = 1; i <= book.chapters; i++) {
-            chapterSelect.add(new Option(i, i));
-        }
-        chapterSelect.disabled = false;
-    });
-
-    chapterSelect.addEventListener('change', () => {
-        const code = bookSelect.value;
-        const ch = chapterSelect.value;
-        if (!code || !ch) return;
-        const book = booksData.find(b => b.code === code);
-        if (!book) return;
-        searchInput.value = `${book.name} ${ch}`;
-        doSearch();
-    });
-
-    // ── Heartbeat ──
-    setInterval(() => fetch('/api/heartbeat').catch(() => {}), 3000);
-
-    // ── Search ──
-    searchBtn.addEventListener('click', doSearch);
-    searchInput.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
-
-    async function doSearch() {
-        const query = searchInput.value.trim();
-        if (!query) return;
-        lastQuery = query;
-        previousState = null;
-        currentView = 'normal';
-
-        const version = versionSelect.value;
-        try {
-            const resp = await fetch(`/api/search?q=${encodeURIComponent(query)}&version=${encodeURIComponent(version)}`);
-            const data = await resp.json();
-            if (data.error) {
-                resultsWrapper.innerHTML = errorCardHtml('Error', data.error);
-                return;
-            }
-
-            if (data.type === 'text_search') {
-                currentView = 'text_search';
-                renderTextSearch(data.results, data.query);
-                return;
-            }
-
-            mainData = data.results;
-            if (compareMode) {
-                await fetchCompareData(query);
-            } else {
-                compareData = null;
-            }
-            renderAll();
-        } catch (err) {
-            resultsWrapper.innerHTML = errorCardHtml('Error', 'Failed to connect to server.');
-        }
+    if (data.versions.includes('NB88')) versionSelect.value = 'NB88';
+    if (data.versions.length > 1) {
+        compareVersionSelect.value = data.versions.find(v => v !== versionSelect.value) || data.versions[1];
     }
+    await loadBooks();
+    restoreFromURL();
+    renderPinnedPanel();
+}
+init();
 
-    async function fetchCompareData(query) {
-        const version = compareVersionSelect.value;
-        try {
-            const resp = await fetch(`/api/search?q=${encodeURIComponent(query)}&version=${encodeURIComponent(version)}`);
-            const data = await resp.json();
-            if (data.type === 'reference' && !data.error) {
-                compareData = data.results;
-            } else {
-                compareData = null;
-            }
-        } catch { compareData = null; }
+async function loadBooks() {
+    const version = versionSelect.value || '';
+    const resp = await fetch(`/api/books?version=${encodeURIComponent(version)}`);
+    const data = await resp.json();
+    booksData = data.books;
+    refreshBookDropdown();
+}
+
+function refreshBookDropdown() {
+    const lang = versionLang(versionSelect.value);
+    const prev = bookSelect.value;
+    bookSelect.innerHTML = '<option value="">-- Book --</option>';
+    booksData.forEach(b => {
+        const name = lang === 'en' ? b.name_en : b.name;
+        bookSelect.add(new Option(name, b.code));
+    });
+    bookSelect.value = prev;
+    chapterSelect.innerHTML = '<option value="">-- Ch --</option>';
+    chapterSelect.disabled = true;
+}
+
+versionSelect.addEventListener('change', () => {
+    loadBooks();
+    if (lastQuery) doSearch(false);
+});
+
+bookSelect.addEventListener('change', () => {
+    const code = bookSelect.value;
+    chapterSelect.innerHTML = '<option value="">-- Ch --</option>';
+    if (!code) { chapterSelect.disabled = true; return; }
+    const book = booksData.find(b => b.code === code);
+    if (!book) return;
+    for (let i = 1; i <= book.chapters; i++) chapterSelect.add(new Option(i, i));
+    chapterSelect.disabled = false;
+});
+
+chapterSelect.addEventListener('change', () => {
+    const code = bookSelect.value;
+    const ch = chapterSelect.value;
+    if (!code || !ch) return;
+    const book = booksData.find(b => b.code === code);
+    if (!book) return;
+    searchInput.value = `${book.name} ${ch}`;
+    doSearch();
+});
+
+setInterval(() => fetch('/api/heartbeat').catch(() => {}), 3000);
+
+// ── URL / History ──
+function buildURL(q, version, mode, compareVersion) {
+    const p = new URLSearchParams();
+    if (q) p.set('q', q);
+    if (version) p.set('v', version);
+    if (mode && mode !== 'normal') p.set('mode', mode);
+    if (mode === 'compare' && compareVersion) p.set('v2', compareVersion);
+    const qs = p.toString();
+    return qs ? `?${qs}` : '/';
+}
+
+function pushState(q, version, mode, compareVersion) {
+    const url = buildURL(q, version, mode, compareVersion);
+    history.pushState({ q, version, mode: mode || 'normal', compareVersion }, '', url);
+}
+
+function restoreFromURL() {
+    const p = new URLSearchParams(window.location.search);
+    const q = p.get('q') || '';
+    const v = p.get('v') || '';
+    const mode = p.get('mode') || 'normal';
+    const v2 = p.get('v2') || '';
+    if (q) {
+        if (v && allVersionsList.includes(v)) versionSelect.value = v;
+        if (mode === 'compare') {
+            compareMode = true;
+            compareBtn.classList.add('active');
+            if (v2 && allVersionsList.includes(v2)) compareVersionSelect.value = v2;
+        }
+        searchInput.value = q;
+        if (mode === 'allversions') executeAllVersions(q);
+        else doSearch(false, false);
     }
+}
 
-    // ── Compare toggle ──
-    compareBtn.addEventListener('click', async () => {
-        compareMode = !compareMode;
+window.addEventListener('popstate', e => {
+    if (e.state) {
+        const { q, version, mode, compareVersion } = e.state;
+        if (version && allVersionsList.includes(version)) versionSelect.value = version;
+        compareMode = mode === 'compare';
         compareBtn.classList.toggle('active', compareMode);
-        if (compareMode && lastQuery && currentView === 'normal') {
-            await fetchCompareData(lastQuery);
-        } else {
-            compareData = null;
-        }
-        if (currentView === 'normal') renderAll();
-    });
-
-    compareVersionSelect.addEventListener('change', async () => {
-        if (compareMode && lastQuery && currentView === 'normal') {
-            await fetchCompareData(lastQuery);
-            renderAll();
-        }
-    });
-
-    // ── Re-render on toggle change ──
-    function onToggleChange() {
-        if (currentView === 'normal' && mainData) renderAll();
-        else if (currentView === 'all_versions' && allVersionsCache) renderAllVersions(allVersionsCache.results, allVersionsCache.label);
+        if (compareVersion && allVersionsList.includes(compareVersion)) compareVersionSelect.value = compareVersion;
+        if (q) { searchInput.value = q; doSearch(false, false); }
+        else goHome(false);
+    } else {
+        restoreFromURL();
     }
-    toggleVerseNums.addEventListener('change', onToggleChange);
-    toggleNewlines.addEventListener('change', onToggleChange);
+});
 
-    // ── Render reference results ──
-    function renderAll() {
-        if (!mainData || mainData.length === 0) {
-            resultsWrapper.innerHTML = emptyStateHtml;
+// ── Search ──
+searchBtn.addEventListener('click', doSearch);
+searchInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && acSelectedIndex < 0) doSearch();
+});
+
+async function doSearch(pushHistory = true, resetAC = true) {
+    if (resetAC) closeAutocomplete();
+    const query = searchInput.value.trim();
+    if (!query) return;
+    lastQuery = query;
+    currentView = 'normal';
+    currentChapterInfo = null;
+    const version = versionSelect.value;
+    if (pushHistory) pushState(query, version, compareMode ? 'compare' : 'normal', compareVersionSelect.value);
+    updateScopeChips(query);
+
+    try {
+        const resp = await fetch(`/api/search?q=${encodeURIComponent(query)}&version=${encodeURIComponent(version)}`);
+        const data = await resp.json();
+        if (data.error) { resultsWrapper.innerHTML = errorCardHtml('Error', data.error); return; }
+
+        if (data.type === 'text_search') {
+            currentView = 'text_search';
+            lastTextSearchQuery = data.query;
+            textSearchCache = { results: data.results, query: data.query };
+            renderTextSearch(data.results, data.query);
             return;
         }
 
-        const showNums = toggleVerseNums.checked;
-        const showNewlines = toggleNewlines.checked;
-        const showCompare = compareMode && compareData;
-        let html = '';
+        mainData = data.results;
+        detectChapterInfo(mainData);
+        if (compareMode) await fetchCompareData(query);
+        else compareData = null;
+        renderAll();
+    } catch (err) {
+        resultsWrapper.innerHTML = errorCardHtml('Error', 'Failed to connect to server.');
+    }
+}
 
-        if (previousState) {
-            html += '<div class="back-bar"><button class="back-btn" onclick="goBack()">&larr; Back</button></div>';
-        }
+function detectChapterInfo(results) {
+    if (!results || results.length === 0) { currentChapterInfo = null; return; }
+    const first = results[0];
+    if (!first || !first.book || !first.verses || first.verses.length === 0) { currentChapterInfo = null; return; }
+    const ch = first.verses[0].chapter;
+    currentChapterInfo = { book: first.book, chapter: ch, bookName: bookRefName(first.book) };
+}
 
-        if (showCompare) {
-            html += `<div class="compare-columns-header">
-                <div class="column-label">${escHtml(versionLabel(versionSelect.value))}</div>
-                <div class="column-label"><select id="compareVersionInline"></select></div>
-            </div>`;
-        }
+async function fetchCompareData(query) {
+    const version = compareVersionSelect.value;
+    try {
+        const resp = await fetch(`/api/search?q=${encodeURIComponent(query)}&version=${encodeURIComponent(version)}`);
+        const data = await resp.json();
+        compareData = (data.type === 'reference' && !data.error) ? data.results : null;
+    } catch { compareData = null; }
+}
 
-        const count = Math.max(mainData.length, showCompare ? compareData.length : 0);
+// ── Compare toggle ──
+compareBtn.addEventListener('click', async () => {
+    compareMode = !compareMode;
+    compareBtn.classList.toggle('active', compareMode);
+    if (compareMode && lastQuery && currentView === 'normal') await fetchCompareData(lastQuery);
+    else compareData = null;
+    if (currentView === 'normal') {
+        pushState(lastQuery, versionSelect.value, compareMode ? 'compare' : 'normal', compareVersionSelect.value);
+        renderAll();
+    }
+});
 
+compareVersionSelect.addEventListener('change', async () => {
+    if (compareMode && lastQuery && currentView === 'normal') {
+        await fetchCompareData(lastQuery);
+        pushState(lastQuery, versionSelect.value, 'compare', compareVersionSelect.value);
+        renderAll();
+    }
+});
+
+function onToggleChange() {
+    if (currentView === 'normal' && mainData) renderAll();
+    else if (currentView === 'all_versions' && allVersionsCache) renderAllVersions(allVersionsCache.results, allVersionsCache.label);
+    else if (currentView === 'text_search' && textSearchCache) renderTextSearch(textSearchCache.results, textSearchCache.query);
+}
+toggleVerseNums.addEventListener('change', onToggleChange);
+toggleNewlines.addEventListener('change', onToggleChange);
+
+// ── Render reference results ──
+function renderAll() {
+    if (!mainData || mainData.length === 0) { resultsWrapper.innerHTML = emptyStateHtml; return; }
+    const showNums = toggleVerseNums.checked;
+    const showNewlines = toggleNewlines.checked;
+    const showCompare = compareMode && compareData;
+    const mainLang = versionLang(versionSelect.value);
+    const compareLang = versionLang(compareVersionSelect.value);
+    let html = '';
+
+    const count = Math.max(mainData.length, showCompare ? compareData.length : 0);
+    if (showCompare) {
+        html += '<div class="compare-grid">';
+        html += `<div class="col-header-main column-label">${escHtml(versionLabel(versionSelect.value))}</div>`;
+        html += `<div class="col-header-compare column-label"><select id="compareVersionInline"></select></div>`;
         for (let idx = 0; idx < count; idx++) {
             const mainBlock = idx < mainData.length ? mainData[idx] : null;
-            const compBlock = showCompare && idx < compareData.length ? compareData[idx] : null;
-
-            if (showCompare) {
-                html += '<div class="verse-row">';
-                html += buildCardHtml(mainBlock, idx, false, showNums, showNewlines);
-                html += buildCardHtml(compBlock, idx, true, showNums, showNewlines);
-                html += '</div>';
-            } else {
-                html += buildCardHtml(mainBlock, idx, false, showNums, showNewlines);
-            }
+            const compBlock = idx < compareData.length ? compareData[idx] : null;
+            html += '<div class="compare-cell compare-cell-main">';
+            html += buildCardHtml(mainBlock, idx, false, showNums, showNewlines, mainLang, versionSelect.value);
+            html += '</div>';
+            html += '<div class="compare-cell compare-cell-compare">';
+            html += buildCardHtml(compBlock, idx, true, showNums, showNewlines, compareLang, compareVersionSelect.value);
+            html += '</div>';
         }
-
-        resultsWrapper.innerHTML = html;
-
-        // Wire up inline compare version dropdown
-        if (showCompare) {
-            const inline = document.getElementById('compareVersionInline');
-            if (inline) {
-                Array.from(compareVersionSelect.options).forEach(o => {
-                    inline.add(new Option(o.text, o.value));
-                });
-                inline.value = compareVersionSelect.value;
-                inline.addEventListener('change', () => {
-                    compareVersionSelect.value = inline.value;
-                    compareVersionSelect.dispatchEvent(new Event('change'));
-                });
-            }
+        html += '</div>';
+    } else {
+        for (let idx = 0; idx < count; idx++) {
+            const mainBlock = mainData[idx];
+            html += buildCardHtml(mainBlock, idx, false, showNums, showNewlines, mainLang, versionSelect.value);
         }
     }
 
-    function buildCardHtml(block, idx, isCompare, showNums, showNewlines) {
-        if (!block) return '<div class="verse-card" style="visibility:hidden;"></div>';
-        if (block.error) {
-            const lbl = block.book ? translateLabel(block.label || 'Error', block.book) : (block.label || 'Error');
-            return `<div class="verse-card error-card">
-                <div class="verse-card-header">
-                    <span class="verse-card-label">${escHtml(lbl)}</span>
-                </div>
-                <div class="error-message">${escHtml(block.error)}</div>
-            </div>`;
+    resultsWrapper.innerHTML = html;
+
+    if (showCompare) {
+        const inline = document.getElementById('compareVersionInline');
+        if (inline) {
+            Array.from(compareVersionSelect.options).forEach(o => inline.add(new Option(o.text, o.value)));
+            inline.value = compareVersionSelect.value;
+            inline.addEventListener('change', () => {
+                compareVersionSelect.value = inline.value;
+                compareVersionSelect.dispatchEvent(new Event('change'));
+            });
         }
+    }
+}
 
-        const displayLabel = translateLabel(block.label, block.book);
-        const cardId = isCompare ? `compare-card-${idx}` : `card-${idx}`;
-        let html = `<div class="verse-card" id="${cardId}">
-            <div class="verse-card-header">
+function buildCardHtml(block, idx, isCompare, showNums, showNewlines, lang, ver) {
+    if (!block) return '<div class="verse-card" style="visibility:hidden;"></div>';
+    if (block.error) {
+        const lbl = block.book ? translateLabel(block.label || 'Error', block.book, lang) : (block.label || 'Error');
+        return `<div class="verse-card error-card">
+            <div class="verse-card-header"><div class="verse-card-header-left"><span class="verse-card-label">${escHtml(lbl)}</span></div></div>
+            <div class="error-message">${escHtml(block.error)}</div>
+        </div>`;
+    }
+
+    const displayLabel = translateLabel(block.label, block.book, lang);
+    const cardId = isCompare ? `compare-card-${idx}` : `card-${idx}`;
+    const isPinned = pinnedVerses.some(p => p.label === block.label && p.version === ver);
+    const verDisplay = escAttr(versionLabel(ver));
+
+    let html = `<div class="verse-card" id="${cardId}">
+        <div class="verse-card-header">
+            <div class="verse-card-header-left">
                 <span class="verse-card-label">${escHtml(displayLabel)}</span>
-                <button class="copy-btn" onclick="copyBlock(${idx}, ${isCompare})">Copy</button>
             </div>
-            <div class="verse-text">`;
+            <div class="verse-card-header-actions">
+                <button class="pin-btn${isPinned ? ' pinned' : ''}" onclick="togglePinBlock(${idx}, ${isCompare})" title="Pin">&#128204;</button>
+                <button class="copy-btn" onclick="copyBlockText(${idx}, ${isCompare})" title="Copy text only">copy txt</button>
+                <button class="copy-btn" onclick="copyBlockRef(${idx}, ${isCompare})" title="Copy with reference">copy w/ ref</button>
+            </div>
+        </div>
+        <div class="verse-text">`;
 
-        html += renderVerseTextHtml(block.verses, showNums, showNewlines);
-        html += '</div>';
+    html += renderVerseTextHtml(block.verses, showNums, showNewlines, block.book, lang, ver);
+    html += '</div>';
 
-        // Footer buttons
-        if (!isCompare && block.book && block.verses.length > 0) {
-            const ch = block.verses[0].chapter;
-            const bName = bookName(block.book);
-            const isSingleVerse = block.verses.length === 1;
-            const ilUrl = interlinearUrl(block.book, ch, isSingleVerse ? block.verses[0].num : null);
+    if (!isCompare && block.book && block.verses.length > 0) {
+        const ch = block.verses[0].chapter;
+        const bName = bookRefName(block.book);
+        const maxCh = (booksData.find(b => b.code === block.book) || {}).chapters || 0;
+        const isSingleVerse = block.verses.length === 1;
+        const ilUrl = interlinearUrl(block.book, ch, isSingleVerse ? block.verses[0].num : null);
+        const allSameCh = block.verses.every(v => v.chapter === ch);
 
-            html += `<div class="verse-card-footer">
-                <button class="card-action-btn" onclick="readChapter('${escAttr(block.book)}', ${ch}, '${escAttr(bName)}')">Read ${escHtml(bName)} ${ch}</button>
-                <button class="card-action-btn" onclick="showAllVersions('${escAttr(block.label)}')">All versions</button>`;
-            if (ilUrl) {
-                html += `<a class="card-action-btn" href="${ilUrl}" target="_blank" rel="noopener" style="text-decoration:none;">Interlinear (biblehub.com)</a>`;
-            }
+        html += `<div class="verse-card-footer">
+            <button class="card-action-btn" onclick="readChapter('${escAttr(block.book)}', ${ch}, '${escAttr(bName)}')">&#128214; ${escHtml(bookName(block.book, lang))} ${ch}</button>
+            <button class="card-action-btn" onclick="showAllVersions('${escAttr(block.label)}')">all versions</button>`;
+        if (ilUrl) {
+            html += `<a class="card-action-btn" href="${ilUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;"><img src="/static/biblehub.png" style="height:12px;opacity:0.8;" alt=""> interlinear</a>`;
+        }
+        if (allSameCh && maxCh > 0) {
+            html += `<div class="chapter-nav">`;
+            if (ch > 1) html += `<button class="card-action-btn" onclick="goChapter('${escAttr(block.book)}', ${ch - 1}, '${escAttr(bName)}')" title="Previous chapter">&#8592; ${ch - 1}</button>`;
+            if (ch < maxCh) html += `<button class="card-action-btn" onclick="goChapter('${escAttr(block.book)}', ${ch + 1}, '${escAttr(bName)}')" title="Next chapter">${ch + 1} &#8594;</button>`;
             html += `</div>`;
         }
-
-        html += '</div>';
-        return html;
+        html += `</div>`;
     }
+    html += '</div>';
+    return html;
+}
 
-    function renderVerseTextHtml(verses, showNums, showNewlines) {
-        let html = '';
-        let lastChapter = null;
-        const isMultiChapter = verses.some(x => x.chapter !== verses[0]?.chapter);
+function renderVerseTextHtml(verses, showNums, showNewlines, bookCode, lang, ver) {
+    let html = '';
+    let lastChapter = null;
+    const isMultiChapter = verses.some(x => x.chapter !== verses[0]?.chapter);
 
-        verses.forEach((v, vi) => {
-            if (isMultiChapter && v.chapter !== lastChapter) {
-                if (vi > 0 && showNewlines) html += '<br>';
-                html += `<div class="chapter-heading">Chapter ${v.chapter}</div>`;
-                lastChapter = v.chapter;
-            } else if (lastChapter === null) {
-                lastChapter = v.chapter;
-            }
-
-            if (showNewlines && vi > 0 && v.chapter === lastChapter) html += '<br>';
-            if (showNums) html += `<span class="verse-num">${v.num}</span>`;
-            html += escHtml(v.text) + ' ';
+    verses.forEach((v, vi) => {
+        if (isMultiChapter && v.chapter !== lastChapter) {
+            if (vi > 0 && showNewlines) html += '<br>';
+            html += `<div class="chapter-heading">Chapter ${v.chapter}</div>`;
             lastChapter = v.chapter;
-        });
-        return html;
+        } else if (lastChapter === null) {
+            lastChapter = v.chapter;
+        }
+        if (showNewlines && vi > 0 && v.chapter === lastChapter) html += '<br>';
+
+        const bookCodeSafe = bookCode ? escAttr(bookCode) : '';
+        const refName = bookCode ? escAttr(bookRefName(bookCode)) : '';
+
+        html += `<span class="verse-line">`;
+        if (showNums) {
+            html += `<span class="verse-num" onclick="openSingleVerse('${bookCodeSafe}',${v.chapter},${v.num},'${refName}')" title="${bookRefName(bookCode)} ${v.chapter}:${v.num}">${v.num}</span>`;
+        }
+        html += escHtml(v.text);
+        html += `</span> `;
+        lastChapter = v.chapter;
+    });
+    return html;
+}
+
+window.goChapter = function(bookCode, chapter, bName) {
+    searchInput.value = `${bName} ${chapter}`;
+    doSearch();
+};
+
+window.openSingleVerse = function(bookCode, chapter, verse, bName) {
+    searchInput.value = `${bName} ${chapter}:${verse}`;
+    doSearch();
+};
+
+// ── Text search ──
+function renderTextSearch(results, query) {
+    textSearchCache = { results, query };
+    let html = '';
+    if (results.length === 0) {
+        html = `<div class="empty-state"><h2>No results</h2><p>No verses found for "${escHtml(query)}".</p></div>`;
+        resultsWrapper.innerHTML = html;
+        return;
     }
 
-    // ── Text search results ──
-    function renderTextSearch(results, query) {
-        textSearchCache = { results, query };
-        let html = '';
-        if (results.length === 0) {
-            html = `<div class="empty-state"><h2>No results</h2><p>No verses found matching "${escHtml(query)}".</p></div>`;
-            resultsWrapper.innerHTML = html;
-            return;
-        }
+    html += `<div class="search-controls">
+        <div class="search-result-count">${results.length} result${results.length !== 1 ? 's' : ''} for "${escHtml(query)}"</div>
+        <button class="card-action-btn" id="expandCollapseBtn" onclick="toggleGroups()">expand all</button>
+        <button class="stats-btn" onclick="openStats('${escAttr(query)}')">&#128202; stats</button>
+    </div>`;
 
-        const total = results.length >= 150 ? '150+' : results.length;
-        html += `<div class="search-controls">
-            <div class="search-result-count" style="margin:0">${total} result${results.length !== 1 ? 's' : ''} for "${escHtml(query)}"</div>
-            <button class="card-action-btn" onclick="toggleCollapse()">${collapsed ? 'Expand all' : 'Collapse by book'}</button>
+    const lang = versionLang(versionSelect.value);
+    const groupMap = {};
+    const bookOrder = [];
+    results.forEach(r => {
+        if (!groupMap[r.book]) { groupMap[r.book] = []; bookOrder.push(r.book); }
+        groupMap[r.book].push(r);
+    });
+    bookOrder.forEach(code => {
+        const items = groupMap[code];
+        const bName = bookName(code, lang);
+        html += `<div class="book-group" data-book="${escHtml(code)}">
+            <div class="book-group-header" onclick="toggleGroup(this)">
+                <span>${escHtml(bName)}<span class="book-group-count">(${items.length})</span></span>
+                <span class="chevron">&#9654;</span>
+            </div>
+            <div class="book-group-items">`;
+        items.forEach(r => {
+            const ref = translateLabel(r.ref, r.book, lang);
+            html += `<div class="search-result-item" onclick="goToVerse('${escAttr(r.ref)}')">
+                <div class="search-result-ref">${escHtml(ref)}</div>
+                <div class="search-result-text">${highlightWords(escHtml(r.text), query)}</div>
+            </div>`;
+        });
+        html += '</div></div>';
+    });
+
+    resultsWrapper.innerHTML = html;
+}
+
+window.toggleGroup = function(headerEl) {
+    headerEl.classList.toggle('open');
+    headerEl.nextElementSibling.classList.toggle('open');
+    updateExpandCollapseBtn();
+};
+
+window.toggleGroups = function() {
+    const headers = resultsWrapper.querySelectorAll('.book-group-header');
+    const items = resultsWrapper.querySelectorAll('.book-group-items');
+    const anyOpen = [...headers].some(h => h.classList.contains('open'));
+    headers.forEach(h => h.classList.toggle('open', !anyOpen));
+    items.forEach(i => i.classList.toggle('open', !anyOpen));
+    updateExpandCollapseBtn();
+};
+
+function updateExpandCollapseBtn() {
+    const btn = document.getElementById('expandCollapseBtn');
+    if (!btn) return;
+    const anyOpen = [...resultsWrapper.querySelectorAll('.book-group-header')].some(h => h.classList.contains('open'));
+    btn.textContent = anyOpen ? 'collapse all' : 'expand all';
+}
+
+function highlightWords(htmlText, query) {
+    const phrases = [...query.matchAll(/"([^"]+)"/g)].map(m => m[1]);
+    let q2 = query.replace(/"[^"]+"/g, '');
+    const words = q2.split(/\s+/).filter(w => w && w.toUpperCase() !== 'OR' && !w.startsWith('-'));
+    [...phrases, ...words].forEach(w => {
+        const regex = new RegExp(`(${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        htmlText = htmlText.replace(regex, '<b style="color:var(--highlight)">$1</b>');
+    });
+    return htmlText;
+}
+
+window.goToVerse = function(ref) {
+    searchInput.value = ref;
+    doSearch();
+};
+
+// ── Read chapter ──
+window.readChapter = async function(bookCode, chapter, bName) {
+    searchInput.value = `${bName} ${chapter}`;
+    doSearch();
+};
+
+// ── All versions ──
+async function executeAllVersions(label) {
+    currentView = 'all_versions';
+    try {
+        const resp = await fetch(`/api/all_versions?q=${encodeURIComponent(label)}`);
+        const data = await resp.json();
+        if (data.error) { resultsWrapper.innerHTML = errorCardHtml('Error', data.error); return; }
+        renderAllVersions(data.results, label);
+    } catch { resultsWrapper.innerHTML = errorCardHtml('Error', 'Failed to fetch versions.'); }
+}
+
+window.showAllVersions = async function(label) {
+    pushState(label, versionSelect.value, 'allversions', '');
+    await executeAllVersions(label);
+};
+
+function renderAllVersions(allResults, label) {
+    allVersionsCache = { results: allResults, label };
+    const showNums = toggleVerseNums.checked;
+    const showNewlines = toggleNewlines.checked;
+    const firstBlocks = Object.values(allResults)[0] || [];
+    const bCode = firstBlocks[0]?.book;
+    const mainLang = versionLang(versionSelect.value);
+    const displayLabel = bCode ? translateLabel(label, bCode, mainLang) : label;
+
+    let html = `<div class="all-versions-block">
+        <div class="verse-card-header" style="border-bottom:none;padding-bottom:0;margin-bottom:8px;">
+            <span class="verse-card-label" style="font-size:1rem;">${escHtml(displayLabel)}</span>
         </div>`;
+    for (const [versionName, blocks] of Object.entries(allResults)) {
+        const verses = blocks.flatMap(b => b.verses || []);
+        if (verses.length === 0) continue;
+        const vLang = versionLang(versionName);
+        html += `<div style="margin-bottom:16px;">
+            <div class="version-label">${escHtml(versionLabel(versionName))}</div>
+            <div class="verse-text">${renderVerseTextHtml(verses, showNums, showNewlines, bCode, vLang, versionName)}</div>
+        </div>`;
+    }
+    html += '</div>';
+    resultsWrapper.innerHTML = html;
+}
 
-        if (collapsed) {
-            // Group by book
-            const groups = [];
-            const bookOrder = [];
-            const groupMap = {};
-            results.forEach(r => {
-                if (!groupMap[r.book]) {
-                    groupMap[r.book] = [];
-                    bookOrder.push(r.book);
-                }
-                groupMap[r.book].push(r);
-            });
+// ── Copy ──
+window.copyBlockText = function(blockIdx, isCompare) {
+    const source = isCompare ? compareData : mainData;
+    if (!source || !source[blockIdx]) return;
+    const block = source[blockIdx];
+    const text = block.verses.map(v => v.text).join(' ').trim();
+    navigator.clipboard.writeText(text).then(() => showToast('Copied!'));
+};
 
-            bookOrder.forEach(code => {
-                const items = groupMap[code];
-                const bName = bookName(code);
-                html += `<div class="book-group">
-                    <div class="book-group-header" onclick="this.classList.toggle('open');this.nextElementSibling.classList.toggle('open')">
-                        <span>${escHtml(bName)}<span class="book-group-count">(${items.length})</span></span>
-                        <span class="chevron">&#9654;</span>
-                    </div>
-                    <div class="book-group-items">`;
-                items.forEach(r => {
-                    const ref = translateLabel(r.ref, r.book);
-                    html += `<div class="search-result-item" onclick="goToVerse('${escAttr(r.ref)}')">
-                        <div class="search-result-ref">${escHtml(ref)}</div>
-                        <div class="search-result-text">${highlightWords(escHtml(r.text), query)}</div>
-                    </div>`;
-                });
-                html += '</div></div>';
-            });
+window.copyBlockRef = function(blockIdx, isCompare) {
+    const source = isCompare ? compareData : mainData;
+    if (!source || !source[blockIdx]) return;
+    const block = source[blockIdx];
+    const ver = isCompare ? compareVersionSelect.value : versionSelect.value;
+    const lang = versionLang(ver);
+    const text = block.verses.map(v => v.text).join(' ').trim();
+    const label = translateLabel(block.label, block.book, lang);
+    const full = `"${text}"\n\n${label} ${versionLabel(ver)}`;
+    navigator.clipboard.writeText(full).then(() => showToast('Copied with reference!'));
+};
+
+// ── Home ──
+window.goHome = function(pushHistory = true) {
+    lastQuery = '';
+    mainData = null;
+    compareData = null;
+    currentView = 'normal';
+    textSearchCache = null;
+    allVersionsCache = null;
+    currentChapterInfo = null;
+    searchInput.value = '';
+    scopeBar.innerHTML = '';
+    resultsWrapper.innerHTML = emptyStateHtml;
+    if (pushHistory) history.pushState({}, '', '/');
+};
+
+// ── Scope chips ──
+function updateScopeChips(query) {
+    const m = query.match(/^(GT|NT|evangeliene|mosebøkene|mosebøker|historiske|poetiske|visdom|profetene|store profeter|små profeter|brev|paulusbrevene|almenne brev|book:\S+|[A-ZÆØÅa-zæøå0-9. ]+?):/i);
+    if (m) {
+        const scope = m[1];
+        scopeBar.innerHTML = `<div class="scope-chip">
+            <span>scope: ${escHtml(scope)}</span>
+            <button onclick="clearScope()" title="Remove scope">&times;</button>
+        </div>`;
+    } else {
+        scopeBar.innerHTML = '';
+    }
+}
+
+window.clearScope = function() {
+    searchInput.value = searchInput.value.replace(/^[^:]+:\s*/, '');
+    doSearch();
+};
+
+// ── Stats ──
+window.openStats = async function(query) {
+    const version = versionSelect.value;
+    try {
+        const resp = await fetch(`/api/stats?q=${encodeURIComponent(query)}&version=${encodeURIComponent(version)}`);
+        const data = await resp.json();
+        if (data.error) { showToast('Stats error: ' + data.error); return; }
+        renderStatsModal(data);
+        document.getElementById('statsModal').classList.add('open');
+    } catch { showToast('Failed to load stats.'); }
+};
+
+function renderStatsModal(data) {
+    const { stats, total, query, scope_label } = data;
+    const titleQuery = scope_label ? query : data.original_query;
+    document.getElementById('statsModalTitle').textContent = `// Stats: "${titleQuery}"`;
+
+    const withHits = stats.filter(s => s.count > 0);
+    const otStats = stats.filter(s => OT_BOOKS.has(s.code));
+    const ntStats = stats.filter(s => !OT_BOOKS.has(s.code));
+    const otHits = otStats.reduce((a, s) => a + s.count, 0);
+    const ntHits = ntStats.reduce((a, s) => a + s.count, 0);
+    const topOverall = withHits.length > 0 ? withHits.reduce((a, b) => b.count > a.count ? b : a) : null;
+    const topOT = otStats.filter(s => s.count > 0).reduce((a, b) => b && b.count > (a?.count || 0) ? b : a, null);
+    const topNT = ntStats.filter(s => s.count > 0).reduce((a, b) => b && b.count > (a?.count || 0) ? b : a, null);
+    const lang = versionLang(versionSelect.value);
+
+    function displayBookName(s) {
+        return bookName(s.code, lang);
+    }
+
+    const otIsTop = topOT && topOverall && topOT.code === topOverall.code;
+    const ntIsTop = topNT && topOverall && topNT.code === topOverall.code;
+
+    let html = `<div class="stats-summary">
+        <div class="stats-card"><div class="stats-card-label">Total hits</div><div class="stats-card-value">${total}</div></div>
+        <div class="stats-card"><div class="stats-card-label">Books hit</div><div class="stats-card-value">${withHits.length}</div></div>
+        <div class="stats-card"><div class="stats-card-label">GT hits</div><div class="stats-card-value">${otHits}</div></div>
+        <div class="stats-card"><div class="stats-card-label">NT hits</div><div class="stats-card-value">${ntHits}</div></div>`;
+
+    if (topOT) {
+        html += `<div class="stats-card" style="cursor:pointer${otIsTop ? ';border-color:var(--accent)' : ''}" onclick="navigateToBookInResults('${topOT.code}')" title="Go to results">
+            <div class="stats-card-label">${otIsTop ? '&#127942; ' : ''}Top GT</div>
+            <div class="stats-card-value" style="font-size:0.85rem;">${escHtml(displayBookName(topOT))}<br><span style="font-size:0.75rem;opacity:0.7">${topOT.count} hits</span></div>
+        </div>`;
+    }
+    if (topNT) {
+        html += `<div class="stats-card" style="cursor:pointer${ntIsTop ? ';border-color:var(--accent)' : ''}" onclick="navigateToBookInResults('${topNT.code}')" title="Go to results">
+            <div class="stats-card-label">${ntIsTop ? '&#127942; ' : ''}Top NT</div>
+            <div class="stats-card-value" style="font-size:0.85rem;">${escHtml(displayBookName(topNT))}<br><span style="font-size:0.75rem;opacity:0.7">${topNT.count} hits</span></div>
+        </div>`;
+    }
+    html += `</div>`;
+
+    if (scope_label) {
+        html += `<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px;font-family:var(--font-mono);">
+            Distribution shown for entire Bible (search was scoped to: ${escHtml(scope_label)})</div>`;
+    }
+
+    html += buildStatsChart(stats, lang);
+    document.getElementById('statsBody').innerHTML = html;
+    wireChartTooltips();
+}
+
+function buildStatsChart(stats, lang) {
+    if (stats.length === 0) return '';
+    const maxCount = Math.max(...stats.map(s => s.count), 1);
+    const barW = 10, barGap = 1, chartH = 140, labelH = 38;
+    const svgH = chartH + labelH;
+    const totalW = stats.length * (barW + barGap);
+
+    let bars = '';
+    stats.forEach((s, i) => {
+        const barH = s.count > 0 ? Math.max(2, Math.round((s.count / maxCount) * chartH)) : 0;
+        const x = i * (barW + barGap);
+        const y = chartH - barH;
+        const cls = OT_BOOKS.has(s.code) ? 'ot' : 'nt';
+        const tip = escAttr(lang === 'en' ? (s.name_en || s.name) : s.name);
+        bars += `<rect class="chart-bar ${cls}" x="${x}" y="${y}" width="${barW}" height="${barH}"
+            data-name="${tip}" data-count="${s.count}" data-code="${escAttr(s.code)}"
+            onclick="navigateToBookInResults('${escAttr(s.code)}')"/>`;
+        bars += `<text class="chart-label" transform="translate(${x + barW / 2},${chartH + 5}) rotate(45)"
+            text-anchor="start" font-size="8" fill="var(--text-muted)">${escHtml(s.code)}</text>`;
+    });
+    bars += `<line x1="0" y1="${chartH}" x2="${totalW}" y2="${chartH}" stroke="var(--border)" stroke-width="1"/>`;
+
+    return `<div class="chart-wrap">
+        <svg class="stats-chart" viewBox="0 0 ${totalW} ${svgH}" preserveAspectRatio="xMinYMin meet"
+            style="display:block;width:100%;min-height:${svgH}px">${bars}</svg>
+    </div>`;
+}
+
+function wireChartTooltips() {
+    document.querySelectorAll('.chart-bar').forEach(bar => {
+        bar.addEventListener('mousemove', e => {
+            chartTooltip.classList.add('visible');
+            chartTooltip.innerHTML = `<strong>${bar.dataset.name}</strong>${bar.dataset.count} occurrences`;
+            chartTooltip.style.left = (e.clientX + 14) + 'px';
+            chartTooltip.style.top = (e.clientY - 8) + 'px';
+        });
+        bar.addEventListener('mouseleave', () => chartTooltip.classList.remove('visible'));
+    });
+}
+
+window.navigateToBookInResults = function(bookCode) {
+    document.getElementById('statsModal').classList.remove('open');
+    const group = resultsWrapper.querySelector(`.book-group[data-book="${bookCode}"]`);
+    if (group) {
+        group.querySelector('.book-group-header').classList.add('open');
+        group.querySelector('.book-group-items').classList.add('open');
+        updateExpandCollapseBtn();
+        setTimeout(() => group.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+    }
+};
+
+document.getElementById('statsClose').addEventListener('click', () => document.getElementById('statsModal').classList.remove('open'));
+document.getElementById('statsModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('statsModal')) document.getElementById('statsModal').classList.remove('open');
+});
+
+// ── Help ──
+window.openHelp = function() { document.getElementById('helpModal').classList.add('open'); };
+document.getElementById('helpToggle').addEventListener('click', () => document.getElementById('helpModal').classList.toggle('open'));
+document.getElementById('helpClose').addEventListener('click', () => document.getElementById('helpModal').classList.remove('open'));
+document.getElementById('helpModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('helpModal')) document.getElementById('helpModal').classList.remove('open');
+});
+
+// ── Pinning ──
+function savePinned() { localStorage.setItem('pinnedVerses', JSON.stringify(pinnedVerses)); }
+
+window.togglePinBlock = function(blockIdx, isCompare) {
+    const source = isCompare ? compareData : mainData;
+    if (!source || !source[blockIdx]) return;
+    const block = source[blockIdx];
+    const ver = isCompare ? compareVersionSelect.value : versionSelect.value;
+    const key = block.label + '|' + ver;
+    const existing = pinnedVerses.findIndex(p => p.label + '|' + p.version === key);
+    if (existing >= 0) {
+        pinnedVerses.splice(existing, 1);
+        showToast('Unpinned');
+    } else {
+        pinnedVerses.push({
+            label: block.label,
+            book: block.book,
+            version: ver,
+            preview: block.verses.slice(0, 2).map(v => v.text).join(' '),
+        });
+        showToast('Pinned!');
+    }
+    savePinned();
+    renderPinnedPanel();
+    if (mainData) renderAll();
+};
+
+function renderPinnedPanel() {
+    pinnedCountBadge.textContent = pinnedVerses.length;
+    pinnedPanel.style.display = pinnedVerses.length > 0 ? '' : 'none';
+    if (pinnedVerses.length === 0) pinnedPanelExpanded = false;
+    pinnedPanel.classList.toggle('expanded', pinnedPanelExpanded);
+    document.getElementById('pinnedChevron').textContent = pinnedPanelExpanded ? '▼' : '▲';
+
+    const lang = versionLang(versionSelect.value);
+    let html = '';
+    pinnedVerses.forEach((p, i) => {
+        const label = translateLabel(p.label, p.book, lang);
+        html += `<div class="pinned-item">
+            <span class="pinned-item-ref" onclick="goToVerse('${escAttr(p.label)}')">${escHtml(label)}</span>
+            <span class="pinned-item-text">${escHtml(p.preview || '')}</span>
+            <div class="pinned-item-actions">
+                <button class="pinned-action-btn" onclick="copyPinned(${i})" title="Copy">&#128203;</button>
+                <button class="pinned-action-btn" onclick="unpinItem(${i})" title="Unpin">&times;</button>
+            </div>
+        </div>`;
+    });
+    pinnedItemsWrap.innerHTML = html;
+}
+
+pinnedPanelHeader.addEventListener('click', e => {
+    if (e.target === clearPinnedBtn) return;
+    if (pinnedVerses.length === 0) return;
+    pinnedPanelExpanded = !pinnedPanelExpanded;
+    renderPinnedPanel();
+});
+
+clearPinnedBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    pinnedVerses = [];
+    savePinned();
+    renderPinnedPanel();
+    if (mainData) renderAll();
+});
+
+window.unpinItem = function(i) {
+    pinnedVerses.splice(i, 1);
+    savePinned();
+    renderPinnedPanel();
+    if (mainData) renderAll();
+};
+
+window.copyPinned = function(i) {
+    const p = pinnedVerses[i];
+    if (!p) return;
+    const lang = versionLang(p.version);
+    const label = translateLabel(p.label, p.book, lang);
+    navigator.clipboard.writeText(`"${p.preview}"\n\n${label} ${versionLabel(p.version)}`).then(() => showToast('Copied!'));
+};
+
+// ── Autocomplete ──
+let acItems = [];
+let acSelectedIndex = -1;
+
+searchInput.addEventListener('input', handleAutocomplete);
+searchInput.addEventListener('keydown', handleAcKeydown);
+document.addEventListener('click', e => {
+    if (!e.target.closest('.search-wrap')) closeAutocomplete();
+});
+
+function getCurrentToken() {
+    const val = searchInput.value;
+    const cursor = searchInput.selectionStart || val.length;
+    const lastSemi = val.lastIndexOf(';', cursor - 1);
+    return val.slice(lastSemi + 1, cursor).trimStart();
+}
+
+function handleAutocomplete() {
+    const token = getCurrentToken().toLowerCase();
+    if (token.length < 1) { closeAutocomplete(); return; }
+
+    const suggestions = [];
+    SEARCH_GROUPS.forEach(g => {
+        if (g.label.toLowerCase().startsWith(token)) suggestions.push({ type: 'group', label: g.label, desc: g.desc });
+    });
+
+    if (suggestions.length < 8) {
+        const lang = versionLang(versionSelect.value);
+        booksData.forEach(b => {
+            const name = (lang === 'en' ? b.name_en : b.name).toLowerCase();
+            const code = b.code.toLowerCase();
+            if (name.startsWith(token) || code === token) {
+                suggestions.push({ type: 'book', label: b.name, labelEn: b.name_en, code: b.code });
+            }
+        });
+    }
+
+    if (suggestions.length === 0 && token.length >= 2) {
+        const lang = versionLang(versionSelect.value);
+        booksData.forEach(b => {
+            const name = (lang === 'en' ? b.name_en : b.name).toLowerCase();
+            if (name.includes(token)) suggestions.push({ type: 'book', label: b.name, labelEn: b.name_en, code: b.code });
+        });
+    }
+
+    acItems = suggestions.slice(0, 8);
+    acSelectedIndex = -1;
+    renderAutocomplete();
+}
+
+function renderAutocomplete() {
+    if (acItems.length === 0) { closeAutocomplete(); return; }
+    const lang = versionLang(versionSelect.value);
+    let html = '';
+    acItems.forEach((item, i) => {
+        const sel = i === acSelectedIndex ? ' selected' : '';
+        if (item.type === 'group') {
+            html += `<div class="ac-item${sel}" data-idx="${i}">
+                <span>${escHtml(item.label)}</span>
+                <span class="ac-badge">scope</span>
+                <span class="ac-desc">${escHtml(item.desc)}</span>
+            </div>`;
         } else {
-            results.forEach(r => {
-                const ref = translateLabel(r.ref, r.book);
-                html += `<div class="search-result-item" onclick="goToVerse('${escAttr(r.ref)}')">
-                    <div class="search-result-ref">${escHtml(ref)}</div>
-                    <div class="search-result-text">${highlightWords(escHtml(r.text), query)}</div>
-                </div>`;
-            });
-        }
-
-        resultsWrapper.innerHTML = html;
-    }
-
-    window.toggleCollapse = function() {
-        collapsed = !collapsed;
-        if (textSearchCache) renderTextSearch(textSearchCache.results, textSearchCache.query);
-    };
-
-    function highlightWords(htmlText, query) {
-        const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-        words.forEach(w => {
-            const regex = new RegExp(`(${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-            htmlText = htmlText.replace(regex, '<b style="color:var(--accent)">$1</b>');
-        });
-        return htmlText;
-    }
-
-    window.goToVerse = function(ref) {
-        searchInput.value = ref;
-        doSearch();
-    };
-
-    // ── Read chapter ──
-    window.readChapter = async function(bookCode, chapter, bookName) {
-        previousState = { query: lastQuery, mainData, compareData, view: currentView };
-        const query = `${bookName} ${chapter}`;
-        searchInput.value = query;
-        lastQuery = query;
-        currentView = 'normal';
-
-        const version = versionSelect.value;
-        try {
-            const resp = await fetch(`/api/search?q=${encodeURIComponent(query)}&version=${encodeURIComponent(version)}`);
-            const data = await resp.json();
-            if (data.type === 'reference' && !data.error) {
-                mainData = data.results;
-                compareData = null;
-                if (compareMode) await fetchCompareData(query);
-                renderAll();
-            }
-        } catch {}
-    };
-
-    // ── All versions ──
-    window.showAllVersions = async function(label) {
-        previousState = { query: lastQuery, mainData, compareData, view: currentView };
-        currentView = 'all_versions';
-
-        try {
-            const resp = await fetch(`/api/all_versions?q=${encodeURIComponent(label)}`);
-            const data = await resp.json();
-            if (data.error) {
-                resultsWrapper.innerHTML = errorCardHtml('Error', data.error);
-                return;
-            }
-            renderAllVersions(data.results, label);
-        } catch {
-            resultsWrapper.innerHTML = errorCardHtml('Error', 'Failed to fetch versions.');
-        }
-    };
-
-    function renderAllVersions(allResults, label) {
-        allVersionsCache = { results: allResults, label };
-        const showNums = toggleVerseNums.checked;
-        const showNewlines = toggleNewlines.checked;
-
-        // Get book code from first result to translate label
-        const firstBlocks = Object.values(allResults)[0] || [];
-        const bCode = firstBlocks[0]?.book;
-        const displayLabel = bCode ? translateLabel(label, bCode) : label;
-
-        let html = `<div class="back-bar"><button class="back-btn" onclick="goBack()">&larr; Back</button></div>`;
-        html += `<div class="all-versions-block">
-            <div class="verse-card-header" style="border-bottom:none;padding-bottom:0;margin-bottom:4px;">
-                <span class="verse-card-label" style="font-size:1.15rem;">${escHtml(displayLabel)}</span>
-            </div>`;
-
-        for (const [versionName, blocks] of Object.entries(allResults)) {
-            const verses = blocks.flatMap(b => b.verses || []);
-            if (verses.length === 0) continue;
-
-            html += `<div style="margin-bottom:18px;">
-                <div class="version-label">${escHtml(versionName)}</div>
-                <div class="verse-text">${renderVerseTextHtml(verses, showNums, showNewlines)}</div>
+            const name = lang === 'en' ? item.labelEn : item.label;
+            html += `<div class="ac-item${sel}" data-idx="${i}">
+                <span>${escHtml(name)}</span>
+                <span class="ac-badge">${escHtml(item.code)}</span>
             </div>`;
         }
+    });
+    autocompleteDropdown.innerHTML = html;
+    autocompleteDropdown.classList.add('open');
+    autocompleteDropdown.querySelectorAll('.ac-item').forEach(el => {
+        el.addEventListener('mousedown', e => { e.preventDefault(); applyAutocomplete(parseInt(el.dataset.idx)); });
+    });
+}
 
-        html += '</div>';
-        resultsWrapper.innerHTML = html;
+function handleAcKeydown(e) {
+    if (!autocompleteDropdown.classList.contains('open')) {
+        if (e.key === 'Tab') { e.preventDefault(); return; }
+        return;
+    }
+    if (e.key === 'ArrowDown') { e.preventDefault(); acSelectedIndex = Math.min(acSelectedIndex + 1, acItems.length - 1); renderAutocomplete(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); acSelectedIndex = Math.max(acSelectedIndex - 1, -1); renderAutocomplete(); }
+    else if (e.key === 'Tab') { e.preventDefault(); applyAutocomplete(acSelectedIndex >= 0 ? acSelectedIndex : 0); }
+    else if (e.key === 'Enter' && acSelectedIndex >= 0) { e.preventDefault(); applyAutocomplete(acSelectedIndex); }
+    else if (e.key === 'Escape') closeAutocomplete();
+}
+
+function applyAutocomplete(idx) {
+    if (idx < 0 || idx >= acItems.length) return;
+    const item = acItems[idx];
+    const val = searchInput.value;
+    const cursor = searchInput.selectionStart || val.length;
+    const lastSemi = val.lastIndexOf(';', cursor - 1);
+    const beforeToken = val.slice(0, lastSemi + 1);
+    const afterCursor = val.slice(cursor);
+    const lang = versionLang(versionSelect.value);
+    const insert = item.type === 'group' ? item.label + ' ' : ((lang === 'en' ? item.labelEn : item.label) + ' ');
+    const newVal = beforeToken + insert + afterCursor;
+    searchInput.value = newVal;
+    searchInput.setSelectionRange(beforeToken.length + insert.length, beforeToken.length + insert.length);
+    closeAutocomplete();
+    searchInput.focus();
+}
+
+function closeAutocomplete() {
+    autocompleteDropdown.classList.remove('open');
+    acItems = [];
+    acSelectedIndex = -1;
+}
+
+// ── Hotkeys ──
+document.addEventListener('keydown', e => {
+    const inInput = ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName);
+
+    if (e.key === 'Escape') {
+        if (document.getElementById('helpModal').classList.contains('open')) document.getElementById('helpModal').classList.remove('open');
+        else if (document.getElementById('statsModal').classList.contains('open')) document.getElementById('statsModal').classList.remove('open');
+        else if (autocompleteDropdown.classList.contains('open')) closeAutocomplete();
+        else if (inInput) searchInput.blur();
+        return;
     }
 
-    window.goHome = function() {
-        lastQuery = '';
-        mainData = null;
-        compareData = null;
-        previousState = null;
-        currentView = 'normal';
-        textSearchCache = null;
-        allVersionsCache = null;
-        searchInput.value = '';
-        resultsWrapper.innerHTML = emptyStateHtml;
-    };
+    if (inInput) return;
 
-    window.goBack = function() {
-        if (previousState) {
-            lastQuery = previousState.query;
-            mainData = previousState.mainData;
-            compareData = previousState.compareData;
-            currentView = previousState.view || 'normal';
-            searchInput.value = lastQuery;
-            previousState = null;
-            if (currentView === 'normal') renderAll();
-        }
-    };
+    if (e.key === '/' || e.key === 'f') { e.preventDefault(); searchInput.focus(); searchInput.select(); return; }
+    if (e.key === '?') { document.getElementById('helpModal').classList.toggle('open'); return; }
 
-    // ── Copy ──
-    window.copyBlock = function(blockIdx, isCompare) {
-        const source = isCompare ? compareData : mainData;
-        if (!source || !source[blockIdx]) return;
-        const block = source[blockIdx];
-        const showNums = toggleVerseNums.checked;
-        const showNewlines = toggleNewlines.checked;
+    if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && currentChapterInfo) {
+        e.preventDefault();
+        const { book, chapter, bookName: bName } = currentChapterInfo;
+        const maxCh = (booksData.find(b => b.code === book) || {}).chapters || 0;
+        if (e.key === 'ArrowLeft' && chapter > 1) goChapter(book, chapter - 1, bName);
+        else if (e.key === 'ArrowRight' && chapter < maxCh) goChapter(book, chapter + 1, bName);
+        return;
+    }
 
-        let text = '';
-        let lastChapter = null;
-        const isMultiChapter = block.verses.some(x => x.chapter !== block.verses[0]?.chapter);
+    if (e.key === '[' || e.key === ']') {
+        e.preventDefault();
+        const idx = allVersionsList.indexOf(versionSelect.value);
+        if (e.key === '[' && idx > 0) { versionSelect.value = allVersionsList[idx - 1]; versionSelect.dispatchEvent(new Event('change')); }
+        else if (e.key === ']' && idx < allVersionsList.length - 1) { versionSelect.value = allVersionsList[idx + 1]; versionSelect.dispatchEvent(new Event('change')); }
+    }
+});
 
-        block.verses.forEach((v, vi) => {
-            if (isMultiChapter && v.chapter !== lastChapter) {
-                if (vi > 0) text += '\n';
-                text += `Chapter ${v.chapter}\n`;
-                lastChapter = v.chapter;
-            } else if (lastChapter === null) {
-                lastChapter = v.chapter;
-            }
-            if (showNewlines && vi > 0 && v.chapter === lastChapter) text += '\n';
-            if (showNums) text += `${v.num} `;
-            text += v.text + ' ';
-            lastChapter = v.chapter;
+// ── Font size (5 discrete steps) ──
+const fontSizeSlider = document.getElementById('fontSizeSlider');
+const savedFontSize = localStorage.getItem('verseFontSize');
+if (savedFontSize) { fontSizeSlider.value = savedFontSize; applyFontSize(savedFontSize); }
+fontSizeSlider.addEventListener('input', () => {
+    applyFontSize(fontSizeSlider.value);
+    localStorage.setItem('verseFontSize', fontSizeSlider.value);
+});
+function applyFontSize(val) {
+    const size = FONT_SIZES[parseInt(val)] || '1.1rem';
+    document.documentElement.style.setProperty('--verse-font-size', size);
+}
+
+// ── Dark mode & accent color ──
+const darkToggle = document.getElementById('darkToggle');
+
+function applyAccent(idx) {
+    const c = COLOR_PRESETS[idx] || COLOR_PRESETS[0];
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const accent = isDark ? c.d : c.l;
+    const hover  = isDark ? c.dh : c.lh;
+    const dim    = isDark ? c.dd : c.ld;
+    const root   = document.documentElement;
+    root.style.setProperty('--accent', accent);
+    root.style.setProperty('--accent-hover', hover);
+    root.style.setProperty('--accent-dim', dim);
+    root.style.setProperty('--verse-num', accent);
+    document.querySelectorAll('.color-swatch').forEach((sw, i) => sw.classList.toggle('active', i === idx));
+}
+
+function applyTheme(dark) {
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    darkToggle.innerHTML = dark ? '&#9788;' : '&#9790;';
+    localStorage.setItem('theme', dark ? 'dark' : 'light');
+    applyAccent(currentAccentIdx);
+}
+
+// Build color swatches
+(function() {
+    const picker = document.getElementById('colorPicker');
+    COLOR_PRESETS.forEach((c, i) => {
+        const sw = document.createElement('button');
+        sw.className = 'color-swatch' + (i === currentAccentIdx ? ' active' : '');
+        sw.style.background = c.l;
+        sw.title = c.name;
+        sw.setAttribute('aria-label', c.name + ' accent');
+        sw.addEventListener('click', () => {
+            currentAccentIdx = i;
+            localStorage.setItem('accentColor', i);
+            applyAccent(i);
         });
-
-        navigator.clipboard.writeText(text.trim()).then(() => showToast('Copied to clipboard!'));
-    };
-
-    function errorCardHtml(label, message) {
-        return `<div class="verse-card error-card">
-            <div class="verse-card-header"><span class="verse-card-label">${escHtml(label)}</span></div>
-            <div class="error-message">${escHtml(message)}</div>
-        </div>`;
-    }
-
-    // ── Toast ──
-    function showToast(msg) {
-        toast.textContent = msg;
-        toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 2000);
-    }
-
-    // ── Language toggle ──
-    const langToggle = document.getElementById('langToggle');
-    function applyLang(lang) {
-        bookLang = lang;
-        langToggle.textContent = lang === 'en' ? 'EN' : 'NO';
-        localStorage.setItem('bookLang', lang);
-        refreshBookDropdown();
-        // Re-render current view with new names
-        if (currentView === 'normal' && mainData) renderAll();
-        else if (currentView === 'text_search' && textSearchCache) renderTextSearch(textSearchCache.results, textSearchCache.query);
-        else if (currentView === 'all_versions' && allVersionsCache) renderAllVersions(allVersionsCache.results, allVersionsCache.label);
-    }
-    langToggle.addEventListener('click', () => {
-        applyLang(bookLang === 'en' ? 'no' : 'en');
+        picker.appendChild(sw);
     });
-    langToggle.textContent = bookLang === 'en' ? 'EN' : 'NO';
+})();
 
-    // ── Dark mode ──
-    const darkToggle = document.getElementById('darkToggle');
-    function applyTheme(dark) {
-        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
-        darkToggle.innerHTML = dark ? '&#9788;' : '&#9790;';
-        localStorage.setItem('theme', dark ? 'dark' : 'light');
-    }
-    darkToggle.addEventListener('click', () => {
-        applyTheme(document.documentElement.getAttribute('data-theme') !== 'dark');
-    });
-    applyTheme(localStorage.getItem('theme') === 'dark');
+darkToggle.addEventListener('click', () => applyTheme(document.documentElement.getAttribute('data-theme') !== 'dark'));
+applyTheme(localStorage.getItem('theme') === 'dark');
 
-    // ── Utils ──
-    function escHtml(s) {
-        const d = document.createElement('div');
-        d.textContent = s;
-        return d.innerHTML;
-    }
-    function escAttr(s) {
-        return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    }
+// ── Name helpers ──
+function bookName(code, lang) {
+    if (!code) return '';
+    const effectiveLang = lang || versionLang(versionSelect.value);
+    if (effectiveLang === 'en' && ENG_NAMES[code]) return ENG_NAMES[code];
+    const override = BOOK_DISPLAY_OVERRIDES_NO[code];
+    if (override) return override;
+    const b = booksData.find(x => x.code === code);
+    return b ? b.name : code;
+}
+
+// Reference name (used for building queries) — uses server-side Norwegian name directly
+function bookRefName(code) {
+    if (!code) return '';
+    const b = booksData.find(x => x.code === code);
+    return b ? b.name : code;
+}
+
+function translateLabel(label, bookCode, lang) {
+    if (!bookCode) return label;
+    const effectiveLang = lang || versionLang(versionSelect.value);
+    if (effectiveLang === 'no') return label;  // Already in Norwegian, keep as-is
+    const engName = ENG_NAMES[bookCode];
+    if (!engName) return label;
+    const b = booksData.find(x => x.code === bookCode);
+    const norwName = b ? b.name : null;
+    if (norwName && label.startsWith(norwName)) return engName + label.slice(norwName.length);
+    // Fallback for edge cases (label already in English or different form)
+    return label;
+}
+
+function interlinearUrl(bookCode, chapter, verseNum) {
+    const slug = BIBLEHUB_SLUGS[bookCode];
+    if (!slug) return null;
+    return verseNum != null
+        ? `https://biblehub.com/interlinear/${slug}/${chapter}-${verseNum}.htm`
+        : `https://biblehub.com/interlinear/${slug}/${chapter}.htm`;
+}
+
+function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2000);
+}
+
+function errorCardHtml(label, message) {
+    return `<div class="verse-card error-card">
+        <div class="verse-card-header"><div class="verse-card-header-left"><span class="verse-card-label">${escHtml(label)}</span></div></div>
+        <div class="error-message">${escHtml(message)}</div>
+    </div>`;
+}
+
+function escHtml(s) {
+    if (s == null) return '';
+    const d = document.createElement('div');
+    d.textContent = String(s);
+    return d.innerHTML;
+}
+
+function escAttr(s) {
+    if (s == null) return '';
+    return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
