@@ -2,6 +2,7 @@ from flask import Blueprint, current_app, jsonify, render_template, request
 
 from .services.bible import (
     BOOK_GROUPS,
+    USFM_TO_ALIASES,
     USFM_TO_ENG,
     USFM_TO_NAME,
     get_search_stats,
@@ -43,6 +44,7 @@ def api_books():
             "name": USFM_TO_NAME.get(code, code),
             "name_en": USFM_TO_ENG.get(code, code),
             "chapters": bible_data.book_chapters.get(version, {}).get(code, 0),
+            "aliases": USFM_TO_ALIASES.get(code, []),
         })
     return jsonify({"books": books_list, "version": version})
 

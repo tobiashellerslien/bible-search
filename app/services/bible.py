@@ -207,6 +207,8 @@ for usfm, order, norw_name, aliases in BOOKS:
 
 SORTED_ALIASES = sorted(ALIAS_MAP.keys(), key=len, reverse=True)
 
+USFM_TO_ALIASES = {usfm: aliases for usfm, _order, _name, aliases in BOOKS}
+
 # ── Book groups for scoped search ──
 
 _OT = ['GEN','EXO','LEV','NUM','DEU','JOS','JDG','RUT','1SA','2SA','1KI','2KI',

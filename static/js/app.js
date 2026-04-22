@@ -49,6 +49,7 @@ const ENG_NAMES = {
 };
 
 const BOOK_DISPLAY_OVERRIDES_NO = { PSA: 'Salmene' };
+const BOOK_DISPLAY_OVERRIDES_EN_SINGULAR = { PSA: 'Psalm' };
 
 const OT_BOOKS = new Set(['GEN','EXO','LEV','NUM','DEU','JOS','JDG','RUT','1SA','2SA','1KI','2KI','1CH','2CH','EZR','NEH','EST','JOB','PSA','PRO','ECC','SNG','ISA','JER','LAM','EZK','DAN','HOS','JOL','AMO','OBA','JON','MIC','NAM','HAB','ZEP','HAG','ZEC','MAL']);
 
@@ -137,8 +138,7 @@ function refreshBookDropdown() {
     const prev = bookSelect.value;
     bookSelect.innerHTML = '<option value="">-- Book --</option>';
     booksData.forEach(b => {
-        const name = lang === 'en' ? b.name_en : b.name;
-        bookSelect.add(new Option(name, b.code));
+        bookSelect.add(new Option(bookName(b.code, lang), b.code));
     });
     bookSelect.value = prev;
     chapterSelect.innerHTML = '<option value="">-- Ch --</option>';
@@ -276,6 +276,16 @@ function onToggleChange() {
 toggleVerseNums.addEventListener('change', onToggleChange);
 toggleNewlines.addEventListener('change', onToggleChange);
 
+document.getElementById('copyHintBtn').addEventListener('click', function() {
+    this.classList.toggle('open');
+    document.addEventListener('click', function hide(e) {
+        if (e.target !== document.getElementById('copyHintBtn')) {
+            document.getElementById('copyHintBtn').classList.remove('open');
+            document.removeEventListener('click', hide);
+        }
+    });
+});
+
 // ── Render reference results ──
 function renderAll() {
     if (!mainData || mainData.length === 0) { resultsWrapper.innerHTML = emptyStateHtml; return; }
@@ -361,7 +371,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, lang, ver) {
 
         const verseNumsStr = block.verses.map(v => v.num).join(',');
         html += `<div class="verse-card-footer">
-            <button class="card-action-btn" onclick="readChapter('${escAttr(block.book)}', ${ch}, '${escAttr(bName)}', '${verseNumsStr}')">&#128214; ${escHtml(bookName(block.book, lang))} ${ch}</button>
+            <button class="card-action-btn" onclick="readChapter('${escAttr(block.book)}', ${ch}, '${escAttr(bName)}', '${verseNumsStr}')">&#128214; ${escHtml(bookNameSingular(block.book, lang))} ${ch}</button>
             <button class="card-action-btn" onclick="showAllVersions('${escAttr(block.label)}')">all versions</button>`;
         if (ilUrl) {
             html += `<a class="card-action-btn" href="${ilUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;"><img src="/static/biblehub.png" style="height:12px;opacity:0.8;" alt=""> interlinear</a>`;
@@ -891,7 +901,7 @@ function renderStatsModal(data) {
 
     if (scope_label) {
         html += `<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px;font-family:var(--font-mono);">
-            Distribution shown for entire Bible (search was scoped to: ${escHtml(scope_label)})</div>`;
+            Distribution shown for entire Bible (filtered to: ${escHtml(scope_label)})</div>`;
     }
 
     html += buildStatsChart(stats, lang);
@@ -994,12 +1004,12 @@ function handleAutocomplete() {
     const lang = versionLang(versionSelect.value);
     const exactToken = token.trim();
     const exactBook = exactToken.length > 0 && booksData.find(b => {
-        const name = (lang === 'en' ? b.name_en : b.name).toLowerCase();
-        return name === exactToken || b.code.toLowerCase() === exactToken;
+        const plural = bookName(b.code, lang).toLowerCase();
+        const singular = bookNameSingular(b.code, lang).toLowerCase();
+        return plural === exactToken || singular === exactToken || b.code.toLowerCase() === exactToken;
     });
     if (exactBook) {
-        const displayName = lang === 'en' ? exactBook.name_en : exactBook.name;
-        acItems = [{ type: 'scope_book', label: displayName + ': ', code: exactBook.code }];
+        acItems = [{ type: 'scope_book', label: bookName(exactBook.code, lang) + ': ', code: exactBook.code }];
         acSelectedIndex = -1;
         renderAutocomplete();
         return;
@@ -1014,8 +1024,9 @@ function handleAutocomplete() {
         booksData.forEach(b => {
             const name = (lang === 'en' ? b.name_en : b.name).toLowerCase();
             const code = b.code.toLowerCase();
-            if (name.startsWith(token) || code === token) {
-                suggestions.push({ type: 'book', label: b.name, labelEn: b.name_en, code: b.code });
+            const aliasMatch = b.aliases && b.aliases.some(a => a.startsWith(token));
+            if (name.startsWith(token) || code === token || aliasMatch) {
+                suggestions.push({ type: 'book', label: b.name, labelEn: bookNameSingular(b.code, 'en'), code: b.code });
             }
         });
     }
@@ -1023,7 +1034,8 @@ function handleAutocomplete() {
     if (suggestions.length === 0 && token.length >= 2) {
         booksData.forEach(b => {
             const name = (lang === 'en' ? b.name_en : b.name).toLowerCase();
-            if (name.includes(token)) suggestions.push({ type: 'book', label: b.name, labelEn: b.name_en, code: b.code });
+            const aliasIncludes = b.aliases && b.aliases.some(a => a.includes(token));
+            if (name.includes(token) || aliasIncludes) suggestions.push({ type: 'book', label: b.name, labelEn: bookNameSingular(b.code, 'en'), code: b.code });
         });
     }
 
@@ -1041,13 +1053,13 @@ function renderAutocomplete() {
         if (item.type === 'group') {
             html += `<div class="ac-item${sel}" data-idx="${i}">
                 <span>${escHtml(item.label)}</span>
-                <span class="ac-badge">scope</span>
+                <span class="ac-badge">filter</span>
                 <span class="ac-desc">${escHtml(item.desc)}</span>
             </div>`;
         } else if (item.type === 'scope_book') {
             html += `<div class="ac-item${sel}" data-idx="${i}">
                 <span>${escHtml(item.label)}</span>
-                <span class="ac-badge">scope book</span>
+                <span class="ac-badge">search in book</span>
             </div>`;
         } else {
             const name = lang === 'en' ? item.labelEn : item.label;
@@ -1073,11 +1085,12 @@ function handleAcKeydown(e) {
             if (token.length > 0) {
                 const lang = versionLang(versionSelect.value);
                 const matchedBook = booksData.find(b => {
-                    const name = (lang === 'en' ? b.name_en : b.name).toLowerCase();
-                    return name === token.toLowerCase() || b.code.toLowerCase() === token.toLowerCase();
+                    const plural = bookName(b.code, lang).toLowerCase();
+                    const singular = bookNameSingular(b.code, lang).toLowerCase();
+                    return plural === token.toLowerCase() || singular === token.toLowerCase() || b.code.toLowerCase() === token.toLowerCase();
                 });
                 if (matchedBook) {
-                    const displayName = lang === 'en' ? matchedBook.name_en : matchedBook.name;
+                    const displayName = bookName(matchedBook.code, lang);
                     const val = searchInput.value;
                     const cursor = searchInput.selectionStart || val.length;
                     const lastSemi = val.lastIndexOf(';', cursor - 1);
@@ -1234,6 +1247,14 @@ function bookName(code, lang) {
     return b ? b.name : code;
 }
 
+function bookNameSingular(code, lang) {
+    if (!code) return '';
+    const effectiveLang = lang || versionLang(versionSelect.value);
+    if (effectiveLang === 'en') return BOOK_DISPLAY_OVERRIDES_EN_SINGULAR[code] || ENG_NAMES[code] || code;
+    const b = booksData.find(x => x.code === code);
+    return b ? b.name : code;
+}
+
 function bookRefName(code) {
     if (!code) return '';
     const b = booksData.find(x => x.code === code);
@@ -1244,7 +1265,7 @@ function translateLabel(label, bookCode, lang) {
     if (!bookCode) return label;
     const effectiveLang = lang || versionLang(versionSelect.value);
     if (effectiveLang === 'no') return label;
-    const engName = ENG_NAMES[bookCode];
+    const engName = BOOK_DISPLAY_OVERRIDES_EN_SINGULAR[bookCode] || ENG_NAMES[bookCode];
     if (!engName) return label;
     const b = booksData.find(x => x.code === bookCode);
     const norwName = b ? b.name : null;

@@ -58,7 +58,7 @@
             <span class="toggle-slider"></span>
         </div>
     </label>
-    <span class="toggles-copy-hint">formatting applies to copy</span>
+    <button class="copy-hint-btn" id="copyHintBtn" aria-label="Formatting info">i</button>
 </div>
 
 <div class="results-wrapper" id="resultsWrapper">
@@ -68,7 +68,7 @@
             Reference: <code>Johannes 3:16</code>, <code>Salme 23</code>, <code>1. Mos 1:1-3</code><br>
             Multi-reference: <code>Joh 3:16;17</code>, <code>1. Mos 1:1;Josva 1:8</code><br>
             Text search: <code>kjærlighet</code>, <code>nåde OR barmhjertighet</code>, <code>"evig liv"</code><br>
-            Scoped: <code>GT: frelse</code>, <code>evangeliene: disippel</code>, <code>Johannes: lys</code><br>
+            Search in: <code>GT: frelse</code>, <code>evangeliene: disippel</code>, <code>Johannes: lys</code><br>
             Exclude: <code>tro -gjerninger</code>
         </p>
         <p class="empty-help-hint">Press <code>?</code> or <button class="help-inline-link" onclick="openHelp()">click here</button> for full search syntax &amp; hotkeys.</p>
@@ -103,7 +103,7 @@
                 <div class="help-row"><span class="help-key">nåde frelse</span><span class="help-desc">Both words (AND, implicit)</span></div>
             </div>
             <div class="help-section">
-                <h3>Scoped search</h3>
+                <h3>Search within</h3>
                 <div class="help-row"><span class="help-key">GT: ord</span><span class="help-desc">Gamle Testamentet</span></div>
                 <div class="help-row"><span class="help-key">NT: ord</span><span class="help-desc">Nye Testamentet</span></div>
                 <div class="help-row"><span class="help-key">evangeliene: ord</span><span class="help-desc">Matt, Mark, Luk, Joh</span></div>
@@ -113,7 +113,7 @@
                 <div class="help-row"><span class="help-key">poetiske: ord</span><span class="help-desc">Job, Salme, Ordsp, Fork, Høys</span></div>
                 <div class="help-row"><span class="help-key">brev: ord</span><span class="help-desc">Alle NT-brev</span></div>
                 <div class="help-row"><span class="help-key">paulusbrevene: ord</span><span class="help-desc">Romerne – Filemon</span></div>
-                <div class="help-row"><span class="help-key">Johannes: lys</span><span class="help-desc">BookName: text — scope to single book</span></div>
+                <div class="help-row"><span class="help-key">Johannes: lys</span><span class="help-desc">BookName: text — search within single book</span></div>
             </div>
             <div class="help-section">
                 <h3>Keyboard shortcuts</h3>
@@ -123,7 +123,7 @@
                 <div class="hotkey-row"><span class="hotkey-badge">← →</span><span class="help-desc">Prev / next chapter</span></div>
                 <div class="hotkey-row"><span class="hotkey-badge">[ ]</span><span class="help-desc">Previous / next Bible version</span></div>
                 <div class="hotkey-row"><span class="hotkey-badge">Tab</span><span class="help-desc">Accept first autocomplete suggestion</span></div>
-                <div class="hotkey-row"><span class="hotkey-badge">Tab Tab</span><span class="help-desc">Scope search to completed book name</span></div>
+                <div class="hotkey-row"><span class="hotkey-badge">Tab Tab</span><span class="help-desc">Search within completed book name</span></div>
                 <div class="hotkey-row"><span class="hotkey-badge">↑ ↓</span><span class="help-desc">Navigate autocomplete suggestions</span></div>
             </div>
         </div>
