@@ -306,9 +306,16 @@ class BibleData:
         else:
             end = verse_end if verse_end is not None else verse_start
             for v in range(verse_start, end + 1):
-                key = f"{book_code}.{chapter}.{v}"
-                if key in data:
-                    results.append((v, data[key]))
+                exact_key = f"{book_code}.{chapter}.{v}"
+                if exact_key in data:
+                    results.append((v, data[exact_key]))
+                else:
+                    # Combined verse key e.g. "PSA.54.2+PSA.54.3" — match by leading verse number
+                    combined_prefix = exact_key + '+'
+                    for key, text in data.items():
+                        if key.startswith(combined_prefix):
+                            results.append((v, text))
+                            break
             if not results:
                 ref = f"{chapter}:{verse_start}" + (f"-{verse_end}" if verse_end and verse_end != verse_start else "")
                 return None, f"Verses {ref} not found in {USFM_TO_NAME.get(book_code, book_code)}"
@@ -324,6 +331,7 @@ class BibleData:
         for ch in range(ch_start, ch_end + 1):
             prefix = f"{book_code}.{ch}."
             chapter_verses = []
+            seen_vs = set()
             for key, text in data.items():
                 if key.startswith(prefix):
                     vs_raw = key.split(".")[2]
@@ -331,7 +339,9 @@ class BibleData:
                     if not m:
                         continue
                     vs_num = int(m.group(1))
-                    chapter_verses.append((vs_num, text, ch))
+                    if vs_num not in seen_vs:
+                        seen_vs.add(vs_num)
+                        chapter_verses.append((vs_num, text, ch))
             chapter_verses.sort(key=lambda x: x[0])
             for vs_num, text, ch_num in chapter_verses:
                 if ch_num == ch_start and vs_num < vs_start:
