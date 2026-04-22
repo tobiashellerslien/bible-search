@@ -29,6 +29,7 @@
             <input type="text" id="searchInput"
                    placeholder="Search the Bible..."
                    autocomplete="off" autocorrect="off" spellcheck="false">
+            <button class="search-clear-btn" id="searchClearBtn" title="Clear search">&times;</button>
             <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
         </div>
         <select id="versionSelect"></select>
@@ -57,6 +58,7 @@
             <span class="toggle-slider"></span>
         </div>
     </label>
+    <span class="toggles-copy-hint">toggles apply to copy</span>
 </div>
 
 <div class="results-wrapper" id="resultsWrapper">
@@ -70,6 +72,7 @@
             Exclude: <code>tro -gjerninger</code>
         </p>
         <p class="empty-help-hint">Press <code>?</code> or <button class="help-inline-link" onclick="openHelp()">click here</button> for full search syntax &amp; hotkeys.</p>
+        <p class="empty-competition-link"><a href="http://bibel.tjelle.net" target="_blank" rel="noopener">link to the competition</a></p>
     </div>
 </div>
 
@@ -120,6 +123,7 @@
                 <div class="hotkey-row"><span class="hotkey-badge">← →</span><span class="help-desc">Prev / next chapter</span></div>
                 <div class="hotkey-row"><span class="hotkey-badge">[ ]</span><span class="help-desc">Previous / next Bible version</span></div>
                 <div class="hotkey-row"><span class="hotkey-badge">Tab</span><span class="help-desc">Accept first autocomplete suggestion</span></div>
+                <div class="hotkey-row"><span class="hotkey-badge">Tab Tab</span><span class="help-desc">Scope search to completed book name</span></div>
                 <div class="hotkey-row"><span class="hotkey-badge">↑ ↓</span><span class="help-desc">Navigate autocomplete suggestions</span></div>
             </div>
         </div>

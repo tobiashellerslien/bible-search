@@ -567,19 +567,32 @@ def _tokenize_query(text):
         elif c == '"':
             j = text.find('"', i + 1)
             if j == -1:
-                phrase, i = text[i + 1:], len(text)
+                # Unclosed quote — skip it and let the rest be plain words
+                i += 1
             else:
-                phrase, i = text[i + 1:j], j + 1
-            if phrase.strip():
-                yield ('phrase', phrase.strip())
+                phrase = text[i + 1:j]
+                i = j + 1
+                if phrase.strip():
+                    yield ('phrase', phrase.strip())
         elif c == '-':
-            j = i + 1
-            while j < len(text) and text[j] != ' ':
-                j += 1
-            word = text[i + 1:j]
-            i = j
-            if word:
-                yield ('exclude', word)
+            if i + 1 < len(text) and text[i + 1] == '"':
+                # -"phrase" → exclude exact phrase with word boundaries
+                j = text.find('"', i + 2)
+                if j == -1:
+                    i += 2  # malformed: skip -" and continue
+                else:
+                    phrase = text[i + 2:j]
+                    i = j + 1
+                    if phrase.strip():
+                        yield ('exclude_phrase', phrase.strip())
+            else:
+                j = i + 1
+                while j < len(text) and text[j] != ' ':
+                    j += 1
+                word = text[i + 1:j]
+                i = j
+                if word:
+                    yield ('exclude', word)
         else:
             j = i
             while j < len(text) and text[j] not in (' ', '"'):
@@ -588,8 +601,6 @@ def _tokenize_query(text):
             i = j
             if not word:
                 continue
-            if word.startswith('-') and len(word) > 1:
-                yield ('exclude', word[1:])
             elif word == 'OR':
                 yield ('OR',)
             else:
@@ -642,7 +653,9 @@ def parse_search_query(query):
     for tok in _tokenize_query(query):
         kind = tok[0]
         if kind == 'exclude':
-            excluded.append(tok[1].lower())
+            excluded.append(re.compile(re.escape(tok[1].lower()), re.IGNORECASE))
+        elif kind == 'exclude_phrase':
+            excluded.append(_make_word_pattern(tok[1]))
         elif kind == 'OR':
             if current_and:
                 or_groups.append(current_and)
@@ -664,7 +677,7 @@ def parse_search_query(query):
 
 def matches_parsed_query(text_lower, parsed):
     for exc in parsed['excluded']:
-        if exc in text_lower:
+        if exc.search(text_lower):
             return False
     if parsed['or_groups']:
         if not any(all(pat.search(text_lower) for pat in group) for group in parsed['or_groups']):

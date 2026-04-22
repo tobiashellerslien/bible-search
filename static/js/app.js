@@ -472,15 +472,16 @@ function renderTextSearch(results, query) {
         if (!groupMap[r.book]) { groupMap[r.book] = []; bookOrder.push(r.book); }
         groupMap[r.book].push(r);
     });
+    const autoExpand = bookOrder.length === 1;
     bookOrder.forEach(code => {
         const items = groupMap[code];
         const bName = bookName(code, lang);
         html += `<div class="book-group" data-book="${escHtml(code)}">
-            <div class="book-group-header" onclick="toggleGroup(this)">
+            <div class="book-group-header${autoExpand ? ' open' : ''}" onclick="toggleGroup(this)">
                 <span>${escHtml(bName)}<span class="book-group-count">(${items.length})</span></span>
                 <span class="chevron">&#9654;</span>
             </div>
-            <div class="book-group-items">`;
+            <div class="book-group-items${autoExpand ? ' open' : ''}">`;
         items.forEach(r => {
             const ref = translateLabel(r.ref, r.book, lang);
             html += `<div class="search-result-item" onclick="goToVerse('${escAttr(r.ref)}')">
@@ -517,8 +518,8 @@ function updateExpandCollapseBtn() {
 }
 
 function highlightWords(htmlText, query) {
-    const WBL = '(?<![a-zA-ZÀ-ɏ0-9])';
-    const WBR = '(?![a-zA-ZÀ-ɏ0-9])';
+    const WBL = '(?<![a-zA-ZÀ-ɏ0-9_])';
+    const WBR = '(?![a-zA-ZÀ-ɏ0-9_])';
     // Quoted phrases → exact word-boundary match
     for (const m of query.matchAll(/"([^"]+)"/g)) {
         const esc = m[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -527,7 +528,8 @@ function highlightWords(htmlText, query) {
         } catch {}
     }
     // Plain words → substring match (mirrors backend behavior)
-    const q2 = query.replace(/"[^"]+"/g, '');
+    // Strip -"phrase" exclusions, complete quoted pairs, then lone quotes.
+    const q2 = query.replace(/-"[^"]*"/g, '').replace(/"[^"]+"/g, '').replace(/"/g, '');
     for (const w of q2.split(/\s+/)) {
         if (!w || w.toUpperCase() === 'OR' || w.startsWith('-')) continue;
         const esc = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -655,10 +657,20 @@ function renderAllVersions(allResults, label) {
 }
 
 // ── Copy ──
+function buildCopyText(verses) {
+    const showNums = toggleVerseNums.checked;
+    const showNewlines = toggleNewlines.checked;
+    if (showNewlines) {
+        return verses.map(v => (showNums ? `${v.num} ` : '') + v.text).join('\n');
+    } else {
+        return verses.map(v => (showNums ? `${v.num} ` : '') + v.text).join(' ').trim();
+    }
+}
+
 window.copyBlockText = function(blockIdx) {
     if (!mainData || !mainData[blockIdx]) return;
     const block = mainData[blockIdx];
-    const text = block.verses.map(v => v.text).join(' ').trim();
+    const text = buildCopyText(block.verses);
     navigator.clipboard.writeText(text).then(() => showToast('Copied!'));
 };
 
@@ -667,7 +679,7 @@ window.copyBlockRef = function(blockIdx) {
     const block = mainData[blockIdx];
     const ver = versionSelect.value;
     const lang = versionLang(ver);
-    const text = block.verses.map(v => v.text).join(' ').trim();
+    const text = buildCopyText(block.verses);
     const label = translateLabel(block.label, block.book, lang);
     const full = `"${text}"\n\n${label} ${versionLabel(ver)}`;
     navigator.clipboard.writeText(full).then(() => showToast('Copied with reference!'));
@@ -688,9 +700,19 @@ window.goHome = function(pushHistory = true) {
     if (pushHistory) history.pushState({}, '', '/');
 };
 
+// ── Search clear button ──
+const searchClearBtn = document.getElementById('searchClearBtn');
+searchClearBtn.addEventListener('click', () => {
+    searchInput.value = '';
+    updateSearchHighlight();
+    closeAutocomplete();
+    searchInput.focus();
+});
+
 // ── Search input highlighting ──
 function updateSearchHighlight() {
     const raw = searchInput.value;
+    searchInput.closest('.search-wrap').classList.toggle('has-value', !!raw);
     if (!raw) {
         searchHighlightContent.innerHTML = '';
         searchHighlightContent.style.transform = '';
@@ -792,8 +814,9 @@ function renderStatsModal(data) {
 
     function displayBookName(s) { return bookName(s.code, lang); }
 
-    const otIsTop = topOT && topOverall && topOT.code === topOverall.code;
-    const ntIsTop = topNT && topOverall && topNT.code === topOverall.code;
+    const maxCount = topOverall ? topOverall.count : 0;
+    const otIsTop = topOT && topOT.count > 0 && topOT.count === maxCount;
+    const ntIsTop = topNT && topNT.count > 0 && topNT.count === maxCount;
 
     let html = `<div class="stats-summary">
         <div class="stats-card"><div class="stats-card-label">Total hits</div><div class="stats-card-value">${total}</div></div>
@@ -915,13 +938,28 @@ function handleAutocomplete() {
     const token = getCurrentToken().toLowerCase();
     if (token.length < 1) { closeAutocomplete(); return; }
 
+    // If the token exactly matches a full book name, show only the scoped suggestion.
+    // Use trimmed token so a trailing space (e.g. after Tab-completing a book) also triggers this.
+    const lang = versionLang(versionSelect.value);
+    const exactToken = token.trim();
+    const exactBook = exactToken.length > 0 && booksData.find(b => {
+        const name = (lang === 'en' ? b.name_en : b.name).toLowerCase();
+        return name === exactToken || b.code.toLowerCase() === exactToken;
+    });
+    if (exactBook) {
+        const displayName = lang === 'en' ? exactBook.name_en : exactBook.name;
+        acItems = [{ type: 'scope_book', label: displayName + ': ', code: exactBook.code }];
+        acSelectedIndex = -1;
+        renderAutocomplete();
+        return;
+    }
+
     const suggestions = [];
     SEARCH_GROUPS.forEach(g => {
         if (g.label.toLowerCase().startsWith(token)) suggestions.push({ type: 'group', label: g.label, desc: g.desc });
     });
 
     if (suggestions.length < 8) {
-        const lang = versionLang(versionSelect.value);
         booksData.forEach(b => {
             const name = (lang === 'en' ? b.name_en : b.name).toLowerCase();
             const code = b.code.toLowerCase();
@@ -932,7 +970,6 @@ function handleAutocomplete() {
     }
 
     if (suggestions.length === 0 && token.length >= 2) {
-        const lang = versionLang(versionSelect.value);
         booksData.forEach(b => {
             const name = (lang === 'en' ? b.name_en : b.name).toLowerCase();
             if (name.includes(token)) suggestions.push({ type: 'book', label: b.name, labelEn: b.name_en, code: b.code });
@@ -956,6 +993,11 @@ function renderAutocomplete() {
                 <span class="ac-badge">scope</span>
                 <span class="ac-desc">${escHtml(item.desc)}</span>
             </div>`;
+        } else if (item.type === 'scope_book') {
+            html += `<div class="ac-item${sel}" data-idx="${i}">
+                <span>${escHtml(item.label)}</span>
+                <span class="ac-badge">scope book</span>
+            </div>`;
         } else {
             const name = lang === 'en' ? item.labelEn : item.label;
             html += `<div class="ac-item${sel}" data-idx="${i}">
@@ -973,7 +1015,33 @@ function renderAutocomplete() {
 
 function handleAcKeydown(e) {
     if (!autocompleteDropdown.classList.contains('open')) {
-        if (e.key === 'Tab') { e.preventDefault(); return; }
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            // Second Tab: if current token is exactly a book name, convert to scoped
+            const token = getCurrentToken().trim();
+            if (token.length > 0) {
+                const lang = versionLang(versionSelect.value);
+                const matchedBook = booksData.find(b => {
+                    const name = (lang === 'en' ? b.name_en : b.name).toLowerCase();
+                    return name === token.toLowerCase() || b.code.toLowerCase() === token.toLowerCase();
+                });
+                if (matchedBook) {
+                    const displayName = lang === 'en' ? matchedBook.name_en : matchedBook.name;
+                    const val = searchInput.value;
+                    const cursor = searchInput.selectionStart || val.length;
+                    const lastSemi = val.lastIndexOf(';', cursor - 1);
+                    const beforeToken = val.slice(0, lastSemi + 1);
+                    const afterCursor = val.slice(cursor);
+                    const insert = displayName + ': ';
+                    const newVal = beforeToken + insert + afterCursor;
+                    searchInput.value = newVal;
+                    searchInput.setSelectionRange(beforeToken.length + insert.length, beforeToken.length + insert.length);
+                    updateSearchHighlight();
+                    searchInput.focus();
+                }
+            }
+            return;
+        }
         return;
     }
     if (e.key === 'ArrowDown') { e.preventDefault(); acSelectedIndex = Math.min(acSelectedIndex + 1, acItems.length - 1); renderAutocomplete(); }
@@ -992,13 +1060,18 @@ function applyAutocomplete(idx) {
     const beforeToken = val.slice(0, lastSemi + 1);
     const afterCursor = val.slice(cursor);
     const lang = versionLang(versionSelect.value);
-    const insert = item.type === 'group' ? item.label + ' ' : ((lang === 'en' ? item.labelEn : item.label) + ' ');
+    let insert;
+    if (item.type === 'group') insert = item.label + ' ';
+    else if (item.type === 'scope_book') insert = item.label;
+    else insert = (lang === 'en' ? item.labelEn : item.label) + ' ';
     const newVal = beforeToken + insert + afterCursor;
     searchInput.value = newVal;
     searchInput.setSelectionRange(beforeToken.length + insert.length, beforeToken.length + insert.length);
     closeAutocomplete();
     updateSearchHighlight();
     searchInput.focus();
+    // After completing a plain book name, immediately show the scoped suggestion
+    if (item.type === 'book') handleAutocomplete();
 }
 
 function closeAutocomplete() {
