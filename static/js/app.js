@@ -90,6 +90,8 @@ let allVersionsList = [];
 let currentAccentIdx = parseInt(localStorage.getItem('accentColor') || '0');
 let lastTextSearchQuery = '';
 const cardCompare = {};  // { [idx]: { version, data, visible } }
+let currentHighlightVerses = null; // { chapter: number, verses: Set<number> } | null
+let _preserveHighlight = false;
 
 // ── Elements ──
 const searchInput = document.getElementById('searchInput');
@@ -225,6 +227,8 @@ searchInput.addEventListener('keydown', e => {
 
 async function doSearch(pushHistory = true, resetAC = true) {
     if (resetAC) closeAutocomplete();
+    if (!_preserveHighlight) currentHighlightVerses = null;
+    _preserveHighlight = false;
     const query = searchInput.value.trim();
     if (!query) return;
     lastQuery = query;
@@ -303,10 +307,17 @@ function buildCardHtml(block, idx, showNums, showNewlines, lang, ver) {
     const compareVisible = !!(cs && cs.visible);
     const compareVer = cs ? cs.version : (allVersionsList.find(v => v !== ver) || ver);
 
+    const hasHighlight = currentHighlightVerses && block.verses.some(v =>
+        v.chapter === currentHighlightVerses.chapter && currentHighlightVerses.verses.has(v.num));
+    const chipHtml = hasHighlight
+        ? `<button class="copy-btn highlight-dismiss-btn" onclick="clearHighlight()" title="Fjern markering">${escHtml(buildHighlightChipLabel())} &times;</button>`
+        : '';
+
     let html = `<div class="verse-card" id="${cardId}">
         <div class="verse-card-header">
             <div class="verse-card-header-left">
                 <span class="verse-card-label">${escHtml(displayLabel)}</span>
+                ${chipHtml}
             </div>
             <div class="verse-card-header-actions">
                 <button class="copy-btn" onclick="copyBlockText(${idx})" title="Copy text only">copy txt</button>
@@ -348,8 +359,9 @@ function buildCardHtml(block, idx, showNums, showNewlines, lang, ver) {
 
         html += `</div></div>`;
 
+        const verseNumsStr = block.verses.map(v => v.num).join(',');
         html += `<div class="verse-card-footer">
-            <button class="card-action-btn" onclick="readChapter('${escAttr(block.book)}', ${ch}, '${escAttr(bName)}')">&#128214; ${escHtml(bookName(block.book, lang))} ${ch}</button>
+            <button class="card-action-btn" onclick="readChapter('${escAttr(block.book)}', ${ch}, '${escAttr(bName)}', '${verseNumsStr}')">&#128214; ${escHtml(bookName(block.book, lang))} ${ch}</button>
             <button class="card-action-btn" onclick="showAllVersions('${escAttr(block.label)}')">all versions</button>`;
         if (ilUrl) {
             html += `<a class="card-action-btn" href="${ilUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;"><img src="/static/biblehub.png" style="height:12px;opacity:0.8;" alt=""> interlinear</a>`;
@@ -404,6 +416,12 @@ async function loadCardCompareData(idx) {
     } catch {}
 }
 
+function isVerseHighlighted(v) {
+    return !!(currentHighlightVerses
+        && v.chapter === currentHighlightVerses.chapter
+        && currentHighlightVerses.verses.has(v.num));
+}
+
 function renderVerseTextHtml(verses, showNums, showNewlines, bookCode, lang, ver) {
     let html = '';
     let lastChapter = null;
@@ -422,18 +440,30 @@ function renderVerseTextHtml(verses, showNums, showNewlines, bookCode, lang, ver
         const bookCodeSafe = bookCode ? escAttr(bookCode) : '';
         const refName = bookCode ? escAttr(bookRefName(bookCode)) : '';
 
+        const highlighted = isVerseHighlighted(v);
+        const prevHighlighted = vi > 0 && isVerseHighlighted(verses[vi - 1]);
+        const nextHighlighted = vi < verses.length - 1 && isVerseHighlighted(verses[vi + 1]);
+
+        // Open wrapper before the first verse in a highlighted run
+        if (highlighted && !prevHighlighted) html += '<span class="verse-highlight-wrap">';
+
         html += `<span class="verse-line">`;
         if (showNums) {
             html += `<span class="verse-num" onclick="openSingleVerse('${bookCodeSafe}',${v.chapter},${v.num},'${refName}')" title="${bookRefName(bookCode)} ${v.chapter}:${v.num}">${v.num}</span>`;
         }
         html += escHtml(v.text);
         html += `</span> `;
+
+        // Close wrapper after the last verse in a highlighted run
+        if (highlighted && !nextHighlighted) html += '</span>';
+
         lastChapter = v.chapter;
     });
     return html;
 }
 
 window.goChapter = function(bookCode, chapter, bName) {
+    currentHighlightVerses = null;
     searchInput.value = `${bName} ${chapter}`;
     updateSearchHighlight();
     doSearch();
@@ -608,11 +638,31 @@ window.goToVerseInVersion = function(ref, version) {
 };
 
 // ── Read chapter ──
-window.readChapter = async function(bookCode, chapter, bName) {
+window.readChapter = async function(bookCode, chapter, bName, highlightNums) {
+    if (highlightNums) {
+        currentHighlightVerses = {
+            chapter,
+            verses: new Set(highlightNums.split(',').map(Number))
+        };
+    }
+    _preserveHighlight = true;
     searchInput.value = `${bName} ${chapter}`;
     updateSearchHighlight();
     doSearch();
 };
+
+window.clearHighlight = function() {
+    currentHighlightVerses = null;
+    renderAll();
+};
+
+function buildHighlightChipLabel() {
+    if (!currentHighlightVerses) return '';
+    const sorted = [...currentHighlightVerses.verses].sort((a, b) => a - b);
+    if (sorted.length === 0) return '';
+    if (sorted.length === 1) return `vers ${sorted[0]}`;
+    return `vers ${sorted[0]}–${sorted[sorted.length - 1]}`;
+}
 
 // ── All versions (reference) ──
 async function executeAllVersions(label) {
@@ -693,6 +743,7 @@ window.goHome = function(pushHistory = true) {
     textSearchCache = null;
     allVersionsCache = null;
     currentChapterInfo = null;
+    currentHighlightVerses = null;
     Object.keys(cardCompare).forEach(k => delete cardCompare[k]);
     searchInput.value = '';
     updateSearchHighlight();

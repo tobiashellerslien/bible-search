@@ -446,6 +446,27 @@
         }
         .copy-btn:hover { background: var(--accent); color: white; border-color: var(--accent); }
 
+        /* Highlight dismiss chip — sits in card header left, same style as copy-btn but accent-tinted */
+        .highlight-dismiss-btn {
+            background: var(--accent-dim) !important;
+            border-color: var(--accent) !important;
+            color: var(--accent) !important;
+        }
+        .highlight-dismiss-btn:hover {
+            background: var(--accent) !important;
+            color: white !important;
+        }
+
+        /* Continuous highlighter mark across one or more verses */
+        .verse-highlight-wrap {
+            background: var(--accent-dim);
+            border-radius: 2px;
+            padding: 1px 2px;
+            margin: 0 -2px;
+            -webkit-box-decoration-break: clone;
+            box-decoration-break: clone;
+        }
+
         /* Compare button in card header — separated from copy buttons */
         .compare-header-btn {
             margin-left: 6px;
