@@ -1,6 +1,6 @@
 # Tobias' Bible Search Tool
 
-A fast and powerful Bible search app. Look up verses by reference, search the full text with advanced operators, and compare translations side by side. Uses local Bible files stored as JSON. Inspired by [biblegateway.com](https://biblegateway.com).
+A fast and powerful Bible search app. Look up verses by reference, search the full text with advanced operators, and compare translations side by side. Uses local copies of Bibles. Inspired by [biblegateway.com](https://biblegateway.com).
 
 ## Run locally
 
@@ -35,7 +35,3 @@ Abbreviations and English names work: `joh`, `gen`, `1. mos`, `romans`.
 - **Stats** — word frequency chart across all books
 - **Dark mode** and **accent color** picker in the header
 - **Interlinear links** to BibleHub for Hebrew/Greek
-
-## Adding a Bible version
-
-Drop a folder into `bibles/` with 66 JSON files named `NN_USFM_BookName.json` (e.g. `43_JHN_Johannes.json`), each mapping `BOOK.CHAPTER.VERSE` to verse text. The server auto-discovers it on next start. See [bible-scraper](https://github.com/tobiashellerslien/bible-scraper) to scrape versions into this format.
