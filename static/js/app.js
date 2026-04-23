@@ -61,8 +61,8 @@ const OT_BOOKS = new Set(['GEN','EXO','LEV','NUM','DEU','JOS','JDG','RUT','1SA',
 // The label is inserted into the search box and sent to the backend.
 // Backend recognises both Norwegian and English keys.
 const SEARCH_GROUPS = [
-    { no: { label: 'gt:',               desc: 'Det Gamle Testamente' },    en: { label: 'ot:',                desc: 'Old Testament' } },
-    { no: { label: 'nt:',               desc: 'Det Nye Testamente' },      en: { label: 'nt:',                desc: 'New Testament' } },
+    { no: { label: 'GT:',               desc: 'Det Gamle Testamente' },    en: { label: 'OT:',                desc: 'Old Testament' } },
+    { no: { label: 'NT:',               desc: 'Det Nye Testamente' },      en: { label: 'NT:',                desc: 'New Testament' } },
     { no: { label: 'mosebøkene:',       desc: '1.–5. Mosebok' },           en: { label: 'pentateuch:',        desc: 'Genesis – Deuteronomy' } },
     { no: { label: 'historiske:',       desc: 'Josva – Ester' },           en: { label: 'historical:',        desc: 'Joshua – Esther' } },
     { no: { label: 'poetiske:',         desc: 'Job, Salme, Ordsp, Fork, Høys' }, en: { label: 'poetic:',    desc: 'Job, Psalms, Prov, Eccl, Song' } },
@@ -78,7 +78,15 @@ const SEARCH_GROUPS = [
     { no: { label: 'pastorale brev:',   desc: '1–2 Tim, Tit' },             en: { label: 'pastoral:',          desc: '1–2 Tim, Titus' } },
     { no: { label: 'johanneisk:',       desc: 'Joh, 1–3 Joh, Åp' },        en: { label: 'johannine:',         desc: 'John, 1–3 John, Rev' } },
     { no: { label: 'apokalyptiske:',    desc: 'Dan, Åp' },                  en: { label: 'apocalyptic:',       desc: 'Dan, Rev' } },
-    { no: { label: 'konger og krøniker:', desc: '1–2 Kong, 1–2 Krøn' },    en: { label: 'kings and chronicles:', desc: '1–2 Kings, 1–2 Chr' } },
+    { no: { label: 'konger og krøniker:',   desc: '1–2 Kong, 1–2 Krøn' },      en: { label: 'kings and chronicles:',  desc: '1–2 Kings, 1–2 Chr' } },
+    { no: { label: 'samuelsbøkene:',        desc: '1–2 Samuel' },               en: { label: 'books of samuel:',       desc: '1–2 Samuel' } },
+    { no: { label: 'kongebøkene:',          desc: '1–2 Kongebok' },             en: { label: 'books of kings:',        desc: '1–2 Kings' } },
+    { no: { label: 'krønikebøkene:',        desc: '1–2 Krønikebok' },           en: { label: 'books of chronicles:',   desc: '1–2 Chronicles' } },
+    { no: { label: 'korinterbrevene:',      desc: '1–2 Korinterbrev' },         en: { label: 'corinthian letters:',    desc: '1–2 Corinthians' } },
+    { no: { label: 'tessalonikerbrevene:',  desc: '1–2 Tessalonikerbrev' },     en: { label: 'thessalonian letters:',  desc: '1–2 Thessalonians' } },
+    { no: { label: 'timoteusbrevene:',      desc: '1–2 Timoteus' },             en: { label: 'letters to timothy:',    desc: '1–2 Timothy' } },
+    { no: { label: 'petersbrevene:',        desc: '1–2 Peter' },                en: { label: 'letters of peter:',      desc: '1–2 Peter' } },
+    { no: { label: 'johannesbrevene:',      desc: '1–3 Johannesbrev' },         en: { label: 'letters of john:',       desc: '1–3 John' } },
 ];
 
 const FONT_SIZES = [null, '0.85rem', '1.0rem', '1.1rem', '1.3rem', '1.5rem'];
@@ -120,6 +128,7 @@ let currentView = 'normal';
 let booksData = [];
 let allVersionsCache = null;
 let textSearchCache = null;
+let allVersionsTextCache = null;
 let currentChapterInfo = null;
 let allVersionsList = [];
 let currentAccentIdx = parseInt(localStorage.getItem('accentColor') || '0');
@@ -138,6 +147,7 @@ const versionSelect = document.getElementById('versionSelect');
 const searchBtn = document.getElementById('searchBtn');
 const toggleVerseNums = document.getElementById('toggleVerseNums');
 const toggleNewlines = document.getElementById('toggleNewlines');
+const toggleHeadings = document.getElementById('toggleHeadings');
 const resultsWrapper = document.getElementById('resultsWrapper');
 const emptyState = document.getElementById('emptyState');
 const emptyStateHtml = emptyState.outerHTML;
@@ -244,7 +254,13 @@ function refreshBookDropdown() {
 versionSelect.addEventListener('change', () => {
     updateVersionPickerDisplay();
     loadBooks();
-    if (lastQuery) doSearch(false);
+    if (currentView === 'text_search' && textSearchCache) {
+        searchInput.value = textSearchCache.query;
+        updateSearchHighlight();
+        doSearch(false);
+    } else if (currentView !== 'text_search_all' && lastQuery) {
+        doSearch(false);
+    }
 });
 
 bookSelect.addEventListener('change', () => {
@@ -366,12 +382,29 @@ function detectChapterInfo(results) {
 }
 
 function onToggleChange() {
+    const openBooks = new Set(
+        [...resultsWrapper.querySelectorAll('.book-group-header.open')]
+            .map(h => h.closest('.book-group')?.dataset.book)
+            .filter(Boolean)
+    );
     if (currentView === 'normal' && mainData) renderAll();
     else if (currentView === 'all_versions' && allVersionsCache) renderAllVersions(allVersionsCache.results, allVersionsCache.label);
     else if (currentView === 'text_search' && textSearchCache) renderTextSearch(textSearchCache.results, textSearchCache.query);
+    else if (currentView === 'text_search_all' && allVersionsTextCache) renderAllVersionsTextSearch(allVersionsTextCache.results, allVersionsTextCache.query);
+    if (openBooks.size > 0) {
+        openBooks.forEach(book => {
+            const group = resultsWrapper.querySelector(`.book-group[data-book="${book}"]`);
+            if (group) {
+                group.querySelector('.book-group-header')?.classList.add('open');
+                group.querySelector('.book-group-items')?.classList.add('open');
+            }
+        });
+        updateExpandCollapseBtn();
+    }
 }
 toggleVerseNums.addEventListener('change', onToggleChange);
 toggleNewlines.addEventListener('change', onToggleChange);
+toggleHeadings.addEventListener('change', onToggleChange);
 
 document.getElementById('copyHintBtn').addEventListener('click', function() {
     this.classList.toggle('open');
@@ -388,17 +421,18 @@ function renderAll() {
     if (!mainData || mainData.length === 0) { resultsWrapper.innerHTML = emptyStateHtml; return; }
     const showNums = toggleVerseNums.checked;
     const showNewlines = toggleNewlines.checked;
+    const showHeadings = toggleHeadings.checked;
     const mainLang = versionLang(versionSelect.value);
     let html = '';
 
     mainData.forEach((block, idx) => {
-        html += buildCardHtml(block, idx, showNums, showNewlines, mainLang, versionSelect.value);
+        html += buildCardHtml(block, idx, showNums, showNewlines, showHeadings, mainLang, versionSelect.value);
     });
 
     resultsWrapper.innerHTML = html;
 }
 
-function buildCardHtml(block, idx, showNums, showNewlines, lang, ver) {
+function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, ver) {
     if (!block) return '';
     if (block.error) {
         const lbl = block.book ? translateLabel(block.label || 'Error', block.book, lang) : (block.label || 'Error');
@@ -412,7 +446,8 @@ function buildCardHtml(block, idx, showNums, showNewlines, lang, ver) {
     const cardId = `card-${idx}`;
     const cs = cardCompare[idx];
     const compareVisible = !!(cs && cs.visible);
-    const compareVer = cs ? cs.version : (allVersionsList.find(v => v !== ver) || ver);
+    const defaultCompareVer = allVersionsList.find(v => String(v.id) !== ver);
+    const compareVer = cs ? cs.version : (defaultCompareVer ? String(defaultCompareVer.id) : ver);
 
     const hasHighlight = currentHighlightVerses && block.verses.some(v =>
         v.chapter === currentHighlightVerses.chapter && currentHighlightVerses.verses.has(v.num));
@@ -434,7 +469,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, lang, ver) {
         </div>
         <div class="verse-text">`;
 
-    html += renderVerseTextHtml(block.verses, showNums, showNewlines, block.book, lang, ver);
+    html += renderVerseTextHtml(block.verses, showNums, showNewlines, showHeadings, block.book, lang, ver, block.headings || []);
     html += '</div>';
 
     if (block.book && block.verses.length > 0) {
@@ -450,7 +485,8 @@ function buildCardHtml(block, idx, showNums, showNewlines, lang, ver) {
             <div class="card-compare-header">
                 <select class="card-compare-select" id="compare-select-${idx}" onchange="changeCardCompareVersion(${idx})">`;
         allVersionsList.forEach(v => {
-            html += `<option value="${escAttr(v)}"${v === compareVer ? ' selected' : ''}>${escHtml(versionLabel(v))}</option>`;
+            const vid = String(v.id);
+            html += `<option value="${escAttr(vid)}"${vid === compareVer ? ' selected' : ''}>${escHtml(v.name)}</option>`;
         });
         html += `</select></div>
             <div class="card-compare-body" id="compare-body-${idx}">`;
@@ -458,7 +494,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, lang, ver) {
         if (compareVisible) {
             if (cs && cs.data) {
                 const compLang = versionLang(cs.version);
-                html += `<div class="verse-text">${renderVerseTextHtml(cs.data.verses, showNums, showNewlines, cs.data.book, compLang, cs.version)}</div>`;
+                html += `<div class="verse-text">${renderVerseTextHtml(cs.data.verses, showNums, showNewlines, showHeadings, cs.data.book, compLang, cs.version, cs.data.headings || [])}</div>`;
             } else {
                 html += '<span style="color:var(--text-muted);font-size:0.85rem;">Loading...</span>';
             }
@@ -489,8 +525,8 @@ function buildCardHtml(block, idx, showNums, showNewlines, lang, ver) {
 // ── Card compare ──
 window.toggleCardCompare = async function(idx) {
     if (!cardCompare[idx]) {
-        const defaultVer = allVersionsList.find(v => v !== versionSelect.value) || allVersionsList[0];
-        cardCompare[idx] = { version: defaultVer, data: null, visible: true };
+        const defaultVer = allVersionsList.find(v => String(v.id) !== versionSelect.value) || allVersionsList[0];
+        cardCompare[idx] = { version: String(defaultVer.id), data: null, visible: true };
         renderAll();
         await loadCardCompareData(idx);
         renderAll();
@@ -519,8 +555,12 @@ async function loadCardCompareData(idx) {
         const data = await resp.json();
         if (data.type === 'reference' && !data.error && data.results && data.results[0]) {
             cardCompare[idx].data = data.results[0];
+        } else {
+            cardCompare[idx].data = { error: data.error || 'Not found', verses: [] };
         }
-    } catch {}
+    } catch {
+        cardCompare[idx].data = { error: 'Failed to load', verses: [] };
+    }
 }
 
 function isVerseHighlighted(v) {
@@ -529,7 +569,13 @@ function isVerseHighlighted(v) {
         && currentHighlightVerses.verses.has(v.num));
 }
 
-function renderVerseTextHtml(verses, showNums, showNewlines, bookCode, lang, ver) {
+function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookCode, lang, ver, headings = []) {
+    const headingMap = {};
+    headings.forEach(h => {
+        if (!headingMap[h.chapter]) headingMap[h.chapter] = {};
+        headingMap[h.chapter][h.verse] = h.text;
+    });
+
     let html = '';
     let lastChapter = null;
     const isMultiChapter = verses.some(x => x.chapter !== verses[0]?.chapter);
@@ -542,7 +588,13 @@ function renderVerseTextHtml(verses, showNums, showNewlines, bookCode, lang, ver
         } else if (lastChapter === null) {
             lastChapter = v.chapter;
         }
-        if (showNewlines && vi > 0 && v.chapter === lastChapter) html += '<br>';
+
+        const headingText = showHeadings ? (headingMap[v.chapter]?.[v.num] ?? null) : null;
+        if (headingText) {
+            html += `<div class="verse-heading">${escHtml(headingText)}</div>`;
+        } else if (showNewlines && vi > 0 && v.chapter === lastChapter) {
+            html += '<br>';
+        }
 
         const bookCodeSafe = bookCode ? escAttr(bookCode) : '';
         const refName = bookCode ? escAttr(bookRefName(bookCode)) : '';
@@ -585,6 +637,7 @@ window.openSingleVerse = function(bookCode, chapter, verse, bName) {
 // ── Text search ──
 function renderTextSearch(results, query) {
     textSearchCache = { results, query };
+    const hlQuery = stripScopePrefix(query);
     let html = '';
     if (results.length === 0) {
         html = `<div class="empty-state">
@@ -623,7 +676,7 @@ function renderTextSearch(results, query) {
             const ref = translateLabel(r.ref, r.book, lang);
             html += `<div class="search-result-item" onclick="goToVerse('${escAttr(r.ref)}')">
                 <div class="search-result-ref">${escHtml(ref)}</div>
-                <div class="search-result-text">${highlightWords(escHtml(r.text), query)}</div>
+                <div class="search-result-text">${highlightWords(escHtml(r.text), hlQuery)}</div>
             </div>`;
         });
         html += '</div></div>';
@@ -652,6 +705,24 @@ function updateExpandCollapseBtn() {
     if (!btn) return;
     const anyOpen = [...resultsWrapper.querySelectorAll('.book-group-header')].some(h => h.classList.contains('open'));
     btn.textContent = anyOpen ? 'collapse all' : 'expand all';
+}
+
+function stripScopePrefix(query) {
+    const ql = query.trimStart().toLowerCase();
+    for (const g of SEARCH_GROUPS) {
+        for (const entry of [g.no, g.en]) {
+            if (ql.startsWith(entry.label.toLowerCase())) {
+                return query.slice(entry.label.length).trim();
+            }
+        }
+    }
+    // book:BOOKNAME prefix
+    const bookM = query.match(/^book:\S+\s*/i);
+    if (bookM) return query.slice(bookM[0].length).trim();
+    // BookName: prefix (last char before colon must be a letter)
+    const scopeM = query.match(/^[^\d:][^:]*[a-zA-ZÆØÅæøå]:\s*/);
+    if (scopeM) return query.slice(scopeM[0].length).trim();
+    return query;
 }
 
 function highlightWords(htmlText, query) {
@@ -691,6 +762,7 @@ window.searchAllVersionsText = async function(query) {
         const resp = await fetch(`/api/all_text_search?q=${encodeURIComponent(query)}`);
         const data = await resp.json();
         if (data.error) { resultsWrapper.innerHTML = errorCardHtml('Error', data.error); return; }
+        allVersionsTextCache = { results: data.results, query: data.query };
         renderAllVersionsTextSearch(data.results, data.query);
     } catch {
         resultsWrapper.innerHTML = errorCardHtml('Error', 'Failed to search.');
@@ -738,7 +810,7 @@ function renderAllVersionsTextSearch(results, query) {
 }
 
 window.goToVerseInVersion = function(ref, version) {
-    if (allVersionsList.includes(version)) versionSelect.value = version;
+    if (allVersionsList.some(v => String(v.id) === version)) versionSelect.value = version;
     searchInput.value = ref;
     updateSearchHighlight();
     doSearch();
@@ -791,6 +863,7 @@ function renderAllVersions(allResults, label) {
     allVersionsCache = { results: allResults, label };
     const showNums = toggleVerseNums.checked;
     const showNewlines = toggleNewlines.checked;
+    const showHeadings = toggleHeadings.checked;
     const firstBlocks = Object.values(allResults)[0] || [];
     const bCode = firstBlocks[0]?.book;
     const mainLang = versionLang(versionSelect.value);
@@ -803,10 +876,11 @@ function renderAllVersions(allResults, label) {
     for (const [versionName, blocks] of Object.entries(allResults)) {
         const verses = blocks.flatMap(b => b.verses || []);
         if (verses.length === 0) continue;
+        const headings = blocks.flatMap(b => b.headings || []);
         const vLang = versionLang(versionName);
         html += `<div style="margin-bottom:16px;">
             <div class="version-label">${escHtml(versionLabel(versionName))}</div>
-            <div class="verse-text">${renderVerseTextHtml(verses, showNums, showNewlines, bCode, vLang, versionName)}</div>
+            <div class="verse-text">${renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bCode, vLang, versionName, headings)}</div>
         </div>`;
     }
     html += '</div>';
@@ -849,6 +923,7 @@ window.goHome = function(pushHistory = true) {
     currentView = 'normal';
     textSearchCache = null;
     allVersionsCache = null;
+    allVersionsTextCache = null;
     currentChapterInfo = null;
     currentHighlightVerses = null;
     Object.keys(cardCompare).forEach(k => delete cardCompare[k]);
@@ -1029,8 +1104,8 @@ function renderStatsModal(data) {
 function buildStatsChart(stats, lang) {
     if (stats.length === 0) return '';
     const normalized = stats.map(s => ({ ...s, nc: normalizeCount(s.count, s.code) }));
-    const maxNc = Math.max(...normalized.map(s => s.nc), 1);
-    const barW = 10, barGap = 1, chartH = 140, labelH = 38;
+    const maxNc = Math.max(...normalized.map(s => s.nc)) || 1;
+    const barW = 10, barGap = 1, chartH = 140, labelH = 22;
     const svgH = chartH + labelH;
     const totalW = stats.length * (barW + barGap);
 
@@ -1044,8 +1119,10 @@ function buildStatsChart(stats, lang) {
         bars += `<rect class="chart-bar ${cls}" x="${x}" y="${y}" width="${barW}" height="${barH}"
             data-name="${tip}" data-count="${s.count}" data-nc="${s.nc.toFixed(4)}" data-code="${escAttr(s.code)}"
             onclick="navigateToBookInResults('${escAttr(s.code)}')"/>`;
-        bars += `<text class="chart-label" transform="translate(${x + barW / 2},${chartH + 5}) rotate(45)"
-            text-anchor="start" font-size="8" fill="var(--text-muted)">${escHtml(s.code)}</text>`;
+        bars += `<text class="chart-label"
+            transform="translate(${x + barW / 2},${chartH + 2}) rotate(90)"
+            text-anchor="start" dominant-baseline="middle"
+            font-size="7.5" fill="var(--text-muted)">${escHtml(s.code)}</text>`;
     });
     bars += `<line x1="0" y1="${chartH}" x2="${totalW}" y2="${chartH}" stroke="var(--border)" stroke-width="1"/>`;
 
@@ -1149,31 +1226,30 @@ function handleAutocomplete() {
         return;
     }
 
-    const suggestions = [];
+    const bookSuggestions = [];
+    booksData.forEach(b => {
+        const name = (lang === 'en' ? b.name_en : b.name).toLowerCase();
+        const code = b.code.toLowerCase();
+        const aliasMatch = b.aliases && b.aliases.some(a => a.startsWith(token));
+        if (name.startsWith(token) || code === token || aliasMatch) {
+            bookSuggestions.push({ type: 'book', label: b.name, labelEn: bookNameSingular(b.code, 'en'), code: b.code });
+        }
+    });
+
+    if (bookSuggestions.length === 0 && token.length >= 2) {
+        booksData.forEach(b => {
+            const name = (lang === 'en' ? b.name_en : b.name).toLowerCase();
+            const aliasIncludes = b.aliases && b.aliases.some(a => a.includes(token));
+            if (name.includes(token) || aliasIncludes) bookSuggestions.push({ type: 'book', label: b.name, labelEn: bookNameSingular(b.code, 'en'), code: b.code });
+        });
+    }
+
+    const suggestions = [...bookSuggestions];
     SEARCH_GROUPS.forEach(g => {
         const entry = lang === 'en' ? g.en : g.no;
         if (entry.label.toLowerCase().startsWith(token))
             suggestions.push({ type: 'group', label: entry.label, desc: entry.desc });
     });
-
-    if (suggestions.length < 8) {
-        booksData.forEach(b => {
-            const name = (lang === 'en' ? b.name_en : b.name).toLowerCase();
-            const code = b.code.toLowerCase();
-            const aliasMatch = b.aliases && b.aliases.some(a => a.startsWith(token));
-            if (name.startsWith(token) || code === token || aliasMatch) {
-                suggestions.push({ type: 'book', label: b.name, labelEn: bookNameSingular(b.code, 'en'), code: b.code });
-            }
-        });
-    }
-
-    if (suggestions.length === 0 && token.length >= 2) {
-        booksData.forEach(b => {
-            const name = (lang === 'en' ? b.name_en : b.name).toLowerCase();
-            const aliasIncludes = b.aliases && b.aliases.some(a => a.includes(token));
-            if (name.includes(token) || aliasIncludes) suggestions.push({ type: 'book', label: b.name, labelEn: bookNameSingular(b.code, 'en'), code: b.code });
-        });
-    }
 
     acItems = suggestions.slice(0, 8);
     acSelectedIndex = -1;
@@ -1373,6 +1449,19 @@ function applyTheme(dark) {
 darkToggle.addEventListener('click', () => applyTheme(document.documentElement.getAttribute('data-theme') !== 'dark'));
 applyTheme(localStorage.getItem('theme') === 'dark');
 
+// ── UI font ──
+function applyFontUI(val) {
+    document.documentElement.setAttribute('data-font', val);
+    localStorage.setItem('fontUI', val);
+    document.querySelectorAll('.font-ui-btn').forEach(b => b.classList.toggle('active', b.dataset.val === val));
+}
+document.getElementById('fontUICtrl').addEventListener('click', e => {
+    const btn = e.target.closest('.font-ui-btn');
+    if (btn) applyFontUI(btn.dataset.val);
+});
+applyFontUI(localStorage.getItem('fontUI') || 'mono');
+
+
 // ── Name helpers ──
 function bookName(code, lang) {
     if (!code) return '';
@@ -1441,4 +1530,12 @@ function escHtml(s) {
 function escAttr(s) {
     if (s == null) return '';
     return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+function toggleDisplayOptions() {
+    const panel = document.getElementById('displayPanel');
+    const btn = document.getElementById('displayOptionsBtn');
+    const open = panel.hidden;
+    panel.hidden = !open;
+    btn.innerHTML = (open ? '&#9660;' : '&#9658;') + ' browse &amp; display';
 }

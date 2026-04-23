@@ -149,6 +149,7 @@ BOOK_GROUPS = {
     # English aliases — all resolve to the same book sets
     "ot":                 _OT,
     "old testament":      _OT,
+    "new testament":      _NT,
     "pentateuch":         ["GEN","EXO","LEV","NUM","DEU"],
     "torah":              ["GEN","EXO","LEV","NUM","DEU"],
     "law":                ["GEN","EXO","LEV","NUM","DEU"],
@@ -275,6 +276,22 @@ class BibleData:
             return None, f"Verses {ch_start}:{vs_start}-{ch_end}:{vs_end} not found"
         return list(rows), None
 
+    def get_headings(self, version_id, book_code, ch_start, ch_end, vs_start=None, vs_end=None):
+        rows = self.db.execute(
+            """SELECT chapter, verse, text FROM headings
+               WHERE translation_id=? AND book_usfm=? AND chapter BETWEEN ? AND ?
+               ORDER BY chapter, verse""",
+            [version_id, book_code, ch_start, ch_end],
+        ).fetchall()
+        result = []
+        for ch, v, t in rows:
+            if ch == ch_start and vs_start is not None and v < vs_start:
+                continue
+            if ch == ch_end and vs_end is not None and v > vs_end:
+                continue
+            result.append({"chapter": ch, "verse": v, "text": t})
+        return result
+
     def get_chapter_range(self, version_id, book_code, ch_start, ch_end):
         if version_id not in self.translations:
             return None, f"Version '{version_id}' not found"
@@ -397,41 +414,45 @@ def parse_query(query):
 
 def resolve_block(bible_data, version_id, block):
     if "error" in block:
-        return {"label": "Error", "error": block["error"], "verses": []}
+        return {"label": "Error", "error": block["error"], "verses": [], "headings": [], "footnotes": [], "xrefs": []}
     book = block["book"]
     btype = block["type"]
-    base = {"label": block["label"], "book": book}
+    base = {"label": block["label"], "book": book, "footnotes": [], "xrefs": []}
 
     if btype == "single_verse":
         verses, err = bible_data.get_verses(version_id, book, block["chapter"], block["verse"])
         if err:
-            return {**base, "error": err, "verses": []}
-        return {**base, "verses": [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses]}
+            return {**base, "error": err, "verses": [], "headings": []}
+        headings = bible_data.get_headings(version_id, book, block["chapter"], block["chapter"], block["verse"], block["verse"])
+        return {**base, "verses": [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses], "headings": headings}
     elif btype == "verse_range":
         verses, err = bible_data.get_verses(version_id, book, block["chapter"], block["vs_start"], block["vs_end"])
         if err:
-            return {**base, "error": err, "verses": []}
+            return {**base, "error": err, "verses": [], "headings": []}
         result_verses = [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses]
         if result_verses:
             a, z = result_verses[0]["num"], result_verses[-1]["num"]
             ch = block["chapter"]
             book_name = USFM_TO_NAME.get(book, book)
             base = {**base, "label": f"{book_name} {ch}:{a}" if a == z else f"{book_name} {ch}:{a}-{z}"}
-        return {**base, "verses": result_verses}
+        headings = bible_data.get_headings(version_id, book, block["chapter"], block["chapter"], block["vs_start"], block["vs_end"])
+        return {**base, "verses": result_verses, "headings": headings}
     elif btype == "whole_chapter":
         verses, err = bible_data.get_verses(version_id, book, block["chapter"])
         if err:
-            return {**base, "error": err, "verses": []}
-        return {**base, "verses": [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses]}
+            return {**base, "error": err, "verses": [], "headings": []}
+        headings = bible_data.get_headings(version_id, book, block["chapter"], block["chapter"])
+        return {**base, "verses": [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses], "headings": headings}
     elif btype == "chapter_range":
         verses, err = bible_data.get_chapter_range(version_id, book, block["ch_start"], block["ch_end"])
         if err:
-            return {**base, "error": err, "verses": []}
-        return {**base, "verses": [{"num": v, "chapter": ch, "text": t} for v, t, ch in verses]}
+            return {**base, "error": err, "verses": [], "headings": []}
+        headings = bible_data.get_headings(version_id, book, block["ch_start"], block["ch_end"])
+        return {**base, "verses": [{"num": v, "chapter": ch, "text": t} for v, t, ch in verses], "headings": headings}
     elif btype == "cross_chapter":
         verses, err = bible_data.get_verses_cross_chapter(version_id, book, block["ch_start"], block["vs_start"], block["ch_end"], block["vs_end"])
         if err:
-            return {**base, "error": err, "verses": []}
+            return {**base, "error": err, "verses": [], "headings": []}
         result_verses = [{"num": v, "chapter": ch, "text": t} for v, t, ch in verses]
         if result_verses:
             fa, fz = result_verses[0]["chapter"], result_verses[0]["num"]
@@ -443,9 +464,10 @@ def resolve_block(bible_data, version_id, block):
                 base = {**base, "label": f"{book_name} {fa}:{fz}-{lz}"}
             else:
                 base = {**base, "label": f"{book_name} {fa}:{fz}-{la}:{lz}"}
-        return {**base, "verses": result_verses}
+        headings = bible_data.get_headings(version_id, book, block["ch_start"], block["ch_end"], block["vs_start"], block["vs_end"])
+        return {**base, "verses": result_verses, "headings": headings}
 
-    return {"label": block.get("label", "?"), "error": "Unknown block type", "verses": []}
+    return {"label": block.get("label", "?"), "error": "Unknown block type", "verses": [], "headings": [], "footnotes": [], "xrefs": []}
 
 
 def is_reference_query(query):

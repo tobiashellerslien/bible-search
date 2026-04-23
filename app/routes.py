@@ -1,7 +1,6 @@
 from flask import Blueprint, current_app, jsonify, render_template, request
 
 from .services.bible import (
-    BOOK_GROUPS,
     USFM_TO_ALIASES,
     USFM_TO_ENG,
     USFM_TO_NAME,
@@ -124,12 +123,6 @@ def api_all_text_search():
         if (results := search_text(bible_data, version_id, query))
     }
     return jsonify({"results": all_results, "query": query})
-
-
-@bp.get("/api/groups")
-def api_groups():
-    groups = [{"key": k, "books": v} for k, v in BOOK_GROUPS.items()]
-    return jsonify({"groups": groups})
 
 
 @bp.get("/api/heartbeat")
