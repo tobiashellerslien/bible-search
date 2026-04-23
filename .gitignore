@@ -3,3 +3,4 @@ __pycache__/
 *.pyd
 todo.md
 *.db-*
+migrate_to_db.py
