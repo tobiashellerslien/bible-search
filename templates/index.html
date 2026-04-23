@@ -26,6 +26,16 @@
                    autocomplete="off" autocorrect="off" spellcheck="false">
             <button class="search-clear-btn" id="searchClearBtn" title="Clear search">&times;</button>
         </div>
+        <!-- Custom picker shown on desktop; native select shown on mobile -->
+        <div class="version-picker" id="versionPicker">
+            <button class="vp-trigger" id="versionPickerBtn" type="button" onclick="toggleVersionPicker()">
+                <div class="vp-trigger-text">
+                    <span class="vp-name" id="versionPickerName"></span>
+                </div>
+                <svg class="vp-chevron" viewBox="0 0 10 6" xmlns="http://www.w3.org/2000/svg" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="vp-list" id="versionPickerList"></div>
+        </div>
         <select id="versionSelect"></select>
         <button class="btn btn-primary" id="searchBtn">Search</button>
         <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>

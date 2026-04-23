@@ -20,6 +20,17 @@ def _bible_data():
     return current_app.config["BIBLE_DATA"]
 
 
+def _resolve_version_id(bible_data, raw):
+    """Parse version param (integer string) → int ID, falling back to first available."""
+    try:
+        vid = int(raw)
+        if vid in bible_data.translations:
+            return vid
+    except (TypeError, ValueError):
+        pass
+    return next(iter(bible_data.translations), None)
+
+
 @bp.get("/")
 def index():
     return render_template("index.html")
@@ -27,47 +38,46 @@ def index():
 
 @bp.get("/api/versions")
 def api_versions():
-    versions = list(_bible_data().versions.keys())
+    versions = list(_bible_data().translations.values())
     return jsonify({"versions": versions})
 
 
 @bp.get("/api/books")
 def api_books():
     bible_data = _bible_data()
-    version = request.args.get("version", "")
-    if not version or version not in bible_data.versions:
-        version = list(bible_data.versions.keys())[0] if bible_data.versions else ""
-    books_list = []
-    for code in bible_data.version_books.get(version, []):
-        books_list.append({
+    version_id = _resolve_version_id(bible_data, request.args.get("version"))
+    if version_id is None:
+        return jsonify({"books": [], "version": None})
+    books_list = [
+        {
             "code": code,
             "name": USFM_TO_NAME.get(code, code),
             "name_en": USFM_TO_ENG.get(code, code),
-            "chapters": bible_data.book_chapters.get(version, {}).get(code, 0),
+            "chapters": bible_data.book_chapters.get(version_id, {}).get(code, 0),
             "aliases": USFM_TO_ALIASES.get(code, []),
-        })
-    return jsonify({"books": books_list, "version": version})
+        }
+        for code in bible_data.version_books.get(version_id, [])
+    ]
+    return jsonify({"books": books_list, "version": version_id})
 
 
 @bp.get("/api/search")
 def api_search():
     bible_data = _bible_data()
     query = request.args.get("q", "")
-    version = request.args.get("version", "")
     if not query:
         return jsonify({"error": "No search query provided"}), 400
-    if not version or version not in bible_data.versions:
-        version = list(bible_data.versions.keys())[0] if bible_data.versions else ""
-    if not version:
+    version_id = _resolve_version_id(bible_data, request.args.get("version"))
+    if version_id is None:
         return jsonify({"error": "No Bible versions available"}), 400
 
     if is_reference_query(query):
         blocks = parse_query(query)
-        results = [resolve_block(bible_data, version, block) for block in blocks]
-        return jsonify({"type": "reference", "results": results, "version": version})
+        results = [resolve_block(bible_data, version_id, block) for block in blocks]
+        return jsonify({"type": "reference", "results": results, "version": version_id})
 
-    results = search_text(bible_data, version, query)
-    return jsonify({"type": "text_search", "results": results, "query": query, "version": version})
+    results = search_text(bible_data, version_id, query)
+    return jsonify({"type": "text_search", "results": results, "query": query, "version": version_id})
 
 
 @bp.get("/api/all_versions")
@@ -76,11 +86,11 @@ def api_all_versions():
     query = request.args.get("q", "")
     if not query:
         return jsonify({"error": "No query provided"}), 400
-    all_results = {}
     blocks = parse_query(query)
-    for version_name in bible_data.versions:
-        resolved = [resolve_block(bible_data, version_name, block) for block in blocks]
-        all_results[version_name] = resolved
+    all_results = {
+        version_id: [resolve_block(bible_data, version_id, block) for block in blocks]
+        for version_id in bible_data.translations
+    }
     return jsonify({"results": all_results, "query": query})
 
 
@@ -88,17 +98,16 @@ def api_all_versions():
 def api_stats():
     bible_data = _bible_data()
     query = request.args.get("q", "")
-    version = request.args.get("version", "")
     if not query:
         return jsonify({"error": "No query provided"}), 400
-    if not version or version not in bible_data.versions:
-        version = list(bible_data.versions.keys())[0] if bible_data.versions else ""
-    # Strip scope so stats always show whole-bible distribution
+    version_id = _resolve_version_id(bible_data, request.args.get("version"))
+    if version_id is None:
+        return jsonify({"error": "No Bible versions available"}), 400
     bare_query, scope_label = strip_scope_from_query(query)
-    stats = get_search_stats(bible_data, version, bare_query)
+    stats = get_search_stats(bible_data, version_id, bare_query)
     total = sum(s['count'] for s in stats)
     return jsonify({
-        "stats": stats, "total": total, "version": version,
+        "stats": stats, "total": total, "version": version_id,
         "query": bare_query, "original_query": query, "scope_label": scope_label,
     })
 
@@ -109,11 +118,11 @@ def api_all_text_search():
     query = request.args.get("q", "")
     if not query:
         return jsonify({"error": "No query provided"}), 400
-    all_results = {}
-    for version_name in bible_data.versions:
-        results = search_text(bible_data, version_name, query)
-        if results:
-            all_results[version_name] = results
+    all_results = {
+        version_id: results
+        for version_id in bible_data.translations
+        if (results := search_text(bible_data, version_id, query))
+    }
     return jsonify({"results": all_results, "query": query})
 
 

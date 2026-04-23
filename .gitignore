@@ -1,5 +1,5 @@
 __pycache__/
 *.pyc
 *.pyd
-bibles/
 todo.md
+*.db-*

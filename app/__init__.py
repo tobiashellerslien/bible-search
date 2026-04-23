@@ -21,9 +21,9 @@ def create_app():
     app.config.from_object(config[env])
 
     bible_data = BibleData()
-    if not bible_data.versions:
-        print("Error: No Bible versions found. Make sure bibles/ directory has version folders with JSON files.")
-        print("The server will start, but searches will not work until Bible data is added.")
+    if not bible_data.translations:
+        print("Error: No Bible versions found. Make sure bible.db exists and contains data.")
+        print("Run: python migrate_to_db.py")
 
     app.config["BIBLE_DATA"] = bible_data
     app.register_blueprint(bp)

@@ -1,10 +1,14 @@
 // ── Constants ──
-const VERSION_DISPLAY = { 'NB88': 'NB88/07' };
-function versionLabel(v) { return VERSION_DISPLAY[v] || v; }
-
-// Versions that use English book names
-const ENGLISH_VERSIONS = new Set(['ESV', 'KJV', 'NASB1995', 'NIV', 'NKJV']);
-function versionLang(v) { return ENGLISH_VERSIONS.has(v) ? 'en' : 'no'; }
+// allVersionsList is populated in init() — [{id, name, full_name, language}, ...]
+// versionSelect values are String(id) throughout the app.
+function versionLabel(v) {
+    const ver = allVersionsList.find(x => String(x.id) === String(v));
+    return ver ? ver.name : String(v);
+}
+function versionLang(v) {
+    const ver = allVersionsList.find(x => String(x.id) === String(v));
+    return ver ? ver.language : 'no';
+}
 
 const BIBLEHUB_SLUGS = {
     GEN:'genesis',EXO:'exodus',LEV:'leviticus',NUM:'numbers',DEU:'deuteronomy',
@@ -53,19 +57,28 @@ const BOOK_DISPLAY_OVERRIDES_EN_SINGULAR = { PSA: 'Psalm' };
 
 const OT_BOOKS = new Set(['GEN','EXO','LEV','NUM','DEU','JOS','JDG','RUT','1SA','2SA','1KI','2KI','1CH','2CH','EZR','NEH','EST','JOB','PSA','PRO','ECC','SNG','ISA','JER','LAM','EZK','DAN','HOS','JOL','AMO','OBA','JON','MIC','NAM','HAB','ZEP','HAG','ZEC','MAL']);
 
+// Each entry has no (Norwegian) and en (English) variants.
+// The label is inserted into the search box and sent to the backend.
+// Backend recognises both Norwegian and English keys.
 const SEARCH_GROUPS = [
-    { label: 'GT:', desc: 'Gamle Testamentet' },
-    { label: 'NT:', desc: 'Nye Testamentet' },
-    { label: 'evangeliene:', desc: 'Matt, Mark, Luk, Joh' },
-    { label: 'mosebøkene:', desc: '1–5 Mosebok' },
-    { label: 'profetene:', desc: 'Jesaja – Malaki' },
-    { label: 'historiske:', desc: 'Josva – Ester' },
-    { label: 'poetiske:', desc: 'Job, Salme, Ordsp, Fork, Høys' },
-    { label: 'brev:', desc: 'Alle NT-brev' },
-    { label: 'paulusbrevene:', desc: 'Romerne – Filemon' },
-    { label: 'almenne brev:', desc: 'Hebr – Judas' },
-    { label: 'store profeter:', desc: 'Jes, Jer, Klag, Esek, Dan' },
-    { label: 'små profeter:', desc: 'Hosea – Malaki' },
+    { no: { label: 'gt:',               desc: 'Det Gamle Testamente' },    en: { label: 'ot:',                desc: 'Old Testament' } },
+    { no: { label: 'nt:',               desc: 'Det Nye Testamente' },      en: { label: 'nt:',                desc: 'New Testament' } },
+    { no: { label: 'mosebøkene:',       desc: '1.–5. Mosebok' },           en: { label: 'pentateuch:',        desc: 'Genesis – Deuteronomy' } },
+    { no: { label: 'historiske:',       desc: 'Josva – Ester' },           en: { label: 'historical:',        desc: 'Joshua – Esther' } },
+    { no: { label: 'poetiske:',         desc: 'Job, Salme, Ordsp, Fork, Høys' }, en: { label: 'poetic:',    desc: 'Job, Psalms, Prov, Eccl, Song' } },
+    { no: { label: 'profetene:',        desc: 'Jesaja – Malaki' },          en: { label: 'prophets:',          desc: 'Isaiah – Malachi' } },
+    { no: { label: 'store profeter:',   desc: 'Jes, Jer, Klag, Esek, Dan' }, en: { label: 'major prophets:', desc: 'Isa, Jer, Lam, Ezek, Dan' } },
+    { no: { label: 'små profeter:',     desc: 'Hosea – Malaki' },           en: { label: 'minor prophets:',   desc: 'Hosea – Malachi' } },
+    { no: { label: 'evangeliene:',      desc: 'Matt, Mark, Luk, Joh' },    en: { label: 'gospels:',           desc: 'Matt, Mark, Luke, John' } },
+    { no: { label: 'synoptiske:',       desc: 'Matt, Mark, Luk' },          en: { label: 'synoptic:',          desc: 'Matt, Mark, Luke' } },
+    { no: { label: 'brev:',             desc: 'Alle NT-brev' },             en: { label: 'epistles:',          desc: 'All NT letters' } },
+    { no: { label: 'paulusbrevene:',    desc: 'Romerne – Filemon' },        en: { label: 'pauline:',           desc: 'Romans – Philemon' } },
+    { no: { label: 'almenne brev:',     desc: 'Hebr – Judas' },             en: { label: 'general epistles:',  desc: 'Hebrews – Jude' } },
+    { no: { label: 'fangenskapsbrev:',  desc: 'Ef, Fil, Kol, Filem' },      en: { label: 'prison epistles:',   desc: 'Eph, Phil, Col, Phlm' } },
+    { no: { label: 'pastorale brev:',   desc: '1–2 Tim, Tit' },             en: { label: 'pastoral:',          desc: '1–2 Tim, Titus' } },
+    { no: { label: 'johanneisk:',       desc: 'Joh, 1–3 Joh, Åp' },        en: { label: 'johannine:',         desc: 'John, 1–3 John, Rev' } },
+    { no: { label: 'apokalyptiske:',    desc: 'Dan, Åp' },                  en: { label: 'apocalyptic:',       desc: 'Dan, Rev' } },
+    { no: { label: 'konger og krøniker:', desc: '1–2 Kong, 1–2 Krøn' },    en: { label: 'kings and chronicles:', desc: '1–2 Kings, 1–2 Chr' } },
 ];
 
 const FONT_SIZES = [null, '0.85rem', '1.0rem', '1.1rem', '1.3rem', '1.5rem'];
@@ -138,29 +151,75 @@ const chartTooltip = document.getElementById('chartTooltip');
 async function init() {
     const resp = await fetch('/api/versions');
     const data = await resp.json();
-    allVersionsList = data.versions;
+    allVersionsList = data.versions; // [{id, name, full_name, language}, ...]
     data.versions.forEach(v => {
-        versionSelect.add(new Option(versionLabel(v), v));
+        versionSelect.add(new Option(v.name, String(v.id)));
     });
     const savedDefault = localStorage.getItem('defaultVersion');
-    if (savedDefault && data.versions.includes(savedDefault)) {
+    const idStrings = data.versions.map(v => String(v.id));
+    if (savedDefault && idStrings.includes(savedDefault)) {
         versionSelect.value = savedDefault;
-    } else if (data.versions.includes('NB88')) {
-        versionSelect.value = 'NB88';
+    } else {
+        const nb88 = data.versions.find(v => v.name === 'NB88/07');
+        if (nb88) versionSelect.value = String(nb88.id);
     }
     const dvSel = document.getElementById('defaultVersionSelect');
     if (dvSel) {
-        data.versions.forEach(v => dvSel.add(new Option(versionLabel(v), v)));
+        data.versions.forEach(v => dvSel.add(new Option(v.name, String(v.id))));
         dvSel.value = versionSelect.value;
         dvSel.addEventListener('change', () => {
             localStorage.setItem('defaultVersion', dvSel.value);
             showToast('Default version saved');
         });
     }
+    buildVersionPicker();
     await loadBooks();
     restoreFromURL();
 }
 init();
+
+// ── Version picker (desktop) ──────────────────────────────────────────────────
+function buildVersionPicker() {
+    const list = document.getElementById('versionPickerList');
+    if (!list) return;
+    list.innerHTML = '';
+    allVersionsList.forEach(v => {
+        const el = document.createElement('div');
+        el.className = 'vp-item';
+        el.dataset.id = String(v.id);
+        el.innerHTML = `<span class="vp-name">${escHtml(v.name)}</span><span class="vp-full">${escHtml(v.full_name)}</span>`;
+        el.addEventListener('click', () => {
+            versionSelect.value = String(v.id);
+            versionSelect.dispatchEvent(new Event('change'));
+            closeVersionPicker();
+        });
+        list.appendChild(el);
+    });
+    updateVersionPickerDisplay();
+}
+
+function updateVersionPickerDisplay() {
+    const vid = versionSelect.value;
+    const ver = allVersionsList.find(x => String(x.id) === vid);
+    const nameEl = document.getElementById('versionPickerName');
+    if (nameEl) nameEl.textContent = ver ? ver.name : '—';
+    document.querySelectorAll('#versionPickerList .vp-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.id === vid);
+    });
+}
+
+function toggleVersionPicker() {
+    document.getElementById('versionPicker').classList.toggle('open');
+}
+
+function closeVersionPicker() {
+    const p = document.getElementById('versionPicker');
+    if (p) p.classList.remove('open');
+}
+
+document.addEventListener('click', e => {
+    if (!e.target.closest('#versionPicker')) closeVersionPicker();
+});
 
 async function loadBooks() {
     const version = versionSelect.value || '';
@@ -183,6 +242,7 @@ function refreshBookDropdown() {
 }
 
 versionSelect.addEventListener('change', () => {
+    updateVersionPickerDisplay();
     loadBooks();
     if (lastQuery) doSearch(false);
 });
@@ -231,7 +291,7 @@ function restoreFromURL() {
     const v = p.get('v') || '';
     const mode = p.get('mode') || 'normal';
     if (q) {
-        if (v && allVersionsList.includes(v)) versionSelect.value = v;
+        if (v && allVersionsList.some(x => String(x.id) === v)) versionSelect.value = v;
         searchInput.value = q;
         updateSearchHighlight();
         if (mode === 'allversions') executeAllVersions(q);
@@ -242,7 +302,7 @@ function restoreFromURL() {
 window.addEventListener('popstate', e => {
     if (e.state) {
         const { q, version, mode } = e.state;
-        if (version && allVersionsList.includes(version)) versionSelect.value = version;
+        if (version && allVersionsList.some(x => String(x.id) === version)) versionSelect.value = version;
         if (q) {
             searchInput.value = q;
             updateSearchHighlight();
@@ -1091,7 +1151,9 @@ function handleAutocomplete() {
 
     const suggestions = [];
     SEARCH_GROUPS.forEach(g => {
-        if (g.label.toLowerCase().startsWith(token)) suggestions.push({ type: 'group', label: g.label, desc: g.desc });
+        const entry = lang === 'en' ? g.en : g.no;
+        if (entry.label.toLowerCase().startsWith(token))
+            suggestions.push({ type: 'group', label: entry.label, desc: entry.desc });
     });
 
     if (suggestions.length < 8) {
@@ -1247,9 +1309,9 @@ document.addEventListener('keydown', e => {
 
     if (e.key === '[' || e.key === ']') {
         e.preventDefault();
-        const idx = allVersionsList.indexOf(versionSelect.value);
-        if (e.key === '[' && idx > 0) { versionSelect.value = allVersionsList[idx - 1]; versionSelect.dispatchEvent(new Event('change')); }
-        else if (e.key === ']' && idx < allVersionsList.length - 1) { versionSelect.value = allVersionsList[idx + 1]; versionSelect.dispatchEvent(new Event('change')); }
+        const idx = allVersionsList.findIndex(v => String(v.id) === versionSelect.value);
+        if (e.key === '[' && idx > 0) { versionSelect.value = String(allVersionsList[idx - 1].id); versionSelect.dispatchEvent(new Event('change')); }
+        else if (e.key === ']' && idx < allVersionsList.length - 1) { versionSelect.value = String(allVersionsList[idx + 1].id); versionSelect.dispatchEvent(new Event('change')); }
     }
 });
 
