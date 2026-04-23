@@ -70,6 +70,27 @@ const SEARCH_GROUPS = [
 
 const FONT_SIZES = [null, '0.85rem', '1.0rem', '1.1rem', '1.3rem', '1.5rem'];
 
+const BOOK_CHAPTER_COUNTS = {
+    'GEN':50,'EXO':40,'LEV':27,'NUM':36,'DEU':34,'JOS':24,'JDG':21,'RUT':4,
+    '1SA':31,'2SA':24,'1KI':22,'2KI':25,'1CH':29,'2CH':36,'EZR':10,'NEH':13,
+    'EST':10,'JOB':42,'PSA':150,'PRO':31,'ECC':12,'SNG':8,'ISA':66,'JER':52,
+    'LAM':5,'EZK':48,'DAN':12,'HOS':14,'JOL':3,'AMO':9,'OBA':1,'JON':4,
+    'MIC':7,'NAM':3,'HAB':3,'ZEP':3,'HAG':2,'ZEC':14,'MAL':4,'MAT':28,
+    'MRK':16,'LUK':24,'JHN':21,'ACT':28,'ROM':16,'1CO':16,'2CO':13,'GAL':6,
+    'EPH':6,'PHP':4,'COL':4,'1TH':5,'2TH':3,'1TI':6,'2TI':4,'TIT':3,'PHM':1,
+    'HEB':13,'JAS':5,'1PE':5,'2PE':3,'1JN':5,'2JN':1,'3JN':1,'JUD':1,'REV':22
+};
+const BOOK_VERSE_COUNTS = {
+    'GEN':1533,'EXO':1213,'LEV':859,'NUM':1288,'DEU':959,'JOS':658,'JDG':618,'RUT':85,
+    '1SA':811,'2SA':695,'1KI':817,'2KI':719,'1CH':942,'2CH':822,'EZR':280,'NEH':406,
+    'EST':167,'JOB':1070,'PSA':2527,'PRO':915,'ECC':222,'SNG':117,'ISA':1291,'JER':1364,
+    'LAM':154,'EZK':1273,'DAN':356,'HOS':197,'JOL':73,'AMO':146,'OBA':21,'JON':48,
+    'MIC':105,'NAM':47,'HAB':56,'ZEP':53,'HAG':38,'ZEC':211,'MAL':55,'MAT':1071,
+    'MRK':678,'LUK':1151,'JHN':879,'ACT':1006,'ROM':433,'1CO':437,'2CO':256,'GAL':149,
+    'EPH':155,'PHP':104,'COL':95,'1TH':89,'2TH':47,'1TI':113,'2TI':83,'TIT':46,'PHM':25,
+    'HEB':303,'JAS':108,'1PE':105,'2PE':61,'1JN':105,'2JN':13,'3JN':15,'JUD':25,'REV':405
+};
+
 const COLOR_PRESETS = [
     { name: 'Blue',   l: '#2870e8', lh: '#1d5cc8', ld: 'rgba(40,112,232,0.12)',   d: '#5aafff', dh: '#4a9eee', dd: 'rgba(90,175,255,0.12)' },
     { name: 'Green',  l: '#16a34a', lh: '#15803d', ld: 'rgba(22,163,74,0.12)',    d: '#4ade80', dh: '#22c55e', dd: 'rgba(74,222,128,0.12)' },
@@ -93,6 +114,8 @@ let lastTextSearchQuery = '';
 const cardCompare = {};  // { [idx]: { version, data, visible } }
 let currentHighlightVerses = null; // { chapter: number, verses: Set<number> } | null
 let _preserveHighlight = false;
+let lastStatsData = null;
+let statsNormMode = 'total';
 
 // ── Elements ──
 const searchInput = document.getElementById('searchInput');
@@ -119,7 +142,21 @@ async function init() {
     data.versions.forEach(v => {
         versionSelect.add(new Option(versionLabel(v), v));
     });
-    if (data.versions.includes('NB88')) versionSelect.value = 'NB88';
+    const savedDefault = localStorage.getItem('defaultVersion');
+    if (savedDefault && data.versions.includes(savedDefault)) {
+        versionSelect.value = savedDefault;
+    } else if (data.versions.includes('NB88')) {
+        versionSelect.value = 'NB88';
+    }
+    const dvSel = document.getElementById('defaultVersionSelect');
+    if (dvSel) {
+        data.versions.forEach(v => dvSel.add(new Option(versionLabel(v), v)));
+        dvSel.value = versionSelect.value;
+        dvSel.addEventListener('change', () => {
+            localStorage.setItem('defaultVersion', dvSel.value);
+            showToast('Default version saved');
+        });
+    }
     await loadBooks();
     restoreFromURL();
 }
@@ -853,12 +890,20 @@ window.openStats = async function(query) {
         const resp = await fetch(`/api/stats?q=${encodeURIComponent(query)}&version=${encodeURIComponent(version)}`);
         const data = await resp.json();
         if (data.error) { showToast('Stats error: ' + data.error); return; }
+        document.getElementById('statsModeSelect').value = statsNormMode;
         renderStatsModal(data);
         document.getElementById('statsModal').classList.add('open');
     } catch { showToast('Failed to load stats.'); }
 };
 
+function normalizeCount(count, code) {
+    if (statsNormMode === 'per_chapter') return count / (BOOK_CHAPTER_COUNTS[code] || 1);
+    if (statsNormMode === 'per_verse') return count / (BOOK_VERSE_COUNTS[code] || 1);
+    return count;
+}
+
 function renderStatsModal(data) {
+    lastStatsData = data;
     const { stats, total, query, scope_label } = data;
     const titleQuery = scope_label ? query : data.original_query;
     document.getElementById('statsModalTitle').textContent = `// Stats: "${titleQuery}"`;
@@ -868,16 +913,28 @@ function renderStatsModal(data) {
     const ntStats = stats.filter(s => !OT_BOOKS.has(s.code));
     const otHits = otStats.reduce((a, s) => a + s.count, 0);
     const ntHits = ntStats.reduce((a, s) => a + s.count, 0);
-    const topOverall = withHits.length > 0 ? withHits.reduce((a, b) => b.count > a.count ? b : a) : null;
-    const topOT = otStats.filter(s => s.count > 0).reduce((a, b) => b && b.count > (a?.count || 0) ? b : a, null);
-    const topNT = ntStats.filter(s => s.count > 0).reduce((a, b) => b && b.count > (a?.count || 0) ? b : a, null);
+
+    const topOverall = withHits.length > 0
+        ? withHits.reduce((a, b) => normalizeCount(b.count, b.code) > normalizeCount(a.count, a.code) ? b : a)
+        : null;
+    const topOT = otStats.filter(s => s.count > 0).reduce(
+        (a, b) => b && normalizeCount(b.count, b.code) > (a ? normalizeCount(a.count, a.code) : 0) ? b : a, null);
+    const topNT = ntStats.filter(s => s.count > 0).reduce(
+        (a, b) => b && normalizeCount(b.count, b.code) > (a ? normalizeCount(a.count, a.code) : 0) ? b : a, null);
     const lang = versionLang(versionSelect.value);
 
     function displayBookName(s) { return bookName(s.code, lang); }
 
-    const maxCount = topOverall ? topOverall.count : 0;
-    const otIsTop = topOT && topOT.count > 0 && topOT.count === maxCount;
-    const ntIsTop = topNT && topNT.count > 0 && topNT.count === maxCount;
+    const maxNorm = topOverall ? normalizeCount(topOverall.count, topOverall.code) : 0;
+    const otIsTop = topOT && normalizeCount(topOT.count, topOT.code) === maxNorm && maxNorm > 0;
+    const ntIsTop = topNT && normalizeCount(topNT.count, topNT.code) === maxNorm && maxNorm > 0;
+
+    function normLabel(s) {
+        const nc = normalizeCount(s.count, s.code);
+        if (statsNormMode === 'per_chapter') return `${nc.toFixed(1)} / ch`;
+        if (statsNormMode === 'per_verse') return `${nc.toFixed(3)} / vs`;
+        return `${s.count} hits`;
+    }
 
     let html = `<div class="stats-summary">
         <div class="stats-card"><div class="stats-card-label">Total hits</div><div class="stats-card-value">${total}</div></div>
@@ -888,13 +945,13 @@ function renderStatsModal(data) {
     if (topOT) {
         html += `<div class="stats-card" style="cursor:pointer${otIsTop ? ';border-color:var(--accent)' : ''}" onclick="navigateToBookInResults('${topOT.code}')" title="Go to results">
             <div class="stats-card-label">${otIsTop ? '&#127942; ' : ''}Top GT</div>
-            <div class="stats-card-value" style="font-size:0.85rem;">${escHtml(displayBookName(topOT))}<br><span style="font-size:0.75rem;opacity:0.7">${topOT.count} hits</span></div>
+            <div class="stats-card-value" style="font-size:0.85rem;">${escHtml(displayBookName(topOT))}<br><span style="font-size:0.75rem;opacity:0.7">${normLabel(topOT)}</span></div>
         </div>`;
     }
     if (topNT) {
         html += `<div class="stats-card" style="cursor:pointer${ntIsTop ? ';border-color:var(--accent)' : ''}" onclick="navigateToBookInResults('${topNT.code}')" title="Go to results">
             <div class="stats-card-label">${ntIsTop ? '&#127942; ' : ''}Top NT</div>
-            <div class="stats-card-value" style="font-size:0.85rem;">${escHtml(displayBookName(topNT))}<br><span style="font-size:0.75rem;opacity:0.7">${topNT.count} hits</span></div>
+            <div class="stats-card-value" style="font-size:0.85rem;">${escHtml(displayBookName(topNT))}<br><span style="font-size:0.75rem;opacity:0.7">${normLabel(topNT)}</span></div>
         </div>`;
     }
     html += `</div>`;
@@ -911,20 +968,21 @@ function renderStatsModal(data) {
 
 function buildStatsChart(stats, lang) {
     if (stats.length === 0) return '';
-    const maxCount = Math.max(...stats.map(s => s.count), 1);
+    const normalized = stats.map(s => ({ ...s, nc: normalizeCount(s.count, s.code) }));
+    const maxNc = Math.max(...normalized.map(s => s.nc), 1);
     const barW = 10, barGap = 1, chartH = 140, labelH = 38;
     const svgH = chartH + labelH;
     const totalW = stats.length * (barW + barGap);
 
     let bars = '';
-    stats.forEach((s, i) => {
-        const barH = s.count > 0 ? Math.max(2, Math.round((s.count / maxCount) * chartH)) : 0;
+    normalized.forEach((s, i) => {
+        const barH = s.nc > 0 ? Math.max(2, Math.round((s.nc / maxNc) * chartH)) : 0;
         const x = i * (barW + barGap);
         const y = chartH - barH;
         const cls = OT_BOOKS.has(s.code) ? 'ot' : 'nt';
         const tip = escAttr(lang === 'en' ? (s.name_en || s.name) : s.name);
         bars += `<rect class="chart-bar ${cls}" x="${x}" y="${y}" width="${barW}" height="${barH}"
-            data-name="${tip}" data-count="${s.count}" data-code="${escAttr(s.code)}"
+            data-name="${tip}" data-count="${s.count}" data-nc="${s.nc.toFixed(4)}" data-code="${escAttr(s.code)}"
             onclick="navigateToBookInResults('${escAttr(s.code)}')"/>`;
         bars += `<text class="chart-label" transform="translate(${x + barW / 2},${chartH + 5}) rotate(45)"
             text-anchor="start" font-size="8" fill="var(--text-muted)">${escHtml(s.code)}</text>`;
@@ -941,7 +999,11 @@ function wireChartTooltips() {
     document.querySelectorAll('.chart-bar').forEach(bar => {
         bar.addEventListener('mousemove', e => {
             chartTooltip.classList.add('visible');
-            chartTooltip.innerHTML = `<strong>${bar.dataset.name}</strong>${bar.dataset.count} occurrences`;
+            const nc = parseFloat(bar.dataset.nc);
+            let tip = `<strong>${bar.dataset.name}</strong>${bar.dataset.count} hits`;
+            if (statsNormMode === 'per_chapter') tip += ` (${nc.toFixed(2)}/ch)`;
+            else if (statsNormMode === 'per_verse') tip += ` (${nc.toFixed(4)}/vs)`;
+            chartTooltip.innerHTML = tip;
             chartTooltip.style.left = (e.clientX + 14) + 'px';
             chartTooltip.style.top = (e.clientY - 8) + 'px';
         });
@@ -964,6 +1026,10 @@ document.getElementById('statsClose').addEventListener('click', () => document.g
 document.getElementById('statsModal').addEventListener('click', e => {
     if (e.target === document.getElementById('statsModal')) document.getElementById('statsModal').classList.remove('open');
 });
+document.getElementById('statsModeSelect').addEventListener('change', function() {
+    statsNormMode = this.value;
+    if (lastStatsData) renderStatsModal(lastStatsData);
+});
 
 // ── Help ──
 window.openHelp = function() { document.getElementById('helpModal').classList.add('open'); };
@@ -971,6 +1037,14 @@ document.getElementById('helpToggle').addEventListener('click', () => document.g
 document.getElementById('helpClose').addEventListener('click', () => document.getElementById('helpModal').classList.remove('open'));
 document.getElementById('helpModal').addEventListener('click', e => {
     if (e.target === document.getElementById('helpModal')) document.getElementById('helpModal').classList.remove('open');
+});
+
+// ── Settings ──
+window.openSettings = function() { document.getElementById('settingsModal').classList.add('open'); };
+document.getElementById('settingsToggle').addEventListener('click', () => document.getElementById('settingsModal').classList.toggle('open'));
+document.getElementById('settingsClose').addEventListener('click', () => document.getElementById('settingsModal').classList.remove('open'));
+document.getElementById('settingsModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('settingsModal')) document.getElementById('settingsModal').classList.remove('open');
 });
 
 // ── Autocomplete ──
@@ -1151,6 +1225,7 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
         if (document.getElementById('helpModal').classList.contains('open')) document.getElementById('helpModal').classList.remove('open');
         else if (document.getElementById('statsModal').classList.contains('open')) document.getElementById('statsModal').classList.remove('open');
+        else if (document.getElementById('settingsModal').classList.contains('open')) document.getElementById('settingsModal').classList.remove('open');
         else if (autocompleteDropdown.classList.contains('open')) closeAutocomplete();
         else if (inInput) searchInput.blur();
         return;

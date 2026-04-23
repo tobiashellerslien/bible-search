@@ -12,12 +12,7 @@
 <div class="header">
     <h1 onclick="goHome()">Tobias' Bible Search Tool</h1>
     <div class="header-right">
-        <div class="color-picker" id="colorPicker" title="Accent color"></div>
-        <div class="font-size-ctrl" title="Verse font size">
-            <span>Aa</span>
-            <input type="range" id="fontSizeSlider" min="1" max="5" value="3" step="1">
-        </div>
-        <button class="header-btn" id="darkToggle" title="Toggle dark mode">&#9790;</button>
+        <button class="header-btn" id="settingsToggle" title="Settings">&#9881;</button>
         <button class="header-btn" id="helpToggle" title="Help — press ? anytime">?</button>
     </div>
 </div>
@@ -30,10 +25,10 @@
                    placeholder="Search the Bible..."
                    autocomplete="off" autocorrect="off" spellcheck="false">
             <button class="search-clear-btn" id="searchClearBtn" title="Clear search">&times;</button>
-            <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
         </div>
         <select id="versionSelect"></select>
         <button class="btn btn-primary" id="searchBtn">Search</button>
+        <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
     </div>
 </div>
 
@@ -72,6 +67,7 @@
             Exclude: <code>tro -gjerninger</code>
         </p>
         <p class="empty-help-hint">Press <code>?</code> or <button class="help-inline-link" onclick="openHelp()">click here</button> for full search syntax &amp; hotkeys.</p>
+        <p class="empty-settings-hint">&#9881; <button class="help-inline-link" onclick="openSettings()">Settings</button> — theme, accent color, font size, default version</p>
         <p class="empty-competition-link"><a href="http://bibel.tjelle.net" target="_blank" rel="noopener">link to the competition</a></p>
     </div>
 </div>
@@ -135,6 +131,11 @@
     <div class="modal-panel" style="max-width:1100px;">
         <div class="modal-header">
             <span id="statsModalTitle">// Stats</span>
+            <select id="statsModeSelect" class="stats-mode-select">
+                <option value="total">Total hits</option>
+                <option value="per_chapter">Per chapter</option>
+                <option value="per_verse">Per verse</option>
+            </select>
             <button class="modal-close" id="statsClose">&times;</button>
         </div>
         <div class="modal-body" id="statsBody"></div>
@@ -143,6 +144,47 @@
 
 <!-- Chart tooltip -->
 <div class="chart-tooltip" id="chartTooltip"></div>
+
+<!-- Settings modal -->
+<div class="modal-overlay" id="settingsModal">
+    <div class="modal-panel">
+        <div class="modal-header">
+            <span>// Settings</span>
+            <button class="modal-close" id="settingsClose">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="settings-section">
+                <h3>Appearance</h3>
+                <div class="settings-row">
+                    <span class="settings-label">Dark mode</span>
+                    <button class="header-btn" id="darkToggle" title="Toggle dark mode">&#9790;</button>
+                </div>
+                <div class="settings-row">
+                    <span class="settings-label">Accent color</span>
+                    <div class="color-picker" id="colorPicker"></div>
+                </div>
+                <div class="settings-row">
+                    <span class="settings-label">Verse font size</span>
+                    <div class="font-size-ctrl">
+                        <span>Aa</span>
+                        <input type="range" id="fontSizeSlider" min="1" max="5" value="3" step="1">
+                    </div>
+                </div>
+            </div>
+            <div class="settings-section">
+                <h3>Default</h3>
+                <div class="settings-row">
+                    <span class="settings-label">Bible version</span>
+                    <select id="defaultVersionSelect"></select>
+                </div>
+            </div>
+            <div class="settings-section settings-section-last">
+                <h3>License</h3>
+                <p class="settings-license">Bible text sourced from <a href="https://www.bible.com" target="_blank" rel="noopener">YouVersion / bible.com</a>.<br>Project is open source on <a href="https://github.com/tobiashellerslien/bible-search" target="_blank" rel="noopener">GitHub</a>.</p>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="toast" id="toast"></div>
 

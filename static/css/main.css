@@ -103,7 +103,7 @@
         }
         .header-btn:hover { border-color: var(--accent); color: var(--accent); }
         .header-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
-        #darkToggle, #helpToggle { width: 2rem; height: 2rem; padding: 0; }
+        #darkToggle, #helpToggle, #settingsToggle { width: 2rem; height: 2rem; padding: 0; }
 
         .font-size-ctrl {
             display: flex;
@@ -164,6 +164,7 @@
             background: var(--card-bg);
             transition: border-color 0.15s;
             overflow: visible;
+            position: relative;
         }
         .search-group:focus-within { border-color: var(--accent); }
 
@@ -989,11 +990,70 @@
         .chart-tooltip.visible { display: block; }
         .chart-tooltip strong { color: var(--accent); display: block; }
 
+        /* ── Stats mode select ── */
+        .stats-mode-select {
+            padding: 4px 8px;
+            font-size: 0.8rem;
+            font-family: var(--font-mono);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            background: var(--card-bg);
+            color: var(--text);
+            cursor: pointer;
+            margin-left: auto;
+        }
+        .stats-mode-select:focus { border-color: var(--accent); }
+
+        /* ── Settings modal ── */
+        .settings-section {
+            margin-bottom: 20px;
+        }
+        .settings-section-last {
+            margin-bottom: 0;
+        }
+        .settings-section h3 {
+            font-size: 0.82rem;
+            color: var(--accent);
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid var(--border);
+        }
+        .settings-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 9px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.85rem;
+            gap: 16px;
+        }
+        .settings-row:last-child { border-bottom: none; }
+        .settings-label {
+            color: var(--text);
+            font-family: var(--font-mono);
+            flex-shrink: 0;
+        }
+        .settings-license {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            line-height: 1.8;
+            font-family: var(--font-mono);
+        }
+        .settings-license a { color: var(--accent); text-decoration: underline; }
+        .settings-license a:hover { opacity: 0.8; }
+        .empty-settings-hint {
+            margin-top: 12px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
         /* ── Responsive ── */
         @media (max-width: 700px) {
             .controls { gap: 8px; }
             .header h1 { font-size: 0.9rem; }
-            .font-size-ctrl { display: none; }
             .chapter-nav { margin-left: 0; width: 100%; justify-content: flex-end; }
             .modal-panel { max-height: 92vh; }
             .stats-card-value { font-size: 1.1rem; }
