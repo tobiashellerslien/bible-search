@@ -9,6 +9,7 @@ COPY app/ ./app/
 COPY templates/ ./templates/
 COPY static/ ./static/
 COPY main.py ./
+COPY bible.db ./
 
 ENV HOST=0.0.0.0
 ENV PORT=8421
