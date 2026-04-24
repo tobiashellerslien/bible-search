@@ -190,6 +190,39 @@ BOOK_GROUPS = {
 
 SORTED_GROUPS = sorted(BOOK_GROUPS.keys(), key=len, reverse=True)
 
+# ── Versification remapping ───────────────────────────────────────────────────
+# Some translations (Norwegian/Hebrew-based) use MT chapter/verse numbering,
+# which differs from the English "standard" versification used by the TSK cross-
+# reference dataset.  When a verse lookup fails, these rules let us retry with
+# the correct MT coordinates.
+#
+# Format: { (book_usfm, eng_chapter): [(eng_v_min, eng_v_max, heb_chapter, heb_v_offset)] }
+# Remapped verse = eng_verse + heb_v_offset  (in heb_chapter)
+_VERSIFICATION_REMAP = {
+    # Joel: Eng 2:28-32 → Heb 3:1-5;  Eng 3:1-21 → Heb 3:6-26
+    ("JOL", 2): [(28, 32,  3, -27)],
+    ("JOL", 3): [( 1, 21,  3,   5)],
+    # Leviticus: Eng 6:1-7 → Heb 5:20-26;  Eng 6:8-30 → Heb 6:1-23
+    ("LEV", 6): [( 1,  7,  5,  19), (8, 30, 6, -7)],
+    # Zechariah: Eng 1:18-21 → Heb 2:1-4;  Eng 2:1-13 → Heb 2:5-17
+    ("ZEC", 1): [(18, 21,  2, -17)],
+    ("ZEC", 2): [( 1, 13,  2,   4)],
+    # Ezekiel: Eng 20:45-49 → Heb 21:1-5;  Eng 21:1-32 → Heb 21:6-37
+    ("EZK", 20): [(45, 49, 21, -44)],
+    ("EZK", 21): [( 1, 32, 21,   5)],
+}
+
+# Sentinel checks to detect MT versification per translation.
+# Format: { book_usfm: (sentinel_book, sentinel_ch, comparison, threshold) }
+# 'lte': max_verse ≤ threshold  →  translation uses MT versification for that book
+# 'gte': max_verse ≥ threshold  →  translation uses MT versification for that book
+_VERSIFICATION_SENTINELS = {
+    "JOL": ("JOL", 2, "lte", 27),
+    "LEV": ("LEV", 5, "gte", 20),
+    "ZEC": ("ZEC", 1, "lte", 17),
+    "EZK": ("EZK", 20, "lte", 44),
+}
+
 
 # ── Bible data (SQLite-backed) ────────────────────────────────────────────────
 
@@ -225,8 +258,57 @@ class BibleData:
         ):
             self.book_chapters.setdefault(tid, {})[book_usfm] = max_ch
 
+        # Cache sentinel max-verses for versification detection
+        self._versification_cache: dict = {}
+        for _book, (_sb, _sc, _, _) in _VERSIFICATION_SENTINELS.items():
+            for _tid, _mv in self.db.execute(
+                "SELECT translation_id, MAX(verse) FROM verses WHERE book_usfm=? AND chapter=? GROUP BY translation_id",
+                [_sb, _sc],
+            ):
+                self._versification_cache[(_tid, _sb, _sc)] = _mv
+
         names = ", ".join(t["name"] for t in self.translations.values())
         print(f"Loaded {len(self.translations)} Bible version(s): {names}")
+
+    # ── Versification helpers ─────────────────────────────────────────────────
+
+    def _uses_mt_versification(self, translation_id, book_usfm):
+        if book_usfm not in _VERSIFICATION_SENTINELS:
+            return False
+        sent_book, sent_ch, comp, threshold = _VERSIFICATION_SENTINELS[book_usfm]
+        mv = self._versification_cache.get((translation_id, sent_book, sent_ch))
+        if mv is None:
+            return False
+        return (mv <= threshold) if comp == "lte" else (mv >= threshold)
+
+    def _remap_verse(self, translation_id, book_usfm, chapter, verse):
+        """Return (book, chapter, verse) remapped to MT versification, or None."""
+        if not self._uses_mt_versification(translation_id, book_usfm):
+            return None
+        for v_min, v_max, heb_ch, offset in _VERSIFICATION_REMAP.get((book_usfm, chapter), []):
+            if v_min <= verse <= v_max:
+                return (book_usfm, heb_ch, verse + offset)
+        return None
+
+    def normalize_verse(self, translation_id, book_usfm, chapter, verse):
+        """Return (book, chapter, verse) for this translation, remapping if needed."""
+        remapped = self._remap_verse(translation_id, book_usfm, chapter, verse)
+        return remapped if remapped else (book_usfm, chapter, verse)
+
+    def normalize_reference(self, translation_id, book_usfm, chapter, verse_start, verse_end=None):
+        """Remap English-versification coordinates to MT coordinates for this translation.
+        Returns (book, chapter, verse_start, verse_end).
+        """
+        r_start = self._remap_verse(translation_id, book_usfm, chapter, verse_start)
+        if r_start is None:
+            return (book_usfm, chapter, verse_start, verse_end)
+        rb, rc, rv = r_start
+        if verse_end is not None:
+            r_end = self._remap_verse(translation_id, book_usfm, chapter, verse_end)
+            rv_end = r_end[2] if r_end is not None else rv + (verse_end - verse_start)
+        else:
+            rv_end = None
+        return (rb, rc, rv, rv_end)
 
     # ── Verse retrieval ───────────────────────────────────────────────────────
 
@@ -275,6 +357,24 @@ class BibleData:
         if not rows:
             return None, f"Verses {ch_start}:{vs_start}-{ch_end}:{vs_end} not found"
         return list(rows), None
+
+    def get_footnotes(self, translation_id, book_usfm, ch_start, ch_end=None, vs_start=None, vs_end=None):
+        if ch_end is None:
+            ch_end = ch_start
+        rows = self.db.execute(
+            """SELECT chapter, verse, text FROM footnotes
+               WHERE translation_id=? AND book_usfm=? AND chapter BETWEEN ? AND ?
+               ORDER BY chapter, verse""",
+            [translation_id, book_usfm, ch_start, ch_end],
+        ).fetchall()
+        result = []
+        for ch, v, t in rows:
+            if ch == ch_start and vs_start is not None and v < vs_start:
+                continue
+            if ch == ch_end and vs_end is not None and v > vs_end:
+                continue
+            result.append({"chapter": ch, "verse": v, "text": t})
+        return result
 
     def get_headings(self, version_id, book_code, ch_start, ch_end, vs_start=None, vs_end=None):
         rows = self.db.execute(
@@ -424,7 +524,8 @@ def resolve_block(bible_data, version_id, block):
         if err:
             return {**base, "error": err, "verses": [], "headings": []}
         headings = bible_data.get_headings(version_id, book, block["chapter"], block["chapter"], block["verse"], block["verse"])
-        return {**base, "verses": [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses], "headings": headings}
+        footnotes = bible_data.get_footnotes(version_id, book, block["chapter"], block["chapter"], block["verse"], block["verse"])
+        return {**base, "verses": [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses], "headings": headings, "footnotes": footnotes}
     elif btype == "verse_range":
         verses, err = bible_data.get_verses(version_id, book, block["chapter"], block["vs_start"], block["vs_end"])
         if err:
@@ -436,19 +537,22 @@ def resolve_block(bible_data, version_id, block):
             book_name = USFM_TO_NAME.get(book, book)
             base = {**base, "label": f"{book_name} {ch}:{a}" if a == z else f"{book_name} {ch}:{a}-{z}"}
         headings = bible_data.get_headings(version_id, book, block["chapter"], block["chapter"], block["vs_start"], block["vs_end"])
-        return {**base, "verses": result_verses, "headings": headings}
+        footnotes = bible_data.get_footnotes(version_id, book, block["chapter"], block["chapter"], block["vs_start"], block["vs_end"])
+        return {**base, "verses": result_verses, "headings": headings, "footnotes": footnotes}
     elif btype == "whole_chapter":
         verses, err = bible_data.get_verses(version_id, book, block["chapter"])
         if err:
             return {**base, "error": err, "verses": [], "headings": []}
         headings = bible_data.get_headings(version_id, book, block["chapter"], block["chapter"])
-        return {**base, "verses": [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses], "headings": headings}
+        footnotes = bible_data.get_footnotes(version_id, book, block["chapter"])
+        return {**base, "verses": [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses], "headings": headings, "footnotes": footnotes}
     elif btype == "chapter_range":
         verses, err = bible_data.get_chapter_range(version_id, book, block["ch_start"], block["ch_end"])
         if err:
             return {**base, "error": err, "verses": [], "headings": []}
         headings = bible_data.get_headings(version_id, book, block["ch_start"], block["ch_end"])
-        return {**base, "verses": [{"num": v, "chapter": ch, "text": t} for v, t, ch in verses], "headings": headings}
+        footnotes = bible_data.get_footnotes(version_id, book, block["ch_start"], block["ch_end"])
+        return {**base, "verses": [{"num": v, "chapter": ch, "text": t} for v, t, ch in verses], "headings": headings, "footnotes": footnotes}
     elif btype == "cross_chapter":
         verses, err = bible_data.get_verses_cross_chapter(version_id, book, block["ch_start"], block["vs_start"], block["ch_end"], block["vs_end"])
         if err:
@@ -465,7 +569,8 @@ def resolve_block(bible_data, version_id, block):
             else:
                 base = {**base, "label": f"{book_name} {fa}:{fz}-{la}:{lz}"}
         headings = bible_data.get_headings(version_id, book, block["ch_start"], block["ch_end"], block["vs_start"], block["vs_end"])
-        return {**base, "verses": result_verses, "headings": headings}
+        footnotes = bible_data.get_footnotes(version_id, book, block["ch_start"], block["ch_end"])
+        return {**base, "verses": result_verses, "headings": headings, "footnotes": footnotes}
 
     return {"label": block.get("label", "?"), "error": "Unknown block type", "verses": [], "headings": [], "footnotes": [], "xrefs": []}
 

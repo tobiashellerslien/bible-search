@@ -138,6 +138,10 @@ let currentHighlightVerses = null; // { chapter: number, verses: Set<number> } |
 let _preserveHighlight = false;
 let lastStatsData = null;
 let statsNormMode = 'total';
+let showAnnotations = localStorage.getItem('showAnnotations') !== 'false';
+let showFootnotes = showAnnotations;
+let showXrefs = showAnnotations;
+const xrefCache = new Map();
 
 // ── Elements ──
 const searchInput = document.getElementById('searchInput');
@@ -148,6 +152,7 @@ const searchBtn = document.getElementById('searchBtn');
 const toggleVerseNums = document.getElementById('toggleVerseNums');
 const toggleNewlines = document.getElementById('toggleNewlines');
 const toggleHeadings = document.getElementById('toggleHeadings');
+const toggleAnnotations = document.getElementById('toggleAnnotations');
 const resultsWrapper = document.getElementById('resultsWrapper');
 const emptyState = document.getElementById('emptyState');
 const emptyStateHtml = emptyState.outerHTML;
@@ -400,11 +405,20 @@ function onToggleChange() {
             }
         });
         updateExpandCollapseBtn();
+        fixOpenGroupHeights();
     }
 }
 toggleVerseNums.addEventListener('change', onToggleChange);
 toggleNewlines.addEventListener('change', onToggleChange);
 toggleHeadings.addEventListener('change', onToggleChange);
+toggleAnnotations.checked = showAnnotations;
+toggleAnnotations.addEventListener('change', () => {
+    showAnnotations = toggleAnnotations.checked;
+    showFootnotes = showAnnotations;
+    showXrefs = showAnnotations;
+    localStorage.setItem('showAnnotations', showAnnotations);
+    onToggleChange();
+});
 
 document.getElementById('copyHintBtn').addEventListener('click', function() {
     this.classList.toggle('open');
@@ -469,7 +483,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
         </div>
         <div class="verse-text">`;
 
-    html += renderVerseTextHtml(block.verses, showNums, showNewlines, showHeadings, block.book, lang, ver, block.headings || []);
+    html += renderVerseTextHtml(block.verses, showNums, showNewlines, showHeadings, block.book, lang, ver, block.headings || [], block.footnotes || []);
     html += '</div>';
 
     if (block.book && block.verses.length > 0) {
@@ -494,7 +508,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
         if (compareVisible) {
             if (cs && cs.data) {
                 const compLang = versionLang(cs.version);
-                html += `<div class="verse-text">${renderVerseTextHtml(cs.data.verses, showNums, showNewlines, showHeadings, cs.data.book, compLang, cs.version, cs.data.headings || [])}</div>`;
+                html += `<div class="verse-text">${renderVerseTextHtml(cs.data.verses, showNums, showNewlines, showHeadings, cs.data.book, compLang, cs.version, cs.data.headings || [], cs.data.footnotes || [])}</div>`;
             } else {
                 html += '<span style="color:var(--text-muted);font-size:0.85rem;">Loading...</span>';
             }
@@ -511,8 +525,8 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
         }
         if (allSameCh && maxCh > 0) {
             html += `<div class="chapter-nav">`;
-            if (ch > 1) html += `<button class="card-action-btn" onclick="goChapter('${escAttr(block.book)}', ${ch - 1}, '${escAttr(bName)}')" title="Previous chapter">&#8592; ${ch - 1}</button>`;
-            if (ch < maxCh) html += `<button class="card-action-btn" onclick="goChapter('${escAttr(block.book)}', ${ch + 1}, '${escAttr(bName)}')" title="Next chapter">${ch + 1} &#8594;</button>`;
+            if (ch > 1) html += `<button class="card-action-btn" onclick="goChapter('${escAttr(block.book)}', ${ch - 1}, '${escAttr(bName)}', 'prev')" title="Previous chapter">&#8592; ${ch - 1}</button>`;
+            if (ch < maxCh) html += `<button class="card-action-btn" onclick="goChapter('${escAttr(block.book)}', ${ch + 1}, '${escAttr(bName)}', 'next')" title="Next chapter">${ch + 1} &#8594;</button>`;
             html += `</div>`;
         }
         html += `</div>`;
@@ -532,7 +546,14 @@ window.toggleCardCompare = async function(idx) {
         renderAll();
     } else {
         cardCompare[idx].visible = !cardCompare[idx].visible;
-        renderAll();
+        const section = document.getElementById(`compare-section-${idx}`);
+        const headerBtn = document.querySelector(`#card-${idx} .compare-header-btn`);
+        if (section) {
+            section.classList.toggle('visible', cardCompare[idx].visible);
+            if (headerBtn) headerBtn.classList.toggle('active', cardCompare[idx].visible);
+        } else {
+            renderAll();
+        }
     }
 };
 
@@ -569,11 +590,17 @@ function isVerseHighlighted(v) {
         && currentHighlightVerses.verses.has(v.num));
 }
 
-function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookCode, lang, ver, headings = []) {
+function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookCode, lang, ver, headings = [], footnotes = []) {
     const headingMap = {};
     headings.forEach(h => {
         if (!headingMap[h.chapter]) headingMap[h.chapter] = {};
         headingMap[h.chapter][h.verse] = h.text;
+    });
+
+    const footnoteMap = {};
+    (footnotes || []).forEach(fn => {
+        if (!footnoteMap[fn.chapter]) footnoteMap[fn.chapter] = {};
+        footnoteMap[fn.chapter][fn.verse] = fn.text;
     });
 
     let html = '';
@@ -611,21 +638,228 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
             html += `<span class="verse-num" onclick="openSingleVerse('${bookCodeSafe}',${v.chapter},${v.num},'${refName}')" title="${bookRefName(bookCode)} ${v.chapter}:${v.num}">${v.num}</span>`;
         }
         html += escHtml(v.text);
+
+        const fnText = footnoteMap[v.chapter]?.[v.num];
+        if (showFootnotes && fnText) {
+            html += `<button class="verse-btn fn-btn" onclick="toggleFootnotePanel(this)" title="Fotnote">†</button>`;
+        }
+        if (showXrefs && bookCodeSafe) {
+            html += `<button class="verse-btn xr-btn" data-book="${bookCodeSafe}" data-chapter="${v.chapter}" data-verse="${v.num}" onclick="toggleXrefPanel(this)" title="Kryssreferanser">§</button>`;
+        }
+
         html += `</span> `;
 
         // Close wrapper after the last verse in a highlighted run
         if (highlighted && !nextHighlighted) html += '</span>';
+
+        // Panels are block siblings of verse-line (display:none = no layout impact when closed)
+        if (showFootnotes && fnText) {
+            html += `<div class="verse-panel fn-panel" style="display:none;max-height:0;opacity:0"><div class="fn-panel-inner">${escHtml(fnText)}</div></div>`;
+        }
+        if (showXrefs && bookCodeSafe) {
+            html += `<div class="verse-panel xr-panel" style="display:none;max-height:0;opacity:0"><div class="xr-panel-inner"></div></div>`;
+        }
 
         lastChapter = v.chapter;
     });
     return html;
 }
 
-window.goChapter = function(bookCode, chapter, bName) {
-    currentHighlightVerses = null;
-    searchInput.value = `${bName} ${chapter}`;
+// ── Verse panel (footnote / xref) helpers ────────────────────────────────────
+
+function openVersePanel(panel) {
+    panel.style.display = 'block';
+    panel.style.maxHeight = '0';
+    panel.style.opacity = '0';
+    panel.offsetHeight; // force reflow so transition fires
+    panel.style.maxHeight = panel.scrollHeight + 'px';
+    panel.style.opacity = '1';
+}
+
+function closeVersePanel(panel) {
+    panel.style.maxHeight = '0';
+    panel.style.opacity = '0';
+    panel.addEventListener('transitionend', function handler() {
+        panel.removeEventListener('transitionend', handler);
+        if (panel.style.maxHeight === '0px') panel.style.display = 'none';
+    }, { once: true });
+}
+
+function findSiblingPanel(verseLine, cls) {
+    // Walk forward among parent's children starting after verseLine
+    const parent = verseLine.parentElement;
+    if (!parent) return null;
+    const children = parent.children;
+    let found = false;
+    for (let i = 0; i < children.length; i++) {
+        if (children[i] === verseLine) { found = true; continue; }
+        if (!found) continue;
+        if (children[i].classList.contains('verse-line')) break; // stop at next verse
+        if (children[i].classList.contains(cls)) return children[i];
+    }
+    return null;
+}
+
+window.toggleFootnotePanel = function(btn) {
+    const verseLine = btn.closest('.verse-line');
+    if (!verseLine) return;
+    const panel = findSiblingPanel(verseLine, 'fn-panel');
+    if (!panel) return;
+    if (panel.style.display === 'none' || !panel.style.display) {
+        openVersePanel(panel);
+        btn.classList.add('active');
+    } else {
+        closeVersePanel(panel);
+        btn.classList.remove('active');
+    }
+};
+
+window.toggleXrefPanel = async function(btn) {
+    const verseLine = btn.closest('.verse-line');
+    if (!verseLine) return;
+    const panel = findSiblingPanel(verseLine, 'xr-panel');
+    if (!panel) return;
+
+    if (panel.style.display !== 'none' && panel.style.display !== '') {
+        closeVersePanel(panel);
+        btn.classList.remove('active');
+        return;
+    }
+
+    btn.classList.add('active');
+    const book = btn.dataset.book;
+    const chapter = btn.dataset.chapter;
+    const verse = btn.dataset.verse;
+    const version = versionSelect.value;
+    const cacheKey = `${book}.${chapter}.${verse}.${version}`;
+
+    if (!xrefCache.has(cacheKey)) {
+        panel.querySelector('.xr-panel-inner').innerHTML = '<span class="xr-loading">Laster referanser…</span>';
+        openVersePanel(panel);
+        try {
+            const resp = await fetch(`/api/crossrefs?book=${encodeURIComponent(book)}&chapter=${chapter}&verse=${verse}&version=${encodeURIComponent(version)}&limit=5`);
+            const data = await resp.json();
+            xrefCache.set(cacheKey, data);
+            renderXrefContent(panel, data, book, chapter, verse, version, false);
+        } catch {
+            panel.querySelector('.xr-panel-inner').innerHTML = '<span class="xr-loading">Feil ved lasting.</span>';
+        }
+        panel.style.maxHeight = panel.scrollHeight + 'px';
+    } else {
+        renderXrefContent(panel, xrefCache.get(cacheKey), book, chapter, verse, version, false);
+        openVersePanel(panel);
+    }
+};
+
+function renderXrefContent(panel, data, book, chapter, verse, version, showAll) {
+    const inner = panel.querySelector('.xr-panel-inner');
+    if (!data || !data.refs || data.refs.length === 0) {
+        inner.innerHTML = '<span class="xr-loading">Ingen kryssreferanser funnet.</span>';
+        return;
+    }
+    let html = '';
+    data.refs.forEach(ref => {
+        const navQ = escAttr(ref.label);
+        html += `<div class="xr-item" onclick="searchFromXref('${navQ}')">` +
+            `<span class="xr-ref">${escHtml(ref.label)}</span>` +
+            (ref.preview ? `<span class="xr-preview">${escHtml(ref.preview)}</span>` : '') +
+            `</div>`;
+    });
+    if (!showAll && data.total > data.refs.length) {
+        html += `<div class="xr-footer">` +
+            `<button class="xr-show-all" onclick="loadAllXrefs(this,'${escAttr(book)}',${chapter},${verse},'${escAttr(version)}')">Show all ${data.total}</button>` +
+            `<button class="xr-open-all" onclick="openAllXrefs(this,'${escAttr(book)}',${chapter},${verse},'${escAttr(version)}')">Open all in view →</button>` +
+            `</div>`;
+    } else if (showAll) {
+        html += `<div class="xr-footer">` +
+            `<button class="xr-open-all" onclick="openAllXrefs(this,'${escAttr(book)}',${chapter},${verse},'${escAttr(version)}')">Open all in view →</button>` +
+            `</div>`;
+    }
+    inner.innerHTML = html;
+}
+
+window.loadAllXrefs = async function(btn, book, chapter, verse, version) {
+    const panel = btn.closest('.xr-panel');
+    const cacheKeyAll = `${book}.${chapter}.${verse}.${version}.all`;
+    let data;
+    if (xrefCache.has(cacheKeyAll)) {
+        data = xrefCache.get(cacheKeyAll);
+    } else {
+        btn.textContent = 'Laster…';
+        btn.disabled = true;
+        try {
+            const resp = await fetch(`/api/crossrefs?book=${encodeURIComponent(book)}&chapter=${chapter}&verse=${verse}&version=${encodeURIComponent(version)}&limit=0`);
+            data = await resp.json();
+            xrefCache.set(cacheKeyAll, data);
+        } catch {
+            btn.textContent = 'Feil';
+            return;
+        }
+    }
+    renderXrefContent(panel, data, book, chapter, verse, version, true);
+    panel.style.maxHeight = panel.scrollHeight + 'px';
+};
+
+window.openAllXrefs = async function(btn, book, chapter, verse, version) {
+    const cacheKeyAll = `${book}.${chapter}.${verse}.${version}.all`;
+    let data;
+    if (xrefCache.has(cacheKeyAll)) {
+        data = xrefCache.get(cacheKeyAll);
+    } else {
+        const origText = btn.textContent;
+        btn.textContent = 'Loading…';
+        btn.disabled = true;
+        try {
+            const resp = await fetch(`/api/crossrefs?book=${encodeURIComponent(book)}&chapter=${chapter}&verse=${verse}&version=${encodeURIComponent(version)}&limit=0`);
+            data = await resp.json();
+            xrefCache.set(cacheKeyAll, data);
+        } catch {
+            btn.textContent = origText;
+            btn.disabled = false;
+            return;
+        }
+    }
+    if (!data || !data.refs || data.refs.length === 0) return;
+    const query = data.refs.map(r => r.label).join(';');
+    searchInput.value = query;
     updateSearchHighlight();
     doSearch();
+};
+
+window.searchFromXref = function(label) {
+    searchInput.value = label;
+    updateSearchHighlight();
+    doSearch();
+};
+
+window.goChapter = async function(bookCode, chapter, bName, direction) {
+    currentHighlightVerses = null;
+
+    if (direction) {
+        const dx = direction === 'next' ? -28 : 28;
+        resultsWrapper.style.transition = 'opacity 0.14s ease, transform 0.14s ease';
+        resultsWrapper.style.opacity = '0';
+        resultsWrapper.style.transform = `translateX(${dx}px)`;
+        await new Promise(r => setTimeout(r, 150));
+    }
+
+    searchInput.value = `${bName} ${chapter}`;
+    updateSearchHighlight();
+    await doSearch();
+
+    if (direction) {
+        const enterDx = direction === 'next' ? 28 : -28;
+        resultsWrapper.style.transition = 'none';
+        resultsWrapper.style.opacity = '0';
+        resultsWrapper.style.transform = `translateX(${enterDx}px)`;
+        resultsWrapper.offsetHeight;
+        resultsWrapper.style.transition = 'opacity 0.14s ease, transform 0.14s ease';
+        resultsWrapper.style.opacity = '';
+        resultsWrapper.style.transform = '';
+        resultsWrapper.addEventListener('transitionend', () => {
+            resultsWrapper.style.transition = '';
+        }, { once: true });
+    }
 };
 
 window.openSingleVerse = function(bookCode, chapter, verse, bName) {
@@ -683,20 +917,44 @@ function renderTextSearch(results, query) {
     });
 
     resultsWrapper.innerHTML = html;
+    fixOpenGroupHeights();
+}
+
+function animateGroupItem(itemsEl, open) {
+    if (open) {
+        itemsEl.classList.add('open');
+        itemsEl.style.height = itemsEl.scrollHeight + 'px';
+    } else {
+        itemsEl.style.height = itemsEl.offsetHeight + 'px';
+        itemsEl.offsetHeight; // force reflow before changing target
+        itemsEl.classList.remove('open');
+        itemsEl.style.height = '0';
+    }
+}
+
+// Called after DOM re-renders to give already-open groups an explicit height
+function fixOpenGroupHeights() {
+    resultsWrapper.querySelectorAll('.book-group-items.open').forEach(el => {
+        if (!el.style.height) el.style.height = 'auto';
+    });
 }
 
 window.toggleGroup = function(headerEl) {
+    const itemsEl = headerEl.nextElementSibling;
+    const isOpen = headerEl.classList.contains('open');
     headerEl.classList.toggle('open');
-    headerEl.nextElementSibling.classList.toggle('open');
+    animateGroupItem(itemsEl, !isOpen);
     updateExpandCollapseBtn();
 };
 
 window.toggleGroups = function() {
-    const headers = resultsWrapper.querySelectorAll('.book-group-header');
-    const items = resultsWrapper.querySelectorAll('.book-group-items');
-    const anyOpen = [...headers].some(h => h.classList.contains('open'));
-    headers.forEach(h => h.classList.toggle('open', !anyOpen));
-    items.forEach(i => i.classList.toggle('open', !anyOpen));
+    const headers = [...resultsWrapper.querySelectorAll('.book-group-header')];
+    const anyOpen = headers.some(h => h.classList.contains('open'));
+    headers.forEach(h => {
+        const itemsEl = h.nextElementSibling;
+        h.classList.toggle('open', !anyOpen);
+        animateGroupItem(itemsEl, !anyOpen);
+    });
     updateExpandCollapseBtn();
 };
 
@@ -827,7 +1085,13 @@ window.readChapter = async function(bookCode, chapter, bName, highlightNums) {
     _preserveHighlight = true;
     searchInput.value = `${bName} ${chapter}`;
     updateSearchHighlight();
-    doSearch();
+    await doSearch();
+    if (currentHighlightVerses) {
+        requestAnimationFrame(() => {
+            const el = resultsWrapper.querySelector('.verse-highlight-wrap');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+    }
 };
 
 window.clearHighlight = function() {
@@ -873,14 +1137,18 @@ function renderAllVersions(allResults, label) {
         <div class="verse-card-header" style="border-bottom:none;padding-bottom:0;margin-bottom:8px;">
             <span class="verse-card-label" style="font-size:1rem;">${escHtml(displayLabel)}</span>
         </div>`;
+    let firstVersion = true;
     for (const [versionName, blocks] of Object.entries(allResults)) {
         const verses = blocks.flatMap(b => b.verses || []);
         if (verses.length === 0) continue;
         const headings = blocks.flatMap(b => b.headings || []);
+        const blockFootnotes = blocks.flatMap(b => b.footnotes || []);
         const vLang = versionLang(versionName);
-        html += `<div style="margin-bottom:16px;">
+        if (!firstVersion) html += '<hr class="version-separator">';
+        firstVersion = false;
+        html += `<div>
             <div class="version-label">${escHtml(versionLabel(versionName))}</div>
-            <div class="verse-text">${renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bCode, vLang, versionName, headings)}</div>
+            <div class="verse-text">${renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bCode, vLang, versionName, headings, blockFootnotes)}</div>
         </div>`;
     }
     html += '</div>';
@@ -1153,7 +1421,7 @@ window.navigateToBookInResults = function(bookCode) {
     const group = resultsWrapper.querySelector(`.book-group[data-book="${bookCode}"]`);
     if (group) {
         group.querySelector('.book-group-header').classList.add('open');
-        group.querySelector('.book-group-items').classList.add('open');
+        animateGroupItem(group.querySelector('.book-group-items'), true);
         updateExpandCollapseBtn();
         setTimeout(() => group.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
     }
@@ -1217,7 +1485,7 @@ function handleAutocomplete() {
     const exactBook = exactToken.length > 0 && booksData.find(b => {
         const plural = bookName(b.code, lang).toLowerCase();
         const singular = bookNameSingular(b.code, lang).toLowerCase();
-        return plural === exactToken || singular === exactToken || b.code.toLowerCase() === exactToken;
+        return plural === exactToken || singular === exactToken;
     });
     if (exactBook) {
         acItems = [{ type: 'scope_book', label: bookName(exactBook.code, lang) + ': ', code: exactBook.code }];
@@ -1378,8 +1646,8 @@ document.addEventListener('keydown', e => {
         e.preventDefault();
         const { book, chapter, bookName: bName } = currentChapterInfo;
         const maxCh = (booksData.find(b => b.code === book) || {}).chapters || 0;
-        if (e.key === 'ArrowLeft' && chapter > 1) goChapter(book, chapter - 1, bName);
-        else if (e.key === 'ArrowRight' && chapter < maxCh) goChapter(book, chapter + 1, bName);
+        if (e.key === 'ArrowLeft' && chapter > 1) goChapter(book, chapter - 1, bName, 'prev');
+        else if (e.key === 'ArrowRight' && chapter < maxCh) goChapter(book, chapter + 1, bName, 'next');
         return;
     }
 
@@ -1535,7 +1803,6 @@ function escAttr(s) {
 function toggleDisplayOptions() {
     const panel = document.getElementById('displayPanel');
     const btn = document.getElementById('displayOptionsBtn');
-    const open = panel.hidden;
-    panel.hidden = !open;
-    btn.innerHTML = (open ? '&#9660;' : '&#9658;') + ' browse &amp; display';
+    const isOpen = panel.classList.toggle('open');
+    btn.innerHTML = (isOpen ? '&#9660;' : '&#9658;') + ' browse &amp; display';
 }

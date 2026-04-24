@@ -125,6 +125,74 @@ def api_all_text_search():
     return jsonify({"results": all_results, "query": query})
 
 
+@bp.get("/api/crossrefs")
+def api_crossrefs():
+    bible_data = _bible_data()
+    book = request.args.get("book", "")
+    try:
+        chapter = int(request.args.get("chapter", 0))
+        verse   = int(request.args.get("verse",   0))
+    except ValueError:
+        return jsonify({"error": "Invalid chapter/verse"}), 400
+    if not book or not chapter or not verse:
+        return jsonify({"error": "Missing book, chapter, or verse"}), 400
+
+    version_id = _resolve_version_id(bible_data, request.args.get("version"))
+    try:
+        limit = int(request.args.get("limit", "5"))
+    except ValueError:
+        limit = 5
+
+    rows = bible_data.db.execute(
+        """SELECT to_book, to_chapter, to_verse_start, to_verse_end, to_chapter_end, votes
+           FROM cross_references
+           WHERE from_book=? AND from_chapter=? AND from_verse=?
+           ORDER BY votes DESC""",
+        [book, chapter, verse],
+    ).fetchall()
+
+    total = len(rows)
+    display_rows = rows if limit <= 0 else rows[:limit]
+
+    refs = []
+    for to_book, to_ch, to_vs_start, to_vs_end, to_ch_end, votes in display_rows:
+        if to_ch_end is not None:
+            nb_s, nc_s, nv_s, _ = bible_data.normalize_reference(version_id, to_book, to_ch, to_vs_start)
+            nb_e, nc_e, nv_e, _ = bible_data.normalize_reference(version_id, to_book, to_ch_end, to_vs_end)
+            label = f"{USFM_TO_NAME.get(nb_s, nb_s)} {nc_s}:{nv_s}-{nc_e}:{nv_e}"
+            nav_book, nav_ch, nav_vs = nb_s, nc_s, nv_s
+            nav_vs_end, nav_ch_end = nv_e, nc_e
+        elif to_vs_end is not None:
+            nb, nc, nv_s, nv_e = bible_data.normalize_reference(version_id, to_book, to_ch, to_vs_start, to_vs_end)
+            label = f"{USFM_TO_NAME.get(nb, nb)} {nc}:{nv_s}-{nv_e}"
+            nav_book, nav_ch, nav_vs = nb, nc, nv_s
+            nav_vs_end, nav_ch_end = nv_e, None
+        else:
+            nb, nc, nv_s, _ = bible_data.normalize_reference(version_id, to_book, to_ch, to_vs_start)
+            label = f"{USFM_TO_NAME.get(nb, nb)} {nc}:{nv_s}"
+            nav_book, nav_ch, nav_vs = nb, nc, nv_s
+            nav_vs_end, nav_ch_end = None, None
+
+        preview_row = bible_data.db.execute(
+            "SELECT text FROM verses WHERE translation_id=? AND book_usfm=? AND chapter=? AND verse=?",
+            [version_id, nav_book, nav_ch, nav_vs],
+        ).fetchone()
+        preview = preview_row[0] if preview_row else ""
+
+        refs.append({
+            "label": label,
+            "book": nav_book,
+            "chapter": nav_ch,
+            "verse_start": nav_vs,
+            "verse_end": nav_vs_end,
+            "chapter_end": nav_ch_end,
+            "preview": preview,
+            "votes": votes,
+        })
+
+    return jsonify({"refs": refs, "total": total})
+
+
 @bp.get("/api/heartbeat")
 def api_heartbeat():
     return jsonify({"ok": True})

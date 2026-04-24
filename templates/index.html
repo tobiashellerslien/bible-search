@@ -12,8 +12,8 @@
 <div class="header">
     <h1 onclick="goHome()">Tobias' Bible Search Tool</h1>
     <div class="header-right">
-        <button class="header-btn" id="settingsToggle" title="Settings">&#9881;</button>
         <button class="header-btn" id="helpToggle" title="Help — press ? anytime">?</button>
+        <button class="header-btn" id="settingsToggle" title="Settings">&#9881;</button>
     </div>
 </div>
 
@@ -47,7 +47,7 @@
     <button class="display-bar-btn" id="displayOptionsBtn" onclick="toggleDisplayOptions()">&#9658; browse &amp; display</button>
 </div>
 
-<div class="display-panel" id="displayPanel" hidden>
+<div class="display-panel" id="displayPanel">
     <div class="browser-bar">
         <label>Browse:</label>
         <select id="bookSelect"><option value="">-- Book --</option></select>
@@ -73,6 +73,13 @@
             <span>Headings</span>
             <div class="toggle">
                 <input type="checkbox" id="toggleHeadings" checked>
+                <span class="toggle-slider"></span>
+            </div>
+        </label>
+        <label class="toggle-group format-sep">
+            <span>Annotations †§</span>
+            <div class="toggle">
+                <input type="checkbox" id="toggleAnnotations" checked>
                 <span class="toggle-slider"></span>
             </div>
         </label>
@@ -113,9 +120,9 @@
                 <div class="help-row"><span class="help-key">joh, john, jhn</span><span class="help-desc">Abbreviations &amp; English names work</span></div>
             </div>
             <div class="help-section">
-                <h3>Text search operators</h3>
-                <div class="help-row"><span class="help-key">kjærlighet</span><span class="help-desc">All verses containing word</span></div>
-                <div class="help-row"><span class="help-key">"kjærlighet"</span><span class="help-desc">All verses containing exact word</span></div>
+                <h3>Text search operators (can be combined)</h3>
+                <div class="help-row"><span class="help-key">tro</span><span class="help-desc">All verses containing word (also within words, like "trofast")</span></div>
+                <div class="help-row"><span class="help-key">"tro"</span><span class="help-desc">All verses containing exact word</span></div>
                 <div class="help-row"><span class="help-key">"evig liv"</span><span class="help-desc">Exact phrase</span></div>
                 <div class="help-row"><span class="help-key">nåde -dom</span><span class="help-desc">Exclude word with -</span></div>
                 <div class="help-row"><span class="help-key">nåde OR frelse</span><span class="help-desc">Either word (OR must be uppercase)</span></div>

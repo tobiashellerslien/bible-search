@@ -49,6 +49,7 @@
 
         html, body {
             height: 100%;
+            overflow-x: hidden;
         }
 
         body {
@@ -284,7 +285,6 @@
         }
         .version-picker.open .vp-chevron { transform: rotate(180deg); }
         .vp-list {
-            display: none;
             position: absolute;
             top: calc(100% + 4px);
             right: 0;
@@ -295,8 +295,19 @@
             box-shadow: var(--shadow-lg);
             z-index: 200;
             overflow: hidden;
+            visibility: hidden;
+            opacity: 0;
+            transform: translateY(-6px);
+            pointer-events: none;
+            transition: opacity 0.15s ease, transform 0.15s ease, visibility 0s 0.15s;
         }
-        .version-picker.open .vp-list { display: block; }
+        .version-picker.open .vp-list {
+            visibility: visible;
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+            transition: opacity 0.15s ease, transform 0.15s ease, visibility 0s 0s;
+        }
         .vp-item {
             display: flex;
             flex-direction: column;
@@ -414,7 +425,6 @@
         .display-bar-btn:hover { color: var(--accent); }
 
         .display-panel {
-            margin-top: 6px;
             padding: 10px 20px;
             background: var(--card-bg);
             border: 1px solid var(--border);
@@ -422,8 +432,19 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
+            overflow: hidden;
+            max-height: 0;
+            margin-top: 0;
+            opacity: 0;
+            pointer-events: none;
+            transition: max-height 0.25s ease, margin-top 0.25s ease, opacity 0.15s;
         }
-        .display-panel[hidden] { display: none; }
+        .display-panel.open {
+            max-height: 200px;
+            margin-top: 6px;
+            opacity: 1;
+            pointer-events: auto;
+        }
 
         /* ── Browser bar ── */
         .browser-bar {
@@ -636,7 +657,7 @@
             vertical-align: super;
             font-weight: 700;
             margin-right: 2px;
-            font-family: var(--font-ui);
+            font-family: 'Lora', Georgia, serif;
             cursor: pointer;
             text-decoration: none;
         }
@@ -669,6 +690,91 @@
         }
         .verse-heading:first-child { margin-top: 0; }
 
+        /* ── Verse annotation buttons (footnote / xref) ── */
+        .verse-btn {
+            display: inline;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-family: var(--font-ui);
+            font-size: 0.68em;
+            vertical-align: super;
+            color: var(--text-muted);
+            padding: 0 2px;
+            line-height: 1;
+            opacity: 0.6;
+            transition: opacity 0.15s, color 0.15s;
+            user-select: none;
+        }
+        .verse-btn:hover, .verse-btn.active { opacity: 1; color: var(--accent); }
+
+        /* ── Verse annotation panels ── */
+        .verse-panel {
+            overflow: hidden;
+            transition: max-height 0.22s ease, opacity 0.22s ease;
+            font-family: var(--font-ui);
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            line-height: 1.55;
+        }
+        .fn-panel-inner {
+            padding: 6px 10px 6px 14px;
+            border-left: 2px solid var(--accent-dim);
+            margin: 3px 0 4px;
+            font-style: italic;
+        }
+        .xr-panel-inner {
+            padding: 4px 0 4px 4px;
+            margin: 2px 0 4px;
+        }
+        .xr-item {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            padding: 4px 8px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.12s;
+        }
+        .xr-item:hover { background: var(--accent-dim); }
+        .xr-ref {
+            font-weight: 700;
+            font-size: 0.82rem;
+            color: var(--accent);
+            font-family: 'Lora', Georgia, serif;
+        }
+        .xr-preview {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-family: var(--font-serif);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .xr-footer {
+            display: flex;
+            gap: 6px;
+            margin: 4px 8px 2px;
+            flex-wrap: wrap;
+        }
+        .xr-show-all, .xr-open-all {
+            padding: 3px 8px;
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            font-family: var(--font-ui);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: border-color 0.15s, color 0.15s;
+        }
+        .xr-show-all:hover, .xr-open-all:hover { border-color: var(--accent); color: var(--accent); }
+        .xr-loading {
+            padding: 4px 8px;
+            display: block;
+            font-style: italic;
+        }
+
         /* ── Card footer ── */
         .verse-card-footer {
             display: flex;
@@ -698,14 +804,26 @@
 
         /* ── Inline compare section (sits between verse text and footer) ── */
         .card-compare-section {
-            display: none;
+            overflow: hidden;
+            max-height: 0;
+            opacity: 0;
+            margin-top: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            border-top: 1.5px solid var(--accent-dim);
+            border-top-width: 0;
+            pointer-events: none;
+            transition: max-height 0.3s ease, opacity 0.2s ease, margin-top 0.3s ease, padding 0.3s ease, border-top-width 0s 0.3s;
+        }
+        .card-compare-section.visible {
+            max-height: 1000px;
+            opacity: 1;
             margin-top: 12px;
             padding-top: 12px;
             padding-bottom: 4px;
-            border-top: 1.5px solid var(--accent-dim);
-        }
-        .card-compare-section.visible {
-            display: block;
+            border-top-width: 1.5px;
+            pointer-events: auto;
+            transition: max-height 0.3s ease, opacity 0.2s ease, margin-top 0.3s ease, padding 0.3s ease, border-top-width 0s 0s;
         }
         .card-compare-header {
             margin-bottom: 10px;
@@ -737,6 +855,14 @@
             font-size: 0.82rem;
             color: var(--text-muted);
         }
+        #expandCollapseBtn { text-align: center; }
+        #expandCollapseBtn::after {
+            content: 'collapse all';
+            display: block;
+            height: 0;
+            overflow: hidden;
+            visibility: hidden;
+        }
         .search-result-item {
             background: var(--card-bg);
             border: 1px solid var(--border);
@@ -752,7 +878,7 @@
             color: var(--accent);
             font-size: 0.82rem;
             margin-bottom: 4px;
-            font-family: var(--font-ui);
+            font-family: 'Lora', Georgia, serif;
         }
         .search-result-text {
             font-family: var(--font-serif);
@@ -798,13 +924,17 @@
             margin-left: 5px;
         }
         .book-group-items {
-            display: none;
             border: 1px solid var(--border);
             border-top: none;
             border-radius: 0 0 var(--radius) var(--radius);
             overflow: hidden;
+            height: 0;
+            pointer-events: none;
+            transition: height 0.22s ease;
         }
-        .book-group-items.open { display: block; border-color: var(--accent); }
+        .book-group-items.open {
+            pointer-events: auto;
+        }
         .book-group-items .search-result-item {
             border: none;
             border-bottom: 1px solid var(--border);
@@ -814,6 +944,11 @@
         .book-group-items .search-result-item:hover { background: var(--accent-dim); }
 
         /* ── All versions ── */
+        .version-separator {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 4px 0 16px;
+        }
         .all-versions-block {
             background: var(--card-bg);
             border: 1px solid var(--border);
