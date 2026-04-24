@@ -111,7 +111,7 @@
         }
         .header-btn:hover { border-color: var(--accent); color: var(--accent); }
         .header-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
-        #darkToggle, #helpToggle, #settingsToggle { width: 2rem; height: 2rem; padding: 0; }
+        #darkToggle, #helpToggle, #infoToggle, #settingsToggle { width: 2rem; height: 2rem; padding: 0; }
 
         .font-size-ctrl {
             display: flex;
@@ -1277,6 +1277,14 @@
         .settings-license a { color: var(--accent); text-decoration: underline; }
         .settings-license a:hover { opacity: 0.8; }
         .settings-license a.empty-competition-link { color: var(--text-muted); }
+        .info-text {
+            font-size: 0.84rem;
+            color: var(--text-muted);
+            line-height: 1.75;
+            font-family: var(--font-ui);
+        }
+        .info-text a { color: var(--accent); text-decoration: underline; }
+        .info-text a:hover { opacity: 0.8; }
         .empty-settings-hint {
             margin-top: 12px;
             font-size: 0.8rem;
@@ -1339,14 +1347,27 @@
             }
             .search-highlight-overlay { padding-right: 30px; }
 
-            /* Copy hint tooltip: flip to right-anchored on mobile */
-            .copy-hint-btn::after { right: auto; left: 0; }
+            /* Copy hint tooltip: button is now on the right, so tooltip extends leftward */
+            .copy-hint-btn::after { right: 0; left: auto; }
 
             /* Browser bar: one line, compact selects */
             .browser-bar { flex-wrap: nowrap; overflow-x: auto; gap: 6px; }
             .browser-bar select { padding: 5px 6px; font-size: 0.78rem; flex-shrink: 1; min-width: 0; }
             #bookSelect { flex-shrink: 0; }
             .browser-bar label { flex-shrink: 0; }
+
+            /* Toggles: 3-column grid — row 1: [Verse nums] [New line] [(i)], row 2: [Headings] [Annotations] */
+            .toggles {
+                display: grid;
+                grid-template-columns: 1fr 1fr auto;
+                gap: 8px 14px;
+                align-items: center;
+            }
+            .format-sep {
+                margin-left: 0;
+                padding-left: 0;
+                border-left: none;
+            }
 
             /* Card header: title on own line, actions below */
             .verse-card-header { flex-wrap: wrap; }

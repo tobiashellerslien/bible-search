@@ -258,6 +258,12 @@ class BibleData:
         ):
             self.book_chapters.setdefault(tid, {})[book_usfm] = max_ch
 
+        self.book_verse_counts = {}
+        for tid, book_usfm, chapter, max_v in self.db.execute(
+            "SELECT translation_id, book_usfm, chapter, MAX(verse) FROM verses GROUP BY translation_id, book_usfm, chapter"
+        ):
+            self.book_verse_counts.setdefault(tid, {}).setdefault(book_usfm, {})[chapter] = max_v
+
         # Cache sentinel max-verses for versification detection
         self._versification_cache: dict = {}
         for _book, (_sb, _sc, _, _) in _VERSIFICATION_SENTINELS.items():

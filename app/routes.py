@@ -53,6 +53,7 @@ def api_books():
             "name": USFM_TO_NAME.get(code, code),
             "name_en": USFM_TO_ENG.get(code, code),
             "chapters": bible_data.book_chapters.get(version_id, {}).get(code, 0),
+            "verse_counts": bible_data.book_verse_counts.get(version_id, {}).get(code, {}),
             "aliases": USFM_TO_ALIASES.get(code, []),
         }
         for code in bible_data.version_books.get(version_id, [])

@@ -164,6 +164,7 @@ const chartTooltip = document.getElementById('chartTooltip');
 
 // ── Init ──
 async function init() {
+    history.scrollRestoration = 'manual';
     const resp = await fetch('/api/versions');
     const data = await resp.json();
     allVersionsList = data.versions; // [{id, name, full_name, language}, ...]
@@ -373,6 +374,7 @@ async function doSearch(pushHistory = true, resetAC = true) {
         mainData = data.results;
         detectChapterInfo(mainData);
         renderAll();
+        window.scrollTo(0, 0);
     } catch (err) {
         resultsWrapper.innerHTML = errorCardHtml('Error', 'Failed to connect to server.');
     }
@@ -383,7 +385,10 @@ function detectChapterInfo(results) {
     const first = results[0];
     if (!first || !first.book || !first.verses || first.verses.length === 0) { currentChapterInfo = null; return; }
     const ch = first.verses[0].chapter;
-    currentChapterInfo = { book: first.book, chapter: ch, bookName: bookRefName(first.book) };
+    const isVerseView = first.label && first.label.includes(':');
+    const firstVerse = first.verses[0].num;
+    const lastVerse = first.verses[first.verses.length - 1].num;
+    currentChapterInfo = { book: first.book, chapter: ch, bookName: bookRefName(first.book), isVerseView, firstVerse, lastVerse };
 }
 
 function onToggleChange() {
@@ -517,16 +522,37 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
         html += `</div></div>`;
 
         const verseNumsStr = block.verses.map(v => v.num).join(',');
+        const crUrl = biblerefUrl(block.book, ch, isSingleVerse ? block.verses[0].num : null);
+        const yvUrl = youversionUrl(block.book, ch, block.verses, ver, !block.label.includes(':'));
         html += `<div class="verse-card-footer">
             <button class="card-action-btn" onclick="readChapter('${escAttr(block.book)}', ${ch}, '${escAttr(bName)}', '${verseNumsStr}')">&#128214; ${escHtml(bookNameSingular(block.book, lang))} ${ch}</button>
             <button class="card-action-btn" onclick="showAllVersions('${escAttr(block.label)}')">all versions</button>`;
         if (ilUrl) {
             html += `<a class="card-action-btn" href="${ilUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;"><img src="/static/biblehub.png" style="height:12px;opacity:0.8;" alt=""> interlinear</a>`;
         }
+        if (crUrl) {
+            html += `<a class="card-action-btn" href="${crUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;"><img src="/static/bibleref.png" style="height:12px;opacity:0.8;" alt=""> commentary</a>`;
+        }
+        if (yvUrl) {
+            html += `<a class="card-action-btn" href="${yvUrl}" target="_blank" rel="noopener">source</a>`;
+        }
         if (allSameCh && maxCh > 0) {
+            const isVerseView = block.label.includes(':');
             html += `<div class="chapter-nav">`;
-            if (ch > 1) html += `<button class="card-action-btn" onclick="goChapter('${escAttr(block.book)}', ${ch - 1}, '${escAttr(bName)}', 'prev')" title="Previous chapter">&#8592; ${ch - 1}</button>`;
-            if (ch < maxCh) html += `<button class="card-action-btn" onclick="goChapter('${escAttr(block.book)}', ${ch + 1}, '${escAttr(bName)}', 'next')" title="Next chapter">${ch + 1} &#8594;</button>`;
+            if (isVerseView) {
+                const firstV = block.verses[0].num;
+                const lastV = block.verses[block.verses.length - 1].num;
+                const maxV = maxVerseInChapter(block.book, ch);
+                const hasPrev = firstV > 1 || ch > 1;
+                const hasNext = (maxV && lastV < maxV) || ch < maxCh;
+                const prevLabel = firstV > 1 ? firstV - 1 : (ch > 1 ? `${ch - 1}:${maxVerseInChapter(block.book, ch - 1) || '?'}` : null);
+                const nextLabel = (maxV && lastV < maxV) ? lastV + 1 : (ch < maxCh ? `${ch + 1}:1` : null);
+                if (hasPrev && prevLabel !== null) html += `<button class="card-action-btn" onclick="goVerse('${escAttr(block.book)}', ${ch}, ${firstV}, '${escAttr(bName)}', 'prev')" title="Previous verse">&#8592; ${prevLabel}</button>`;
+                if (hasNext && nextLabel !== null) html += `<button class="card-action-btn" onclick="goVerse('${escAttr(block.book)}', ${ch}, ${lastV}, '${escAttr(bName)}', 'next')" title="Next verse">${nextLabel} &#8594;</button>`;
+            } else {
+                if (ch > 1) html += `<button class="card-action-btn" onclick="goChapter('${escAttr(block.book)}', ${ch - 1}, '${escAttr(bName)}', 'prev')" title="Previous chapter">&#8592; ${ch - 1}</button>`;
+                if (ch < maxCh) html += `<button class="card-action-btn" onclick="goChapter('${escAttr(block.book)}', ${ch + 1}, '${escAttr(bName)}', 'next')" title="Next chapter">${ch + 1} &#8594;</button>`;
+            }
             html += `</div>`;
         }
         html += `</div>`;
@@ -767,7 +793,7 @@ function renderXrefContent(panel, data, book, chapter, verse, version, showAll) 
     });
     if (!showAll && data.total > data.refs.length) {
         html += `<div class="xr-footer">` +
-            `<button class="xr-show-all" onclick="loadAllXrefs(this,'${escAttr(book)}',${chapter},${verse},'${escAttr(version)}')">Show all ${data.total}</button>` +
+            `<button class="xr-show-all" onclick="loadAllXrefs(this,'${escAttr(book)}',${chapter},${verse},'${escAttr(version)}')">Show all ${data.total} ↓</button>` +
             `<button class="xr-open-all" onclick="openAllXrefs(this,'${escAttr(book)}',${chapter},${verse},'${escAttr(version)}')">Open all in view →</button>` +
             `</div>`;
     } else if (showAll) {
@@ -823,7 +849,8 @@ window.openAllXrefs = async function(btn, book, chapter, verse, version) {
     const query = data.refs.map(r => r.label).join(';');
     searchInput.value = query;
     updateSearchHighlight();
-    doSearch();
+    await doSearch();
+    window.scrollTo(0, 0);
 };
 
 window.searchFromXref = function(label) {
@@ -1444,6 +1471,13 @@ document.getElementById('helpModal').addEventListener('click', e => {
     if (e.target === document.getElementById('helpModal')) document.getElementById('helpModal').classList.remove('open');
 });
 
+// ── Info ──
+document.getElementById('infoToggle').addEventListener('click', () => document.getElementById('infoModal').classList.toggle('open'));
+document.getElementById('infoClose').addEventListener('click', () => document.getElementById('infoModal').classList.remove('open'));
+document.getElementById('infoModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('infoModal')) document.getElementById('infoModal').classList.remove('open');
+});
+
 // ── Settings ──
 window.openSettings = function() { document.getElementById('settingsModal').classList.add('open'); };
 document.getElementById('settingsToggle').addEventListener('click', () => document.getElementById('settingsModal').classList.toggle('open'));
@@ -1630,6 +1664,7 @@ document.addEventListener('keydown', e => {
 
     if (e.key === 'Escape') {
         if (document.getElementById('helpModal').classList.contains('open')) document.getElementById('helpModal').classList.remove('open');
+        else if (document.getElementById('infoModal').classList.contains('open')) document.getElementById('infoModal').classList.remove('open');
         else if (document.getElementById('statsModal').classList.contains('open')) document.getElementById('statsModal').classList.remove('open');
         else if (document.getElementById('settingsModal').classList.contains('open')) document.getElementById('settingsModal').classList.remove('open');
         else if (autocompleteDropdown.classList.contains('open')) closeAutocomplete();
@@ -1644,10 +1679,15 @@ document.addEventListener('keydown', e => {
 
     if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && currentChapterInfo) {
         e.preventDefault();
-        const { book, chapter, bookName: bName } = currentChapterInfo;
+        const { book, chapter, bookName: bName, isVerseView, firstVerse, lastVerse } = currentChapterInfo;
         const maxCh = (booksData.find(b => b.code === book) || {}).chapters || 0;
-        if (e.key === 'ArrowLeft' && chapter > 1) goChapter(book, chapter - 1, bName, 'prev');
-        else if (e.key === 'ArrowRight' && chapter < maxCh) goChapter(book, chapter + 1, bName, 'next');
+        if (isVerseView) {
+            if (e.key === 'ArrowLeft') goVerse(book, chapter, firstVerse, bName, 'prev');
+            else goVerse(book, chapter, lastVerse, bName, 'next');
+        } else {
+            if (e.key === 'ArrowLeft' && chapter > 1) goChapter(book, chapter - 1, bName, 'prev');
+            else if (e.key === 'ArrowRight' && chapter < maxCh) goChapter(book, chapter + 1, bName, 'next');
+        }
         return;
     }
 
@@ -1767,12 +1807,64 @@ function translateLabel(label, bookCode, lang) {
     return label;
 }
 
+function maxVerseInChapter(bookCode, chapter) {
+    const b = booksData.find(x => x.code === bookCode);
+    return b && b.verse_counts ? (b.verse_counts[chapter] || 0) : 0;
+}
+
+window.goVerse = function(bookCode, chapter, verse, bName, direction) {
+    const maxCh = (booksData.find(b => b.code === bookCode) || {}).chapters || 0;
+    let targetCh = chapter, targetVerse = verse;
+    if (direction === 'prev') {
+        if (verse > 1) {
+            targetVerse = verse - 1;
+        } else if (chapter > 1) {
+            targetCh = chapter - 1;
+            targetVerse = maxVerseInChapter(bookCode, targetCh) || 1;
+        } else {
+            return; // at very start
+        }
+    } else {
+        const maxV = maxVerseInChapter(bookCode, chapter);
+        if (maxV && verse < maxV) {
+            targetVerse = verse + 1;
+        } else if (chapter < maxCh) {
+            targetCh = chapter + 1;
+            targetVerse = 1;
+        } else {
+            return; // at very end
+        }
+    }
+    searchInput.value = `${bName} ${targetCh}:${targetVerse}`;
+    updateSearchHighlight();
+    doSearch();
+};
+
 function interlinearUrl(bookCode, chapter, verseNum) {
     const slug = BIBLEHUB_SLUGS[bookCode];
     if (!slug) return null;
     return verseNum != null
         ? `https://biblehub.com/interlinear/${slug}/${chapter}-${verseNum}.htm`
         : `https://biblehub.com/interlinear/${slug}/${chapter}.htm`;
+}
+
+function youversionUrl(bookCode, chapter, verses, versionId, isChapter) {
+    if (!bookCode || !versionId) return null;
+    const base = `https://www.bible.com/bible/${versionId}/${bookCode}.${chapter}`;
+    if (isChapter) return base;
+    const allSameCh = verses.every(v => v.chapter === chapter);
+    if (!allSameCh || verses.length === 0) return base;
+    if (verses.length === 1) return `${base}.${verses[0].num}`;
+    return `${base}.${verses[0].num}-${verses[verses.length - 1].num}`;
+}
+
+function biblerefUrl(bookCode, chapter, verseNum) {
+    const engName = ENG_NAMES[bookCode];
+    if (!engName) return null;
+    const slug = engName.replace(/ /g, '-');
+    return verseNum != null
+        ? `https://www.bibleref.com/${slug}/${chapter}/${slug}-${chapter}-${verseNum}.html`
+        : `https://www.bibleref.com/${slug}/${chapter}/${slug}-chapter-${chapter}.html`;
 }
 
 function showToast(msg) {
