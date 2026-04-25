@@ -111,7 +111,7 @@
         }
         .header-btn:hover { border-color: var(--accent); color: var(--accent); }
         .header-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
-        #darkToggle, #helpToggle, #infoToggle, #settingsToggle { width: 2rem; height: 2rem; padding: 0; }
+        #darkToggle, #helpToggle, #settingsToggle { width: 2rem; height: 2rem; padding: 0; }
 
         .font-size-ctrl {
             display: flex;
@@ -130,11 +130,11 @@
         .color-picker {
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 8px;
         }
         .color-swatch {
-            width: 14px;
-            height: 14px;
+            width: 22px;
+            height: 22px;
             border-radius: 50%;
             border: 2px solid transparent;
             padding: 0;
@@ -143,11 +143,11 @@
             flex-shrink: 0;
             transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
         }
-        .color-swatch:hover { transform: scale(1.3); }
+        .color-swatch:hover { transform: scale(1.2); }
         .color-swatch.active {
             border-color: var(--text);
-            transform: scale(1.15);
-            box-shadow: 0 0 0 1px var(--bg);
+            transform: scale(1.1);
+            box-shadow: 0 0 0 2px var(--bg);
         }
 
         /* ── Controls row ── */
@@ -338,9 +338,19 @@
             box-shadow: var(--shadow-lg);
             z-index: 200;
             overflow: hidden;
-            display: none;
+            opacity: 0;
+            transform: translateY(-4px);
+            visibility: hidden;
+            pointer-events: none;
+            transition: opacity 0.12s ease, transform 0.14s cubic-bezier(0.2, 0.8, 0.3, 1), visibility 0s 0.14s;
         }
-        .autocomplete-dropdown.open { display: block; }
+        .autocomplete-dropdown.open {
+            opacity: 1;
+            transform: translateY(0);
+            visibility: visible;
+            pointer-events: auto;
+            transition: opacity 0.12s ease, transform 0.14s cubic-bezier(0.2, 0.8, 0.3, 1), visibility 0s 0s;
+        }
         .ac-item {
             padding: 8px 14px;
             cursor: pointer;
@@ -501,7 +511,7 @@
             color: var(--text);
         }
         .copy-hint-btn::after {
-            content: 'Verse numbers & new line affect copy formatting';
+            content: attr(data-tooltip);
             position: absolute;
             bottom: calc(100% + 6px);
             right: 0;
@@ -624,6 +634,15 @@
             margin: 0 -2px;
             -webkit-box-decoration-break: clone;
             box-decoration-break: clone;
+            transition: background-color 0.18s ease;
+        }
+        .verse-highlight-wrap.fading-out { background: transparent; }
+        .highlight-dismiss-btn {
+            transition: opacity 0.18s ease, transform 0.18s ease;
+        }
+        .highlight-dismiss-btn.fading-out {
+            opacity: 0;
+            transform: scale(0.9);
         }
 
         /* Compare button in card header — separated from copy buttons */
@@ -662,18 +681,6 @@
             text-decoration: none;
         }
         .verse-num:hover { text-decoration: underline; }
-        .verse-copy-inline {
-            display: none;
-            cursor: pointer;
-            color: var(--text-muted);
-            font-size: 0.7em;
-            vertical-align: super;
-            margin-left: 3px;
-            font-family: var(--font-ui);
-            opacity: 0.5;
-            transition: opacity 0.15s;
-        }
-        .verse-line:hover .verse-copy-inline { display: inline; opacity: 1; }
         .chapter-heading {
             font-weight: 700;
             font-size: 0.85rem;
@@ -747,9 +754,11 @@
             font-size: 0.85rem;
             color: var(--text-muted);
             font-family: var(--font-serif);
-            white-space: nowrap;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
             overflow: hidden;
-            text-overflow: ellipsis;
+            line-height: 1.4;
         }
         .xr-footer {
             display: flex;
@@ -801,6 +810,57 @@
         }
         .card-action-btn:hover { border-color: var(--accent); color: var(--accent); }
         .chapter-nav { margin-left: auto; display: flex; gap: 5px; }
+
+        /* ── More menu (interlinear, commentary, source, share) ── */
+        .card-more-wrap { position: relative; display: inline-block; }
+        .card-more-btn { padding: 4px 8px; font-weight: 700; letter-spacing: 1px; }
+        .card-more-menu {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            min-width: 160px;
+            background: var(--card-bg);
+            border: 1.5px solid var(--accent);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transform-origin: top left;
+            transform: translateY(-4px) scale(0.96);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: transform 0.14s cubic-bezier(0.2, 0.8, 0.3, 1), opacity 0.12s ease, visibility 0s 0.14s;
+        }
+        .card-more-menu.open {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            transition: transform 0.14s cubic-bezier(0.2, 0.8, 0.3, 1), opacity 0.12s ease, visibility 0s 0s;
+        }
+        .card-more-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            font-family: var(--font-ui);
+            font-size: 0.8rem;
+            color: var(--text);
+            background: none;
+            border: none;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            text-decoration: none;
+            text-align: left;
+            transition: background 0.12s;
+        }
+        .card-more-item:last-child { border-bottom: none; }
+        .card-more-item:hover { background: var(--accent-dim); color: var(--accent); }
+        .card-more-item img { height: 12px; opacity: 0.8; }
+        .compare-loading { color: var(--text-muted); font-size: 0.85rem; font-style: italic; }
 
         /* ── Inline compare section (sits between verse text and footer) ── */
         .card-compare-section {
@@ -855,14 +915,7 @@
             font-size: 0.82rem;
             color: var(--text-muted);
         }
-        #expandCollapseBtn { text-align: center; }
-        #expandCollapseBtn::after {
-            content: 'collapse all';
-            display: block;
-            height: 0;
-            overflow: hidden;
-            visibility: hidden;
-        }
+        #expandCollapseBtn { text-align: center; min-width: 90px; }
         .search-result-item {
             background: var(--card-bg);
             border: 1px solid var(--border);
@@ -971,45 +1024,54 @@
         /* ── Empty state ── */
         .empty-state {
             text-align: center;
-            padding: 50px 20px;
+            padding: 60px 20px 40px;
             color: var(--text-muted);
+            max-width: 700px;
+            margin: 0 auto;
         }
-        .empty-state h2 { font-size: 1.2rem; margin-bottom: 10px; color: var(--text); font-family: var(--font-ui); }
-        .empty-state p { font-size: 0.85rem; line-height: 1.8; }
+        .empty-state h2 { font-size: 1.4rem; margin-bottom: 10px; color: var(--text); font-family: var(--font-ui); }
+        .empty-tagline { font-size: 0.92rem; line-height: 1.6; margin-bottom: 30px; color: var(--text-muted); }
+        .empty-examples {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 28px;
+            text-align: left;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px 18px;
+        }
+        .empty-example-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .empty-example-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-family: var(--font-ui);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            min-width: 70px;
+        }
         .empty-state code {
             background: var(--accent-dim);
             color: var(--accent);
-            padding: 1px 6px;
+            padding: 2px 8px;
             border-radius: 4px;
             font-family: var(--font-ui);
-            font-size: 0.88em;
+            font-size: 0.82rem;
             white-space: nowrap;
         }
-        .empty-help-hint {
-            margin-top: 18px;
-            font-size: 0.8rem;
-            color: var(--text-muted);
+        .empty-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
         }
-        .help-inline-link {
-            background: none;
-            border: none;
-            color: var(--accent);
-            cursor: pointer;
-            text-decoration: underline;
-            font-family: var(--font-ui);
-            font-size: inherit;
-            padding: 0;
-        }
-        .empty-competition-link {
-            margin-top: 12px;
-            font-size: 0.8rem;
-        }
-        .empty-competition-link a {
-            color: var(--text-muted);
-            text-decoration: underline;
-            font-family: var(--font-ui);
-        }
-        .empty-competition-link a:hover { color: var(--accent); }
+        .empty-actions .btn { padding: 7px 14px; font-size: 0.8rem; }
         .all-versions-search-btn {
             margin-top: 16px;
         }
@@ -1057,6 +1119,13 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            transform: translateY(12px) scale(0.98);
+            opacity: 0;
+            transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.3, 1), opacity 0.18s ease;
+        }
+        .modal-overlay.open .modal-panel {
+            transform: translateY(0) scale(1);
+            opacity: 1;
         }
         .modal-header {
             display: flex;
@@ -1082,10 +1151,36 @@
             font-family: var(--font-ui);
         }
         .modal-close:hover { background: var(--accent-dim); color: var(--accent); }
+        .modal-tabs {
+            display: flex;
+            gap: 4px;
+            margin-left: 14px;
+            flex: 1;
+        }
+        .modal-tab {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 4px 12px;
+            border-radius: 5px;
+            font-family: var(--font-ui);
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: border-color 0.15s, color 0.15s;
+        }
+        .modal-tab:hover { color: var(--accent); border-color: var(--accent); }
+        .modal-tab.active { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
         .modal-body {
             padding: 18px;
             overflow-y: auto;
             flex: 1;
+        }
+        .modal-body[data-tab-content]:not([hidden]) {
+            animation: tabFadeIn 0.16s ease;
+        }
+        @keyframes tabFadeIn {
+            from { opacity: 0; transform: translateY(2px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         /* ── Help modal ── */
@@ -1152,6 +1247,17 @@
             flex: 1;
             min-width: 80px;
             overflow: hidden;
+            animation: statCardIn 0.3s cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
+        }
+        .stats-card:nth-child(1) { animation-delay: 0.02s; }
+        .stats-card:nth-child(2) { animation-delay: 0.06s; }
+        .stats-card:nth-child(3) { animation-delay: 0.10s; }
+        .stats-card:nth-child(4) { animation-delay: 0.14s; }
+        .stats-card:nth-child(5) { animation-delay: 0.18s; }
+        .stats-card:nth-child(6) { animation-delay: 0.22s; }
+        @keyframes statCardIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         .stats-card-label {
             font-size: 0.72rem;
@@ -1203,7 +1309,6 @@
             font-family: var(--font-ui);
             font-size: 9px;
         }
-        .chart-axis { stroke: var(--border); stroke-width: 1; }
         .chart-tooltip {
             position: fixed;
             background: var(--card-bg);
@@ -1268,15 +1373,6 @@
             font-family: var(--font-ui);
             flex-shrink: 0;
         }
-        .settings-license {
-            font-size: 0.82rem;
-            color: var(--text-muted);
-            line-height: 1.8;
-            font-family: var(--font-ui);
-        }
-        .settings-license a { color: var(--accent); text-decoration: underline; }
-        .settings-license a:hover { opacity: 0.8; }
-        .settings-license a.empty-competition-link { color: var(--text-muted); }
         .info-text {
             font-size: 0.84rem;
             color: var(--text-muted);
@@ -1285,12 +1381,6 @@
         }
         .info-text a { color: var(--accent); text-decoration: underline; }
         .info-text a:hover { opacity: 0.8; }
-        .empty-settings-hint {
-            margin-top: 12px;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-        }
-
         /* ── Font UI segmented control ── */
         .font-ui-ctrl {
             display: flex;
@@ -1308,8 +1398,8 @@
             color: var(--text-muted);
             transition: background 0.15s, color 0.15s;
         }
-        .font-ui-btn:first-child { font-family: var(--font-mono); }
-        .font-ui-btn:last-child { font-family: 'Lora', Georgia, serif; }
+        #fontUICtrl .font-ui-btn:first-child { font-family: var(--font-mono); }
+        #fontUICtrl .font-ui-btn:last-child { font-family: 'Lora', Georgia, serif; }
         .font-ui-btn + .font-ui-btn { border-left: 1px solid var(--border); }
         .font-ui-btn.active { background: var(--accent-dim); color: var(--accent); }
         .font-ui-btn:hover:not(.active) { background: rgba(0,0,0,0.04); }
@@ -1356,17 +1446,20 @@
             #bookSelect { flex-shrink: 0; }
             .browser-bar label { flex-shrink: 0; }
 
-            /* Toggles: 3-column grid — row 1: [Verse nums] [New line] [(i)], row 2: [Headings] [Annotations] */
+            /* Toggles: 2-column grid; Headings + Annotations on row 2 with shared divider line */
             .toggles {
                 display: grid;
-                grid-template-columns: 1fr 1fr auto;
-                gap: 8px 14px;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px 14px;
                 align-items: center;
             }
+            .copy-hint-btn { display: none; }
             .format-sep {
                 margin-left: 0;
                 padding-left: 0;
                 border-left: none;
+                padding-top: 12px;
+                border-top: 1px solid var(--border);
             }
 
             /* Card header: title on own line, actions below */
@@ -1374,9 +1467,22 @@
             .verse-card-header-left { flex: 1 1 100%; }
             .verse-card-header-actions { gap: 4px; }
             .copy-btn { padding: 3px 8px; font-size: 0.72rem; }
+
+            /* Modal tabs wrap nicely */
+            .modal-header { flex-wrap: wrap; row-gap: 8px; }
+            .modal-tabs { margin-left: 8px; }
+            .modal-tab { padding: 3px 10px; font-size: 0.74rem; }
+
+            /* More menu: align to right edge so it doesn't overflow */
+            .card-more-menu { left: auto; right: 0; }
+
+            /* Color picker stays comfortable on touch */
+            .color-swatch { width: 24px; height: 24px; }
         }
 
         @media (max-width: 420px) {
-            .header { padding: 10px 12px; }
-            .controls, .display-area, .results-wrapper { padding: 0 12px; }
+            .header { padding: 10px 14px; }
+            .controls, .display-area, .results-wrapper { padding: 0 14px; }
+            .verse-card { padding: 14px 16px; }
+            .empty-state { padding: 40px 16px 24px; }
         }

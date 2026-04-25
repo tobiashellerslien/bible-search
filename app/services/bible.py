@@ -115,6 +115,7 @@ _OT = ["GEN","EXO","LEV","NUM","DEU","JOS","JDG","RUT","1SA","2SA","1KI","2KI",
 _NT = ["MAT","MRK","LUK","JHN","ACT","ROM","1CO","2CO","GAL","EPH","PHP","COL",
        "1TH","2TH","1TI","2TI","TIT","PHM","HEB","JAS","1PE","2PE","1JN","2JN",
        "3JN","JUD","REV"]
+USFM_TO_TESTAMENT = {**{c: "OT" for c in _OT}, **{c: "NT" for c in _NT}}
 
 BOOK_GROUPS = {
     "gt": _OT,
@@ -523,7 +524,8 @@ def resolve_block(bible_data, version_id, block):
         return {"label": "Error", "error": block["error"], "verses": [], "headings": [], "footnotes": [], "xrefs": []}
     book = block["book"]
     btype = block["type"]
-    base = {"label": block["label"], "book": book, "footnotes": [], "xrefs": []}
+    is_chapter = btype in ("whole_chapter", "chapter_range")
+    base = {"label": block["label"], "book": book, "is_chapter": is_chapter, "footnotes": [], "xrefs": []}
 
     if btype == "single_verse":
         verses, err = bible_data.get_verses(version_id, book, block["chapter"], block["verse"])

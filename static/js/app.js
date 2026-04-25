@@ -1,3 +1,369 @@
+// ── i18n ──
+const I18N = {
+    en: {
+        'header.help': 'Help & info — press ? anytime',
+        'header.settings': 'Settings',
+        'header.darkMode': 'Toggle dark mode',
+        'search.placeholder': 'Search the Bible...',
+        'search.clear': 'Clear search',
+        'search.button': 'Search',
+        'display.toggleLabel': 'browse & display',
+        'display.browse': 'Browse:',
+        'display.bookPlaceholder': '-- Book --',
+        'display.chapterPlaceholder': '-- Ch --',
+        'toggle.verseNums': 'Verse numbers',
+        'toggle.newlines': 'New line per verse',
+        'toggle.headings': 'Headings',
+        'toggle.annotations': 'Annotations †§',
+        'toggle.copyHint': 'Verse numbers & new line affect copy formatting',
+        'toggle.copyHintAria': 'Formatting info',
+        'modal.helpInfo': '// Help & info',
+        'modal.tab.help': 'Help',
+        'modal.tab.info': 'Info',
+        'help.section.refLookup': 'Reference lookup',
+        'help.row.singleVerse': 'Single verse',
+        'help.row.wholeChapter': 'Whole chapter',
+        'help.row.verseRange': 'Verse range',
+        'help.row.crossChapter': 'Cross-chapter range',
+        'help.row.multiPassages': 'Multiple passages (context carries)',
+        'help.row.abbrevs': 'Abbreviations & English names work',
+        'help.section.textSearch': 'Text search operators (can be combined)',
+        'help.row.allWords': 'All verses containing word (also within words, like "trofast")',
+        'help.row.exactWord': 'All verses containing exact word',
+        'help.row.exactPhrase': 'Exact phrase',
+        'help.row.exclude': 'Exclude word with -',
+        'help.row.either': 'Either word (OR must be uppercase)',
+        'help.row.bothWords': 'Both words (AND, implicit)',
+        'help.section.applyFilters': 'Apply filters',
+        'help.row.gt': 'Old Testament (also: GT:)',
+        'help.row.nt': 'New Testament',
+        'help.row.pentateuch': 'Genesis – Deuteronomy (also: pentateuch:, torah:)',
+        'help.row.historical': 'Joshua – Esther (also: historical:)',
+        'help.row.poetic': 'Job, Psalms, Prov, Eccl, Song (also: wisdom:, poetic:)',
+        'help.row.prophets': 'Isaiah – Malachi (also: prophets:)',
+        'help.row.majorProphets': 'Isa, Jer, Lam, Ezek, Dan (also: major prophets:)',
+        'help.row.minorProphets': 'Hosea – Malachi (also: minor prophets:)',
+        'help.row.gospels': 'Matt, Mark, Luke, John (also: gospels:)',
+        'help.row.synoptic': 'Matt, Mark, Luke (also: synoptic:)',
+        'help.row.epistles': 'All NT letters (also: epistles:, letters:)',
+        'help.row.pauline': 'Romans – Philemon (also: pauline:)',
+        'help.row.general': 'Hebrews – Jude (also: general epistles:)',
+        'help.row.johannine': 'John, 1–3 John, Rev (also: johannine:)',
+        'help.row.apocalyptic': 'Daniel, Revelation (also: apocalyptic:)',
+        'help.row.kingsChron': '1–2 Kings, 1–2 Chr (also: kings and chronicles:)',
+        'help.row.multiVolume': 'Every multi-volume book has its own group — books of samuel, books of kings, books of chronicles, corinthian letters, thessalonian letters, letters to timothy, letters of peter, letters of john',
+        'help.row.bookScope': 'BookName: text — search within a single book',
+        'help.section.shortcuts': 'Keyboard shortcuts',
+        'help.row.focusSearch': 'Focus search',
+        'help.row.blurSearch': 'Blur search / close modal',
+        'help.row.openHelp': 'Open/close help',
+        'help.row.prevNextChVs': 'Prev / next chapter (or verse when viewing a verse)',
+        'help.row.prevNextVer': 'Previous / next Bible version',
+        'help.row.tabAccept': 'Accept first autocomplete suggestion',
+        'help.row.tabBookSearch': 'Search within completed book name',
+        'help.row.acNav': 'Navigate autocomplete suggestions',
+        'info.about.title': 'About',
+        'info.about.text': "A fast and powerful Bible search tool, designed for personal Bible study and connecting with God's Word. Quickly look up references, search for words and phrases across the whole Bible or using filters, view stats and data for searches, explore cross-references, and compare translations. View help section for how to use.",
+        'info.bibleText.title': 'Bible text',
+        'info.bibleText.text': 'Bible text is sourced from <a href="https://www.bible.com" target="_blank" rel="noopener">YouVersion / bible.com</a> and stored locally to enable fast lookups and advanced full-text search. All rights to the Bible translations belong to their respective copyright holders and publishers. This tool is intended for personal use and Bible study only — not for redistribution.',
+        'info.crossRefs.title': 'Cross-references',
+        'info.crossRefs.text': 'Cross-reference data (~345,000 references) comes from <a href="https://www.openbible.info/labs/cross-references/" target="_blank" rel="noopener">OpenBible.info\'s cross-reference project</a>, which is primarily sourced from the Treasury of Scripture Knowledge (TSK). Used under Creative Commons Attribution 4.0.',
+        'info.openSource.title': 'Open source',
+        'info.openSource.text': 'This project is open source under the MIT license — <a href="https://github.com/tobiashellerslien/bible-search" target="_blank" rel="noopener">github.com/tobiashellerslien/bible-search</a>.',
+        'info.openSource.competition': 'link to the competition',
+        'info.feedback.title': 'Feedback',
+        'info.feedback.text': 'Questions, suggestions, or found a bug? Reach out at <a href="mailto:tobias@hellerslien.net">tobias@hellerslien.net</a>.',
+        'modal.stats': '// Stats',
+        'stats.totalHits': 'Total hits',
+        'stats.perChapter': 'Per chapter',
+        'stats.perVerse': 'Per verse',
+        'stats.booksHit': 'Books hit',
+        'stats.gtHits': 'OT hits',
+        'stats.ntHits': 'NT hits',
+        'stats.topGT': 'Top OT',
+        'stats.topNT': 'Top NT',
+        'stats.distribution': 'Distribution shown for entire Bible (filtered to: {0})',
+        'stats.modalTitle': '// Stats: "{0}"',
+        'stats.goToResults': 'Go to results',
+        'stats.unitHits': '{0} hits',
+        'stats.unitChapter': '{0} / ch',
+        'stats.unitVerse': '{0} / vs',
+        'modal.settings': '// Settings',
+        'settings.appearance': 'Appearance',
+        'settings.darkMode': 'Dark mode',
+        'settings.uiFont': 'UI font',
+        'settings.uiLang': 'UI language',
+        'settings.fontMono': 'Mono',
+        'settings.fontSans': 'Sans',
+        'settings.fontSerif': 'Serif',
+        'settings.accentColor': 'Accent color',
+        'settings.verseFontSize': 'Verse font size',
+        'settings.defaults': 'Default',
+        'settings.bibleVersion': 'Bible version',
+        'settings.savedDefault': 'Default version saved',
+        'empty.title': 'Search the Bible',
+        'empty.tagline': 'References, full-text search, cross-references and stats — across many translations.',
+        'empty.label.reference': 'Reference',
+        'empty.label.text': 'Text',
+        'empty.label.filter': 'Filter',
+        'empty.btn.help': '? Search syntax',
+        'empty.btn.about': 'ⓘ About',
+        'empty.btn.settings': '⚙ Settings',
+        'card.copyTxt': 'copy txt',
+        'card.copyTxt.title': 'Copy text only',
+        'card.copyRef': 'copy w/ ref',
+        'card.copyRef.title': 'Copy with reference',
+        'card.compare': 'compare',
+        'card.compare.title': 'Compare versions',
+        'card.allVersionsOption': '— All versions —',
+        'card.more': 'More',
+        'card.more.interlinear': 'interlinear',
+        'card.more.commentary': 'commentary',
+        'card.more.source': 'source',
+        'card.more.shareLink': 'share link',
+        'card.compareLoading': 'Loading...',
+        'card.compareNotFound': 'Not found',
+        'card.compareFailed': 'Failed to load',
+        'card.dismissHighlight': 'Dismiss highlight',
+        'annot.fnTitle': 'Footnote',
+        'annot.xrTitle': 'Cross-references',
+        'annot.loadingRefs': 'Loading references…',
+        'annot.loadError': 'Error loading.',
+        'annot.noRefs': 'No cross-references found.',
+        'annot.showAll': 'Show all {0} ↓',
+        'annot.openAll': 'Open all in view →',
+        'annot.loading': 'Loading…',
+        'annot.error': 'Error',
+        'chip.verseSingle': 'verse {0}',
+        'chip.verseRange': 'verses {0}–{1}',
+        'chip.verseCrossCh': 'verses {0}:{1}–{2}:{3}',
+        'chapterNav.prevCh': 'Previous chapter',
+        'chapterNav.nextCh': 'Next chapter',
+        'chapterNav.prevVs': 'Previous verse',
+        'chapterNav.nextVs': 'Next verse',
+        'verseNum.titleFmt': '{0} {1}:{2}',
+        'toast.copied': 'Copied!',
+        'toast.copiedRef': 'Copied with reference!',
+        'toast.linkCopied': 'Link copied!',
+        'toast.copyFailed': 'Copy failed',
+        'toast.clipboardUnavailable': 'Clipboard unavailable',
+        'toast.statsError': 'Stats error: {0}',
+        'toast.statsFailed': 'Failed to load stats.',
+        'searchResults.text.noResults': 'No results',
+        'searchResults.text.noResultsBody': 'No verses found for "{0}" in {1}.',
+        'searchResults.searchAllVersions': 'Search in all versions',
+        'searchResults.allVersions.noResultsBody': 'No verses found for "{0}" in any version.',
+        'searchResults.count': '{0} result for "{1}"',
+        'searchResults.countPlural': '{0} results for "{1}"',
+        'searchResults.allVersionsCountSingular': '{0} result across {1} version for "{2}"',
+        'searchResults.allVersionsCountVPlural': '{0} result across {1} versions for "{2}"',
+        'searchResults.allVersionsCountRPlural': '{0} results across {1} version for "{2}"',
+        'searchResults.allVersionsCountAllPlural': '{0} results across {1} versions for "{2}"',
+        'searchResults.expandAll': 'expand all',
+        'searchResults.collapseAll': 'collapse all',
+        'searchResults.statsBtn': '📊 stats',
+        'loading.errorGeneric': 'Error',
+        'loading.errorBody': 'Failed to connect to server.',
+        'loading.searchingTitle': 'Searching...',
+        'loading.searchingBody': 'Searching all versions for "{0}"',
+        'allVersions.failed': 'Failed to fetch versions.',
+        'ac.filter': 'filter',
+        'ac.searchInBook': 'search in book',
+        'verse.chapterHeading': 'Chapter {0}',
+    },
+    no: {
+        'header.help': 'Hjelp & info — trykk ? når som helst',
+        'header.settings': 'Innstillinger',
+        'header.darkMode': 'Veksle mørk modus',
+        'search.placeholder': 'Søk i Bibelen...',
+        'search.clear': 'Tøm søk',
+        'search.button': 'Søk',
+        'display.toggleLabel': 'bla & vis',
+        'display.browse': 'Bla:',
+        'display.bookPlaceholder': '-- Bok --',
+        'display.chapterPlaceholder': '-- Kap --',
+        'toggle.verseNums': 'Versnummer',
+        'toggle.newlines': 'Linjeskift per vers',
+        'toggle.headings': 'Overskrifter',
+        'toggle.annotations': 'Annotasjoner †§',
+        'toggle.copyHint': 'Versnummer og linjeskift påvirker kopiering',
+        'toggle.copyHintAria': 'Formateringsinfo',
+        'modal.helpInfo': '// Hjelp & info',
+        'modal.tab.help': 'Hjelp',
+        'modal.tab.info': 'Info',
+        'help.section.refLookup': 'Henvisninger',
+        'help.row.singleVerse': 'Enkelt vers',
+        'help.row.wholeChapter': 'Helt kapittel',
+        'help.row.verseRange': 'Vers-område',
+        'help.row.crossChapter': 'Område over flere kapitler',
+        'help.row.multiPassages': 'Flere passasjer (kontekst videreføres)',
+        'help.row.abbrevs': 'Forkortelser og engelske navn fungerer',
+        'help.section.textSearch': 'Tekstsøk-operatorer (kan kombineres)',
+        'help.row.allWords': 'Alle vers som inneholder ord (også i ord, som «trofast»)',
+        'help.row.exactWord': 'Alle vers med eksakt ord',
+        'help.row.exactPhrase': 'Eksakt frase',
+        'help.row.exclude': 'Ekskluder ord med -',
+        'help.row.either': 'Enten/eller-ord (OR må være store bokstaver)',
+        'help.row.bothWords': 'Begge ord (AND, implisitt)',
+        'help.section.applyFilters': 'Bruk filter',
+        'help.row.gt': 'Gamle Testamentet (også: OT:)',
+        'help.row.nt': 'Nye Testamentet',
+        'help.row.pentateuch': '1.–5. Mosebok (også: pentateuch:, torah:)',
+        'help.row.historical': 'Josva – Ester (også: historical:)',
+        'help.row.poetic': 'Job, Salme, Ordsp, Fork, Høys (også: visdom:, wisdom:)',
+        'help.row.prophets': 'Jesaja – Malaki (også: prophets:)',
+        'help.row.majorProphets': 'Jes, Jer, Klag, Esek, Dan (også: major prophets:)',
+        'help.row.minorProphets': 'Hosea – Malaki (også: minor prophets:)',
+        'help.row.gospels': 'Matt, Mark, Luk, Joh (også: gospels:)',
+        'help.row.synoptic': 'Matt, Mark, Luk (også: synoptic:)',
+        'help.row.epistles': 'Alle NT-brev (også: epistles:, letters:)',
+        'help.row.pauline': 'Romerne – Filemon (også: pauline:)',
+        'help.row.general': 'Hebreerne – Judas (også: general epistles:)',
+        'help.row.johannine': 'Joh, 1–3 Joh, Åp (også: johannine:)',
+        'help.row.apocalyptic': 'Daniel, Åpenbaringen (også: apocalyptic:)',
+        'help.row.kingsChron': '1–2 Kong, 1–2 Krøn (også: kings and chronicles:)',
+        'help.row.multiVolume': 'Hver flerbindsbok har sin egen gruppe — samuelsbøkene, kongebøkene, krønikebøkene, korinterbrevene, tessalonikerbrevene, timoteusbrevene, petersbrevene, johannesbrevene',
+        'help.row.bookScope': 'BokNavn: tekst — søk innenfor én bok',
+        'help.section.shortcuts': 'Hurtigtaster',
+        'help.row.focusSearch': 'Fokuser søkefelt',
+        'help.row.blurSearch': 'Avbryt fokus / lukk modal',
+        'help.row.openHelp': 'Åpne/lukk hjelp',
+        'help.row.prevNextChVs': 'Forrige/neste kapittel (eller vers ved versvisning)',
+        'help.row.prevNextVer': 'Forrige/neste bibeloversettelse',
+        'help.row.tabAccept': 'Godta første autofullføring',
+        'help.row.tabBookSearch': 'Søk innenfor fullført boknavn',
+        'help.row.acNav': 'Naviger autofullføringer',
+        'info.about.title': 'Om',
+        'info.about.text': 'Et raskt og kraftig bibelsøkverktøy, laget for personlig bibelstudie og for å bli bedre kjent med Guds ord. Raskt slå opp vers, søk etter ord og fraser i hele Bibelen eller ved bruk av filtre, se statistikk for søk, utforsk kryssreferanser og sammenlign oversettelser. Se hjelp-fanen for hvordan dette brukes.',
+        'info.bibleText.title': 'Bibeltekst',
+        'info.bibleText.text': 'Bibelteksten er hentet fra <a href="https://www.bible.com" target="_blank" rel="noopener">YouVersion / bible.com</a> og lagret lokalt for raske oppslag og avansert fulltekstsøk. Alle rettigheter til oversettelsene tilhører deres respektive opphavsrettighetsinnehavere og forlag. Verktøyet er ment for personlig bruk og bibelstudium — ikke for videredistribusjon.',
+        'info.crossRefs.title': 'Kryssreferanser',
+        'info.crossRefs.text': 'Kryssreferanser (~345 000 referanser) kommer fra <a href="https://www.openbible.info/labs/cross-references/" target="_blank" rel="noopener">OpenBible.info sitt kryssreferanseprosjekt</a>, hovedsakelig basert på Treasury of Scripture Knowledge (TSK). Brukt under Creative Commons Attribution 4.0.',
+        'info.openSource.title': 'Åpen kildekode',
+        'info.openSource.text': 'Dette prosjektet er åpen kildekode under MIT-lisensen — <a href="https://github.com/tobiashellerslien/bible-search" target="_blank" rel="noopener">github.com/tobiashellerslien/bible-search</a>.',
+        'info.openSource.competition': 'lenke til konkurransen',
+        'info.feedback.title': 'Tilbakemelding',
+        'info.feedback.text': 'Spørsmål, forslag eller funnet en bug? Ta kontakt på <a href="mailto:tobias@hellerslien.net">tobias@hellerslien.net</a>.',
+        'modal.stats': '// Statistikk',
+        'stats.totalHits': 'Totalt treff',
+        'stats.perChapter': 'Per kapittel',
+        'stats.perVerse': 'Per vers',
+        'stats.booksHit': 'Bøker med treff',
+        'stats.gtHits': 'GT-treff',
+        'stats.ntHits': 'NT-treff',
+        'stats.topGT': 'Topp GT',
+        'stats.topNT': 'Topp NT',
+        'stats.distribution': 'Fordeling vises for hele Bibelen (filtrert til: {0})',
+        'stats.modalTitle': '// Statistikk: «{0}»',
+        'stats.goToResults': 'Gå til resultater',
+        'stats.unitHits': '{0} treff',
+        'stats.unitChapter': '{0} / kap',
+        'stats.unitVerse': '{0} / vs',
+        'modal.settings': '// Innstillinger',
+        'settings.appearance': 'Utseende',
+        'settings.darkMode': 'Mørk modus',
+        'settings.uiFont': 'UI-skrift',
+        'settings.uiLang': 'UI-språk',
+        'settings.fontMono': 'Mono',
+        'settings.fontSans': 'Sans',
+        'settings.fontSerif': 'Serif',
+        'settings.accentColor': 'Aksentfarge',
+        'settings.verseFontSize': 'Versskrift-størrelse',
+        'settings.defaults': 'Standard',
+        'settings.bibleVersion': 'Bibeloversettelse',
+        'settings.savedDefault': 'Standardoversettelse lagret',
+        'empty.title': 'Søk i Bibelen',
+        'empty.tagline': 'Henvisninger, fulltekstsøk, kryssreferanser og statistikk — på tvers av oversettelser.',
+        'empty.label.reference': 'Henvisning',
+        'empty.label.text': 'Tekst',
+        'empty.label.filter': 'Filter',
+        'empty.btn.help': '? Søkesyntaks',
+        'empty.btn.about': 'ⓘ Om',
+        'empty.btn.settings': '⚙ Innstillinger',
+        'card.copyTxt': 'kopier tekst',
+        'card.copyTxt.title': 'Kopier kun tekst',
+        'card.copyRef': 'kopier m/ ref',
+        'card.copyRef.title': 'Kopier med henvisning',
+        'card.compare': 'sammenlign',
+        'card.compare.title': 'Sammenlign oversettelser',
+        'card.allVersionsOption': '— Alle oversettelser —',
+        'card.more': 'Mer',
+        'card.more.interlinear': 'interlineær',
+        'card.more.commentary': 'kommentar',
+        'card.more.source': 'kilde',
+        'card.more.shareLink': 'del lenke',
+        'card.compareLoading': 'Laster...',
+        'card.compareNotFound': 'Ikke funnet',
+        'card.compareFailed': 'Lasting feilet',
+        'card.dismissHighlight': 'Fjern markering',
+        'annot.fnTitle': 'Fotnote',
+        'annot.xrTitle': 'Kryssreferanser',
+        'annot.loadingRefs': 'Laster referanser…',
+        'annot.loadError': 'Feil ved lasting.',
+        'annot.noRefs': 'Ingen kryssreferanser funnet.',
+        'annot.showAll': 'Vis alle {0} ↓',
+        'annot.openAll': 'Åpne alle →',
+        'annot.loading': 'Laster…',
+        'annot.error': 'Feil',
+        'chip.verseSingle': 'vers {0}',
+        'chip.verseRange': 'vers {0}–{1}',
+        'chip.verseCrossCh': 'vers {0}:{1}–{2}:{3}',
+        'chapterNav.prevCh': 'Forrige kapittel',
+        'chapterNav.nextCh': 'Neste kapittel',
+        'chapterNav.prevVs': 'Forrige vers',
+        'chapterNav.nextVs': 'Neste vers',
+        'verseNum.titleFmt': '{0} {1}:{2}',
+        'toast.copied': 'Kopiert!',
+        'toast.copiedRef': 'Kopiert med henvisning!',
+        'toast.linkCopied': 'Lenke kopiert!',
+        'toast.copyFailed': 'Kopiering feilet',
+        'toast.clipboardUnavailable': 'Utklippstavle ikke tilgjengelig',
+        'toast.statsError': 'Statistikkfeil: {0}',
+        'toast.statsFailed': 'Kunne ikke laste statistikk.',
+        'searchResults.text.noResults': 'Ingen treff',
+        'searchResults.text.noResultsBody': 'Ingen vers funnet for «{0}» i {1}.',
+        'searchResults.searchAllVersions': 'Søk i alle oversettelser',
+        'searchResults.allVersions.noResultsBody': 'Ingen vers funnet for «{0}» i noen oversettelse.',
+        'searchResults.count': '{0} treff for «{1}»',
+        'searchResults.countPlural': '{0} treff for «{1}»',
+        'searchResults.allVersionsCountSingular': '{0} treff fordelt på {1} oversettelse for «{2}»',
+        'searchResults.allVersionsCountVPlural': '{0} treff fordelt på {1} oversettelser for «{2}»',
+        'searchResults.allVersionsCountRPlural': '{0} treff fordelt på {1} oversettelse for «{2}»',
+        'searchResults.allVersionsCountAllPlural': '{0} treff fordelt på {1} oversettelser for «{2}»',
+        'searchResults.expandAll': 'utvid alle',
+        'searchResults.collapseAll': 'skjul alle',
+        'searchResults.statsBtn': '📊 statistikk',
+        'loading.errorGeneric': 'Feil',
+        'loading.errorBody': 'Kunne ikke koble til server.',
+        'loading.searchingTitle': 'Søker...',
+        'loading.searchingBody': 'Søker i alle oversettelser etter «{0}»',
+        'allVersions.failed': 'Kunne ikke hente oversettelser.',
+        'ac.filter': 'filter',
+        'ac.searchInBook': 'søk i bok',
+        'verse.chapterHeading': 'Kapittel {0}',
+    },
+};
+
+let uiLang = (localStorage.getItem('uiLang') === 'no' || localStorage.getItem('uiLang') === 'en')
+    ? localStorage.getItem('uiLang')
+    : (navigator.language && navigator.language.toLowerCase().startsWith('no') ? 'no' : 'en');
+
+function t(key, ...args) {
+    let s = (I18N[uiLang] && I18N[uiLang][key]) || (I18N.en && I18N.en[key]) || key;
+    args.forEach((a, i) => { s = s.split(`{${i}}`).join(String(a)); });
+    return s;
+}
+
+function applyI18n() {
+    document.documentElement.lang = uiLang;
+    document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+    document.querySelectorAll('[data-i18n-aria]').forEach(el => { el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+    document.querySelectorAll('[data-i18n-tooltip]').forEach(el => { el.setAttribute('data-tooltip', t(el.dataset.i18nTooltip)); });
+}
+
 // ── Constants ──
 // allVersionsList is populated in init() — [{id, name, full_name, language}, ...]
 // versionSelect values are String(id) throughout the app.
@@ -55,7 +421,10 @@ const ENG_NAMES = {
 const BOOK_DISPLAY_OVERRIDES_NO = { PSA: 'Salmene' };
 const BOOK_DISPLAY_OVERRIDES_EN_SINGULAR = { PSA: 'Psalm' };
 
-const OT_BOOKS = new Set(['GEN','EXO','LEV','NUM','DEU','JOS','JDG','RUT','1SA','2SA','1KI','2KI','1CH','2CH','EZR','NEH','EST','JOB','PSA','PRO','ECC','SNG','ISA','JER','LAM','EZK','DAN','HOS','JOL','AMO','OBA','JON','MIC','NAM','HAB','ZEP','HAG','ZEC','MAL']);
+function isOTBook(code) {
+    const b = booksData.find(x => x.code === code);
+    return b ? b.testament === 'OT' : false;
+}
 
 // Each entry has no (Norwegian) and en (English) variants.
 // The label is inserted into the search box and sent to the backend.
@@ -91,26 +460,15 @@ const SEARCH_GROUPS = [
 
 const FONT_SIZES = [null, '0.85rem', '1.0rem', '1.1rem', '1.3rem', '1.5rem'];
 
-const BOOK_CHAPTER_COUNTS = {
-    'GEN':50,'EXO':40,'LEV':27,'NUM':36,'DEU':34,'JOS':24,'JDG':21,'RUT':4,
-    '1SA':31,'2SA':24,'1KI':22,'2KI':25,'1CH':29,'2CH':36,'EZR':10,'NEH':13,
-    'EST':10,'JOB':42,'PSA':150,'PRO':31,'ECC':12,'SNG':8,'ISA':66,'JER':52,
-    'LAM':5,'EZK':48,'DAN':12,'HOS':14,'JOL':3,'AMO':9,'OBA':1,'JON':4,
-    'MIC':7,'NAM':3,'HAB':3,'ZEP':3,'HAG':2,'ZEC':14,'MAL':4,'MAT':28,
-    'MRK':16,'LUK':24,'JHN':21,'ACT':28,'ROM':16,'1CO':16,'2CO':13,'GAL':6,
-    'EPH':6,'PHP':4,'COL':4,'1TH':5,'2TH':3,'1TI':6,'2TI':4,'TIT':3,'PHM':1,
-    'HEB':13,'JAS':5,'1PE':5,'2PE':3,'1JN':5,'2JN':1,'3JN':1,'JUD':1,'REV':22
-};
-const BOOK_VERSE_COUNTS = {
-    'GEN':1533,'EXO':1213,'LEV':859,'NUM':1288,'DEU':959,'JOS':658,'JDG':618,'RUT':85,
-    '1SA':811,'2SA':695,'1KI':817,'2KI':719,'1CH':942,'2CH':822,'EZR':280,'NEH':406,
-    'EST':167,'JOB':1070,'PSA':2527,'PRO':915,'ECC':222,'SNG':117,'ISA':1291,'JER':1364,
-    'LAM':154,'EZK':1273,'DAN':356,'HOS':197,'JOL':73,'AMO':146,'OBA':21,'JON':48,
-    'MIC':105,'NAM':47,'HAB':56,'ZEP':53,'HAG':38,'ZEC':211,'MAL':55,'MAT':1071,
-    'MRK':678,'LUK':1151,'JHN':879,'ACT':1006,'ROM':433,'1CO':437,'2CO':256,'GAL':149,
-    'EPH':155,'PHP':104,'COL':95,'1TH':89,'2TH':47,'1TI':113,'2TI':83,'TIT':46,'PHM':25,
-    'HEB':303,'JAS':108,'1PE':105,'2PE':61,'1JN':105,'2JN':13,'3JN':15,'JUD':25,'REV':405
-};
+function bookChapterCount(code) {
+    const b = booksData.find(x => x.code === code);
+    return b ? (b.chapters || 0) : 0;
+}
+function bookTotalVerses(code) {
+    const b = booksData.find(x => x.code === code);
+    if (!b || !b.verse_counts) return 0;
+    return Object.values(b.verse_counts).reduce((a, n) => a + n, 0);
+}
 
 const COLOR_PRESETS = [
     { name: 'Blue',   l: '#2870e8', lh: '#1d5cc8', ld: 'rgba(40,112,232,0.12)',   d: '#5aafff', dh: '#4a9eee', dd: 'rgba(90,175,255,0.12)' },
@@ -134,7 +492,7 @@ let allVersionsList = [];
 let currentAccentIdx = parseInt(localStorage.getItem('accentColor') || '0');
 let lastTextSearchQuery = '';
 const cardCompare = {};  // { [idx]: { version, data, visible } }
-let currentHighlightVerses = null; // { chapter: number, verses: Set<number> } | null
+let currentHighlightVerses = null; // { keys: Set<"chapter:verse"> } | null
 let _preserveHighlight = false;
 let lastStatsData = null;
 let statsNormMode = 'total';
@@ -182,10 +540,10 @@ async function init() {
     const dvSel = document.getElementById('defaultVersionSelect');
     if (dvSel) {
         data.versions.forEach(v => dvSel.add(new Option(v.name, String(v.id))));
-        dvSel.value = versionSelect.value;
+        dvSel.value = (savedDefault && idStrings.includes(savedDefault)) ? savedDefault : versionSelect.value;
         dvSel.addEventListener('change', () => {
             localStorage.setItem('defaultVersion', dvSel.value);
-            showToast('Default version saved');
+            showToast(t('settings.savedDefault'));
         });
     }
     buildVersionPicker();
@@ -290,7 +648,7 @@ chapterSelect.addEventListener('change', () => {
     doSearch();
 });
 
-setInterval(() => fetch('/api/heartbeat').catch(() => {}), 3000);
+setInterval(() => fetch('/api/heartbeat').catch(() => {}), 30000);
 
 // ── URL / History ──
 function buildURL(q, version, mode) {
@@ -321,15 +679,31 @@ function restoreFromURL() {
     }
 }
 
-window.addEventListener('popstate', e => {
+function restoreOpenXrefPanel(openXref) {
+    if (!openXref) return;
+    requestAnimationFrame(() => {
+        const sel = `.xr-btn[data-book="${openXref.book}"][data-chapter="${openXref.chapter}"][data-verse="${openXref.verse}"]`;
+        const btn = document.querySelector(sel);
+        if (btn) {
+            toggleXrefPanel(btn);
+            requestAnimationFrame(() => {
+                const verseLine = btn.closest('.verse-line');
+                if (verseLine) verseLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+        }
+    });
+}
+
+window.addEventListener('popstate', async e => {
     if (e.state) {
-        const { q, version, mode } = e.state;
+        const { q, version, mode, openXref } = e.state;
         if (version && allVersionsList.some(x => String(x.id) === version)) versionSelect.value = version;
         if (q) {
             searchInput.value = q;
             updateSearchHighlight();
-            if (mode === 'allversions') executeAllVersions(q);
-            else doSearch(false, false);
+            if (mode === 'allversions') await executeAllVersions(q);
+            else await doSearch(false, false);
+            restoreOpenXrefPanel(openXref);
         } else {
             goHome(false);
         }
@@ -361,7 +735,7 @@ async function doSearch(pushHistory = true, resetAC = true) {
     try {
         const resp = await fetch(`/api/search?q=${encodeURIComponent(query)}&version=${encodeURIComponent(version)}`);
         const data = await resp.json();
-        if (data.error) { resultsWrapper.innerHTML = errorCardHtml('Error', data.error); return; }
+        if (data.error) { resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), data.error); return; }
 
         if (data.type === 'text_search') {
             currentView = 'text_search';
@@ -376,7 +750,7 @@ async function doSearch(pushHistory = true, resetAC = true) {
         renderAll();
         window.scrollTo(0, 0);
     } catch (err) {
-        resultsWrapper.innerHTML = errorCardHtml('Error', 'Failed to connect to server.');
+        resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), t('loading.errorBody'));
     }
 }
 
@@ -385,7 +759,7 @@ function detectChapterInfo(results) {
     const first = results[0];
     if (!first || !first.book || !first.verses || first.verses.length === 0) { currentChapterInfo = null; return; }
     const ch = first.verses[0].chapter;
-    const isVerseView = first.label && first.label.includes(':');
+    const isVerseView = !first.is_chapter;
     const firstVerse = first.verses[0].num;
     const lastVerse = first.verses[first.verses.length - 1].num;
     currentChapterInfo = { book: first.book, chapter: ch, bookName: bookRefName(first.book), isVerseView, firstVerse, lastVerse };
@@ -437,7 +811,7 @@ document.getElementById('copyHintBtn').addEventListener('click', function() {
 
 // ── Render reference results ──
 function renderAll() {
-    if (!mainData || mainData.length === 0) { resultsWrapper.innerHTML = emptyStateHtml; return; }
+    if (!mainData || mainData.length === 0) { resultsWrapper.innerHTML = emptyStateHtml; applyI18n(); return; }
     const showNums = toggleVerseNums.checked;
     const showNewlines = toggleNewlines.checked;
     const showHeadings = toggleHeadings.checked;
@@ -449,12 +823,15 @@ function renderAll() {
     });
 
     resultsWrapper.innerHTML = html;
+    Object.keys(cardCompare).forEach(idx => {
+        if (cardCompare[idx] && cardCompare[idx].visible) renderCompareBody(idx);
+    });
 }
 
 function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, ver) {
     if (!block) return '';
     if (block.error) {
-        const lbl = block.book ? translateLabel(block.label || 'Error', block.book, lang) : (block.label || 'Error');
+        const lbl = block.book ? translateLabel(block.label || t('loading.errorGeneric'), block.book, lang) : (block.label || t('loading.errorGeneric'));
         return `<div class="verse-card error-card">
             <div class="verse-card-header"><div class="verse-card-header-left"><span class="verse-card-label">${escHtml(lbl)}</span></div></div>
             <div class="error-message">${escHtml(block.error)}</div>
@@ -469,9 +846,9 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
     const compareVer = cs ? cs.version : (defaultCompareVer ? String(defaultCompareVer.id) : ver);
 
     const hasHighlight = currentHighlightVerses && block.verses.some(v =>
-        v.chapter === currentHighlightVerses.chapter && currentHighlightVerses.verses.has(v.num));
+        currentHighlightVerses.keys.has(`${v.chapter}:${v.num}`));
     const chipHtml = hasHighlight
-        ? `<button class="copy-btn highlight-dismiss-btn" onclick="clearHighlight()" title="Fjern markering">${escHtml(buildHighlightChipLabel())} &times;</button>`
+        ? `<button class="copy-btn highlight-dismiss-btn" onclick="clearHighlight()" title="${escAttr(t('card.dismissHighlight'))}">${escHtml(buildHighlightChipLabel())} &times;</button>`
         : '';
 
     let html = `<div class="verse-card" id="${cardId}">
@@ -481,9 +858,9 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
                 ${chipHtml}
             </div>
             <div class="verse-card-header-actions">
-                <button class="copy-btn" onclick="copyBlockText(${idx})" title="Copy text only">copy txt</button>
-                <button class="copy-btn" onclick="copyBlockRef(${idx})" title="Copy with reference">copy w/ ref</button>
-                <button class="copy-btn compare-header-btn${compareVisible ? ' active' : ''}" onclick="toggleCardCompare(${idx})" title="Compare versions">compare</button>
+                <button class="copy-btn" onclick="copyBlockText(${idx})" title="${escAttr(t('card.copyTxt.title'))}">${escHtml(t('card.copyTxt'))}</button>
+                <button class="copy-btn" onclick="copyBlockRef(${idx})" title="${escAttr(t('card.copyRef.title'))}">${escHtml(t('card.copyRef'))}</button>
+                <button class="copy-btn compare-header-btn${compareVisible ? ' active' : ''}" onclick="toggleCardCompare(${idx})" title="${escAttr(t('card.compare.title'))}">${escHtml(t('card.compare'))}</button>
             </div>
         </div>
         <div class="verse-text">`;
@@ -500,44 +877,35 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
         const allSameCh = block.verses.every(v => v.chapter === ch);
 
         // Compare section sits between verse text and footer
+        const isAllMode = cs && cs.mode === 'all';
         html += `<div class="card-compare-section${compareVisible ? ' visible' : ''}" id="compare-section-${idx}">
             <div class="card-compare-header">
                 <select class="card-compare-select" id="compare-select-${idx}" onchange="changeCardCompareVersion(${idx})">`;
         allVersionsList.forEach(v => {
             const vid = String(v.id);
-            html += `<option value="${escAttr(vid)}"${vid === compareVer ? ' selected' : ''}>${escHtml(v.name)}</option>`;
+            html += `<option value="${escAttr(vid)}"${vid === compareVer && !isAllMode ? ' selected' : ''}>${escHtml(v.name)}</option>`;
         });
+        html += `<option value="__all__"${isAllMode ? ' selected' : ''}>${escHtml(t('card.allVersionsOption'))}</option>`;
         html += `</select></div>
-            <div class="card-compare-body" id="compare-body-${idx}">`;
+            <div class="card-compare-body" id="compare-body-${idx}"></div></div>`;
 
-        if (compareVisible) {
-            if (cs && cs.data) {
-                const compLang = versionLang(cs.version);
-                html += `<div class="verse-text">${renderVerseTextHtml(cs.data.verses, showNums, showNewlines, showHeadings, cs.data.book, compLang, cs.version, cs.data.headings || [], cs.data.footnotes || [])}</div>`;
-            } else {
-                html += '<span style="color:var(--text-muted);font-size:0.85rem;">Loading...</span>';
-            }
-        }
-
-        html += `</div></div>`;
-
-        const verseNumsStr = block.verses.map(v => v.num).join(',');
+        const verseKeysStr = block.verses.map(v => `${v.chapter}:${v.num}`).join(',');
         const crUrl = biblerefUrl(block.book, ch, isSingleVerse ? block.verses[0].num : null);
-        const yvUrl = youversionUrl(block.book, ch, block.verses, ver, !block.label.includes(':'));
+        const yvUrl = youversionUrl(block.book, ch, block.verses, ver, !!block.is_chapter);
         html += `<div class="verse-card-footer">
-            <button class="card-action-btn" onclick="readChapter('${escAttr(block.book)}', ${ch}, '${escAttr(bName)}', '${verseNumsStr}')">&#128214; ${escHtml(bookNameSingular(block.book, lang))} ${ch}</button>
-            <button class="card-action-btn" onclick="showAllVersions('${escAttr(block.label)}')">all versions</button>`;
-        if (ilUrl) {
-            html += `<a class="card-action-btn" href="${ilUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;"><img src="/static/biblehub.png" style="height:12px;opacity:0.8;" alt=""> interlinear</a>`;
-        }
-        if (crUrl) {
-            html += `<a class="card-action-btn" href="${crUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;"><img src="/static/bibleref.png" style="height:12px;opacity:0.8;" alt=""> commentary</a>`;
-        }
-        if (yvUrl) {
-            html += `<a class="card-action-btn" href="${yvUrl}" target="_blank" rel="noopener">source</a>`;
+            <button class="card-action-btn" onclick="readChapter('${escAttr(block.book)}', ${ch}, '${escAttr(bName)}', '${verseKeysStr}')">&#128214; ${escHtml(bookNameSingular(block.book, lang))} ${ch}</button>`;
+        if (ilUrl || crUrl || yvUrl) {
+            html += `<div class="card-more-wrap">
+                <button class="card-action-btn card-more-btn" onclick="toggleCardMore(${idx})" title="${escAttr(t('card.more'))}">&#8943;</button>
+                <div class="card-more-menu" id="card-more-${idx}">`;
+            if (ilUrl) html += `<a class="card-more-item" href="${ilUrl}" target="_blank" rel="noopener"><img src="/static/biblehub.png" alt=""> ${escHtml(t('card.more.interlinear'))}</a>`;
+            if (crUrl) html += `<a class="card-more-item" href="${crUrl}" target="_blank" rel="noopener"><img src="/static/bibleref.png" alt=""> ${escHtml(t('card.more.commentary'))}</a>`;
+            if (yvUrl) html += `<a class="card-more-item" href="${yvUrl}" target="_blank" rel="noopener">${escHtml(t('card.more.source'))}</a>`;
+            html += `<button class="card-more-item" onclick="shareLink()">${escHtml(t('card.more.shareLink'))}</button>`;
+            html += `</div></div>`;
         }
         if (allSameCh && maxCh > 0) {
-            const isVerseView = block.label.includes(':');
+            const isVerseView = !block.is_chapter;
             html += `<div class="chapter-nav">`;
             if (isVerseView) {
                 const firstV = block.verses[0].num;
@@ -547,11 +915,11 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
                 const hasNext = (maxV && lastV < maxV) || ch < maxCh;
                 const prevLabel = firstV > 1 ? firstV - 1 : (ch > 1 ? `${ch - 1}:${maxVerseInChapter(block.book, ch - 1) || '?'}` : null);
                 const nextLabel = (maxV && lastV < maxV) ? lastV + 1 : (ch < maxCh ? `${ch + 1}:1` : null);
-                if (hasPrev && prevLabel !== null) html += `<button class="card-action-btn" onclick="goVerse('${escAttr(block.book)}', ${ch}, ${firstV}, '${escAttr(bName)}', 'prev')" title="Previous verse">&#8592; ${prevLabel}</button>`;
-                if (hasNext && nextLabel !== null) html += `<button class="card-action-btn" onclick="goVerse('${escAttr(block.book)}', ${ch}, ${lastV}, '${escAttr(bName)}', 'next')" title="Next verse">${nextLabel} &#8594;</button>`;
+                if (hasPrev && prevLabel !== null) html += `<button class="card-action-btn" onclick="goVerse('${escAttr(block.book)}', ${ch}, ${firstV}, '${escAttr(bName)}', 'prev')" title="${escAttr(t('chapterNav.prevVs'))}">&#8592; ${prevLabel}</button>`;
+                if (hasNext && nextLabel !== null) html += `<button class="card-action-btn" onclick="goVerse('${escAttr(block.book)}', ${ch}, ${lastV}, '${escAttr(bName)}', 'next')" title="${escAttr(t('chapterNav.nextVs'))}">${nextLabel} &#8594;</button>`;
             } else {
-                if (ch > 1) html += `<button class="card-action-btn" onclick="goChapter('${escAttr(block.book)}', ${ch - 1}, '${escAttr(bName)}', 'prev')" title="Previous chapter">&#8592; ${ch - 1}</button>`;
-                if (ch < maxCh) html += `<button class="card-action-btn" onclick="goChapter('${escAttr(block.book)}', ${ch + 1}, '${escAttr(bName)}', 'next')" title="Next chapter">${ch + 1} &#8594;</button>`;
+                if (ch > 1) html += `<button class="card-action-btn" onclick="goChapter('${escAttr(block.book)}', ${ch - 1}, '${escAttr(bName)}', 'prev')" title="${escAttr(t('chapterNav.prevCh'))}">&#8592; ${ch - 1}</button>`;
+                if (ch < maxCh) html += `<button class="card-action-btn" onclick="goChapter('${escAttr(block.book)}', ${ch + 1}, '${escAttr(bName)}', 'next')" title="${escAttr(t('chapterNav.nextCh'))}">${ch + 1} &#8594;</button>`;
             }
             html += `</div>`;
         }
@@ -563,22 +931,61 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
 }
 
 // ── Card compare ──
+function renderCompareBody(idx) {
+    const cs = cardCompare[idx];
+    const body = document.getElementById(`compare-body-${idx}`);
+    if (!body || !cs) return;
+    const showNums = toggleVerseNums.checked;
+    const showNewlines = toggleNewlines.checked;
+    const showHeadings = toggleHeadings.checked;
+
+    if (cs.mode === 'all') {
+        if (!cs.allData) { body.innerHTML = `<span class="compare-loading">${escHtml(t('card.compareLoading'))}</span>`; return; }
+        let html = '';
+        let first = true;
+        for (const [vName, blocks] of Object.entries(cs.allData)) {
+            const verses = blocks.flatMap(b => b.verses || []);
+            if (verses.length === 0) continue;
+            const headings = blocks.flatMap(b => b.headings || []);
+            const blockFootnotes = blocks.flatMap(b => b.footnotes || []);
+            const vLang = versionLang(vName);
+            const bCode = blocks[0]?.book;
+            if (!first) html += '<hr class="version-separator">';
+            first = false;
+            html += `<div><div class="version-label">${escHtml(versionLabel(vName))}</div>
+                <div class="verse-text">${renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bCode, vLang, vName, headings, blockFootnotes)}</div></div>`;
+        }
+        body.innerHTML = html;
+        return;
+    }
+
+    if (!cs.data) { body.innerHTML = `<span class="compare-loading">${escHtml(t('card.compareLoading'))}</span>`; return; }
+    if (cs.data.error) {
+        body.innerHTML = `<span style="color:var(--error);font-size:0.85rem;">${escHtml(cs.data.error)}</span>`;
+        return;
+    }
+    const compLang = versionLang(cs.version);
+    body.innerHTML = `<div class="verse-text">${renderVerseTextHtml(cs.data.verses, showNums, showNewlines, showHeadings, cs.data.book, compLang, cs.version, cs.data.headings || [], cs.data.footnotes || [])}</div>`;
+}
+
 window.toggleCardCompare = async function(idx) {
+    const section = document.getElementById(`compare-section-${idx}`);
+    const headerBtn = document.querySelector(`#card-${idx} .compare-header-btn`);
     if (!cardCompare[idx]) {
         const defaultVer = allVersionsList.find(v => String(v.id) !== versionSelect.value) || allVersionsList[0];
-        cardCompare[idx] = { version: String(defaultVer.id), data: null, visible: true };
-        renderAll();
+        cardCompare[idx] = { version: String(defaultVer.id), data: null, visible: true, mode: 'single', allData: null };
+        if (section) {
+            section.classList.add('visible');
+            if (headerBtn) headerBtn.classList.add('active');
+            renderCompareBody(idx);
+        }
         await loadCardCompareData(idx);
-        renderAll();
+        renderCompareBody(idx);
     } else {
         cardCompare[idx].visible = !cardCompare[idx].visible;
-        const section = document.getElementById(`compare-section-${idx}`);
-        const headerBtn = document.querySelector(`#card-${idx} .compare-header-btn`);
         if (section) {
             section.classList.toggle('visible', cardCompare[idx].visible);
             if (headerBtn) headerBtn.classList.toggle('active', cardCompare[idx].visible);
-        } else {
-            renderAll();
         }
     }
 };
@@ -586,11 +993,20 @@ window.toggleCardCompare = async function(idx) {
 window.changeCardCompareVersion = async function(idx) {
     const sel = document.getElementById(`compare-select-${idx}`);
     if (!sel || !cardCompare[idx]) return;
-    cardCompare[idx].version = sel.value;
-    cardCompare[idx].data = null;
-    renderAll();
-    await loadCardCompareData(idx);
-    renderAll();
+    if (sel.value === '__all__') {
+        cardCompare[idx].mode = 'all';
+        cardCompare[idx].allData = null;
+        renderCompareBody(idx);
+        await loadCardCompareAllData(idx);
+        renderCompareBody(idx);
+    } else {
+        cardCompare[idx].mode = 'single';
+        cardCompare[idx].version = sel.value;
+        cardCompare[idx].data = null;
+        renderCompareBody(idx);
+        await loadCardCompareData(idx);
+        renderCompareBody(idx);
+    }
 };
 
 async function loadCardCompareData(idx) {
@@ -603,17 +1019,52 @@ async function loadCardCompareData(idx) {
         if (data.type === 'reference' && !data.error && data.results && data.results[0]) {
             cardCompare[idx].data = data.results[0];
         } else {
-            cardCompare[idx].data = { error: data.error || 'Not found', verses: [] };
+            cardCompare[idx].data = { error: data.error || t('card.compareNotFound'), verses: [] };
         }
     } catch {
-        cardCompare[idx].data = { error: 'Failed to load', verses: [] };
+        cardCompare[idx].data = { error: t('card.compareFailed'), verses: [] };
     }
 }
 
+async function loadCardCompareAllData(idx) {
+    if (!mainData || !mainData[idx] || !cardCompare[idx]) return;
+    const block = mainData[idx];
+    try {
+        const resp = await fetch(`/api/all_versions?q=${encodeURIComponent(block.label)}`);
+        const data = await resp.json();
+        cardCompare[idx].allData = data.results || {};
+    } catch {
+        cardCompare[idx].allData = {};
+    }
+}
+
+window.toggleCardMore = function(idx) {
+    const menu = document.getElementById(`card-more-${idx}`);
+    if (!menu) return;
+    const wasOpen = menu.classList.contains('open');
+    document.querySelectorAll('.card-more-menu.open').forEach(m => m.classList.remove('open'));
+    if (!wasOpen) menu.classList.add('open');
+};
+document.addEventListener('click', e => {
+    if (!e.target.closest('.card-more-wrap')) {
+        document.querySelectorAll('.card-more-menu.open').forEach(m => m.classList.remove('open'));
+    }
+});
+
+window.shareLink = function() {
+    const url = window.location.origin + window.location.pathname + window.location.search;
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(url)
+            .then(() => showToast(t('toast.linkCopied')))
+            .catch(() => showToast(t('toast.copyFailed')));
+    } else {
+        showToast(t('toast.clipboardUnavailable'));
+    }
+    document.querySelectorAll('.card-more-menu.open').forEach(m => m.classList.remove('open'));
+};
+
 function isVerseHighlighted(v) {
-    return !!(currentHighlightVerses
-        && v.chapter === currentHighlightVerses.chapter
-        && currentHighlightVerses.verses.has(v.num));
+    return !!(currentHighlightVerses && currentHighlightVerses.keys.has(`${v.chapter}:${v.num}`));
 }
 
 function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookCode, lang, ver, headings = [], footnotes = []) {
@@ -636,7 +1087,7 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
     verses.forEach((v, vi) => {
         if (isMultiChapter && v.chapter !== lastChapter) {
             if (vi > 0 && showNewlines) html += '<br>';
-            html += `<div class="chapter-heading">Chapter ${v.chapter}</div>`;
+            html += `<div class="chapter-heading">${escHtml(t('verse.chapterHeading', v.chapter))}</div>`;
             lastChapter = v.chapter;
         } else if (lastChapter === null) {
             lastChapter = v.chapter;
@@ -661,16 +1112,16 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
 
         html += `<span class="verse-line">`;
         if (showNums) {
-            html += `<span class="verse-num" onclick="openSingleVerse('${bookCodeSafe}',${v.chapter},${v.num},'${refName}')" title="${bookRefName(bookCode)} ${v.chapter}:${v.num}">${v.num}</span>`;
+            html += `<span class="verse-num" onclick="openSingleVerse('${bookCodeSafe}',${v.chapter},${v.num},'${refName}')" title="${escAttr(bookRefName(bookCode))} ${v.chapter}:${v.num}">${v.num}</span>`;
         }
         html += escHtml(v.text);
 
         const fnText = footnoteMap[v.chapter]?.[v.num];
         if (showFootnotes && fnText) {
-            html += `<button class="verse-btn fn-btn" onclick="toggleFootnotePanel(this)" title="Fotnote">†</button>`;
+            html += `<button class="verse-btn fn-btn" onclick="toggleFootnotePanel(this)" title="${escAttr(t('annot.fnTitle'))}">†</button>`;
         }
         if (showXrefs && bookCodeSafe) {
-            html += `<button class="verse-btn xr-btn" data-book="${bookCodeSafe}" data-chapter="${v.chapter}" data-verse="${v.num}" onclick="toggleXrefPanel(this)" title="Kryssreferanser">§</button>`;
+            html += `<button class="verse-btn xr-btn" data-book="${bookCodeSafe}" data-chapter="${v.chapter}" data-verse="${v.num}" onclick="toggleXrefPanel(this)" title="${escAttr(t('annot.xrTitle'))}">§</button>`;
         }
 
         html += `</span> `;
@@ -740,6 +1191,14 @@ window.toggleFootnotePanel = function(btn) {
     }
 };
 
+function setOpenXrefState(openXref) {
+    const cur = history.state || {};
+    const next = {...cur};
+    if (openXref) next.openXref = openXref;
+    else delete next.openXref;
+    try { history.replaceState(next, '', window.location.href); } catch {}
+}
+
 window.toggleXrefPanel = async function(btn) {
     const verseLine = btn.closest('.verse-line');
     if (!verseLine) return;
@@ -749,6 +1208,7 @@ window.toggleXrefPanel = async function(btn) {
     if (panel.style.display !== 'none' && panel.style.display !== '') {
         closeVersePanel(panel);
         btn.classList.remove('active');
+        setOpenXrefState(null);
         return;
     }
 
@@ -757,10 +1217,11 @@ window.toggleXrefPanel = async function(btn) {
     const chapter = btn.dataset.chapter;
     const verse = btn.dataset.verse;
     const version = versionSelect.value;
+    setOpenXrefState({ book, chapter, verse });
     const cacheKey = `${book}.${chapter}.${verse}.${version}`;
 
     if (!xrefCache.has(cacheKey)) {
-        panel.querySelector('.xr-panel-inner').innerHTML = '<span class="xr-loading">Laster referanser…</span>';
+        panel.querySelector('.xr-panel-inner').innerHTML = `<span class="xr-loading">${escHtml(t('annot.loadingRefs'))}</span>`;
         openVersePanel(panel);
         try {
             const resp = await fetch(`/api/crossrefs?book=${encodeURIComponent(book)}&chapter=${chapter}&verse=${verse}&version=${encodeURIComponent(version)}&limit=5`);
@@ -768,7 +1229,7 @@ window.toggleXrefPanel = async function(btn) {
             xrefCache.set(cacheKey, data);
             renderXrefContent(panel, data, book, chapter, verse, version, false);
         } catch {
-            panel.querySelector('.xr-panel-inner').innerHTML = '<span class="xr-loading">Feil ved lasting.</span>';
+            panel.querySelector('.xr-panel-inner').innerHTML = `<span class="xr-loading">${escHtml(t('annot.loadError'))}</span>`;
         }
         panel.style.maxHeight = panel.scrollHeight + 'px';
     } else {
@@ -780,7 +1241,7 @@ window.toggleXrefPanel = async function(btn) {
 function renderXrefContent(panel, data, book, chapter, verse, version, showAll) {
     const inner = panel.querySelector('.xr-panel-inner');
     if (!data || !data.refs || data.refs.length === 0) {
-        inner.innerHTML = '<span class="xr-loading">Ingen kryssreferanser funnet.</span>';
+        inner.innerHTML = `<span class="xr-loading">${escHtml(t('annot.noRefs'))}</span>`;
         return;
     }
     let html = '';
@@ -793,12 +1254,12 @@ function renderXrefContent(panel, data, book, chapter, verse, version, showAll) 
     });
     if (!showAll && data.total > data.refs.length) {
         html += `<div class="xr-footer">` +
-            `<button class="xr-show-all" onclick="loadAllXrefs(this,'${escAttr(book)}',${chapter},${verse},'${escAttr(version)}')">Show all ${data.total} ↓</button>` +
-            `<button class="xr-open-all" onclick="openAllXrefs(this,'${escAttr(book)}',${chapter},${verse},'${escAttr(version)}')">Open all in view →</button>` +
+            `<button class="xr-show-all" onclick="loadAllXrefs(this,'${escAttr(book)}',${chapter},${verse},'${escAttr(version)}')">${escHtml(t('annot.showAll', data.total))}</button>` +
+            `<button class="xr-open-all" onclick="openAllXrefs(this,'${escAttr(book)}',${chapter},${verse},'${escAttr(version)}')">${escHtml(t('annot.openAll'))}</button>` +
             `</div>`;
     } else if (showAll) {
         html += `<div class="xr-footer">` +
-            `<button class="xr-open-all" onclick="openAllXrefs(this,'${escAttr(book)}',${chapter},${verse},'${escAttr(version)}')">Open all in view →</button>` +
+            `<button class="xr-open-all" onclick="openAllXrefs(this,'${escAttr(book)}',${chapter},${verse},'${escAttr(version)}')">${escHtml(t('annot.openAll'))}</button>` +
             `</div>`;
     }
     inner.innerHTML = html;
@@ -811,14 +1272,14 @@ window.loadAllXrefs = async function(btn, book, chapter, verse, version) {
     if (xrefCache.has(cacheKeyAll)) {
         data = xrefCache.get(cacheKeyAll);
     } else {
-        btn.textContent = 'Laster…';
+        btn.textContent = t('annot.loading');
         btn.disabled = true;
         try {
             const resp = await fetch(`/api/crossrefs?book=${encodeURIComponent(book)}&chapter=${chapter}&verse=${verse}&version=${encodeURIComponent(version)}&limit=0`);
             data = await resp.json();
             xrefCache.set(cacheKeyAll, data);
         } catch {
-            btn.textContent = 'Feil';
+            btn.textContent = t('annot.error');
             return;
         }
     }
@@ -833,7 +1294,7 @@ window.openAllXrefs = async function(btn, book, chapter, verse, version) {
         data = xrefCache.get(cacheKeyAll);
     } else {
         const origText = btn.textContent;
-        btn.textContent = 'Loading…';
+        btn.textContent = t('annot.loading');
         btn.disabled = true;
         try {
             const resp = await fetch(`/api/crossrefs?book=${encodeURIComponent(book)}&chapter=${chapter}&verse=${verse}&version=${encodeURIComponent(version)}&limit=0`);
@@ -847,10 +1308,10 @@ window.openAllXrefs = async function(btn, book, chapter, verse, version) {
     }
     if (!data || !data.refs || data.refs.length === 0) return;
     const query = data.refs.map(r => r.label).join(';');
-    searchInput.value = query;
-    updateSearchHighlight();
-    await doSearch();
-    window.scrollTo(0, 0);
+    const params = new URLSearchParams();
+    params.set('q', query);
+    params.set('v', version);
+    window.location.assign('?' + params.toString());
 };
 
 window.searchFromXref = function(label) {
@@ -859,34 +1320,45 @@ window.searchFromXref = function(label) {
     doSearch();
 };
 
-window.goChapter = async function(bookCode, chapter, bName, direction) {
-    currentHighlightVerses = null;
+function clearChapterTransition() {
+    resultsWrapper.style.transition = '';
+    resultsWrapper.style.opacity = '';
+    resultsWrapper.style.transform = '';
+}
 
-    if (direction) {
+async function slideTransition(direction, work) {
+    if (!direction) { await work(); return; }
+    try {
         const dx = direction === 'next' ? -28 : 28;
         resultsWrapper.style.transition = 'opacity 0.14s ease, transform 0.14s ease';
         resultsWrapper.style.opacity = '0';
         resultsWrapper.style.transform = `translateX(${dx}px)`;
         await new Promise(r => setTimeout(r, 150));
-    }
 
-    searchInput.value = `${bName} ${chapter}`;
-    updateSearchHighlight();
-    await doSearch();
+        await work();
 
-    if (direction) {
         const enterDx = direction === 'next' ? 28 : -28;
         resultsWrapper.style.transition = 'none';
         resultsWrapper.style.opacity = '0';
         resultsWrapper.style.transform = `translateX(${enterDx}px)`;
-        resultsWrapper.offsetHeight;
+        resultsWrapper.offsetHeight; // force reflow
         resultsWrapper.style.transition = 'opacity 0.14s ease, transform 0.14s ease';
         resultsWrapper.style.opacity = '';
         resultsWrapper.style.transform = '';
-        resultsWrapper.addEventListener('transitionend', () => {
-            resultsWrapper.style.transition = '';
-        }, { once: true });
+        setTimeout(clearChapterTransition, 250);
+    } catch (e) {
+        clearChapterTransition();
+        throw e;
     }
+}
+
+window.goChapter = async function(bookCode, chapter, bName, direction) {
+    currentHighlightVerses = null;
+    await slideTransition(direction, async () => {
+        searchInput.value = `${bName} ${chapter}`;
+        updateSearchHighlight();
+        await doSearch();
+    });
 };
 
 window.openSingleVerse = function(bookCode, chapter, verse, bName) {
@@ -902,18 +1374,19 @@ function renderTextSearch(results, query) {
     let html = '';
     if (results.length === 0) {
         html = `<div class="empty-state">
-            <h2>No results</h2>
-            <p>No verses found for "${escHtml(query)}" in ${escHtml(versionLabel(versionSelect.value))}.</p>
-            <button class="btn btn-secondary all-versions-search-btn" onclick="searchAllVersionsText('${escAttr(query)}')">Search in all versions</button>
+            <h2>${escHtml(t('searchResults.text.noResults'))}</h2>
+            <p>${escHtml(t('searchResults.text.noResultsBody', query, versionLabel(versionSelect.value)))}</p>
+            <button class="btn btn-secondary all-versions-search-btn" onclick="searchAllVersionsText('${escAttr(query)}')">${escHtml(t('searchResults.searchAllVersions'))}</button>
         </div>`;
         resultsWrapper.innerHTML = html;
         return;
     }
 
+    const countKey = results.length === 1 ? 'searchResults.count' : 'searchResults.countPlural';
     html += `<div class="search-controls">
-        <div class="search-result-count">${results.length} result${results.length !== 1 ? 's' : ''} for "${escHtml(query)}"</div>
-        <button class="card-action-btn" id="expandCollapseBtn" onclick="toggleGroups()">expand all</button>
-        <button class="stats-btn" onclick="openStats('${escAttr(query)}')">&#128202; stats</button>
+        <div class="search-result-count">${escHtml(t(countKey, results.length, query))}</div>
+        <button class="card-action-btn" id="expandCollapseBtn" onclick="toggleGroups()">${escHtml(t('searchResults.expandAll'))}</button>
+        <button class="stats-btn" onclick="openStats('${escAttr(query)}')">${escHtml(t('searchResults.statsBtn'))}</button>
     </div>`;
 
     const lang = versionLang(versionSelect.value);
@@ -989,7 +1462,7 @@ function updateExpandCollapseBtn() {
     const btn = document.getElementById('expandCollapseBtn');
     if (!btn) return;
     const anyOpen = [...resultsWrapper.querySelectorAll('.book-group-header')].some(h => h.classList.contains('open'));
-    btn.textContent = anyOpen ? 'collapse all' : 'expand all';
+    btn.textContent = anyOpen ? t('searchResults.collapseAll') : t('searchResults.expandAll');
 }
 
 function stripScopePrefix(query) {
@@ -1042,30 +1515,35 @@ window.goToVerse = function(ref) {
 // ── All versions text search (no-results fallback) ──
 window.searchAllVersionsText = async function(query) {
     currentView = 'text_search_all';
-    resultsWrapper.innerHTML = '<div class="empty-state"><h2>Searching...</h2><p>Searching all versions for "' + escHtml(query) + '"</p></div>';
+    resultsWrapper.innerHTML = `<div class="empty-state"><h2>${escHtml(t('loading.searchingTitle'))}</h2><p>${escHtml(t('loading.searchingBody', query))}</p></div>`;
     try {
         const resp = await fetch(`/api/all_text_search?q=${encodeURIComponent(query)}`);
         const data = await resp.json();
-        if (data.error) { resultsWrapper.innerHTML = errorCardHtml('Error', data.error); return; }
+        if (data.error) { resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), data.error); return; }
         allVersionsTextCache = { results: data.results, query: data.query };
         renderAllVersionsTextSearch(data.results, data.query);
     } catch {
-        resultsWrapper.innerHTML = errorCardHtml('Error', 'Failed to search.');
+        resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), t('loading.errorBody'));
     }
 };
 
 function renderAllVersionsTextSearch(results, query) {
     const versionNames = Object.keys(results);
     if (versionNames.length === 0) {
-        resultsWrapper.innerHTML = `<div class="empty-state"><h2>No results</h2><p>No verses found for "${escHtml(query)}" in any version.</p></div>`;
+        resultsWrapper.innerHTML = `<div class="empty-state"><h2>${escHtml(t('searchResults.text.noResults'))}</h2><p>${escHtml(t('searchResults.allVersions.noResultsBody', query))}</p></div>`;
         return;
     }
 
     let totalCount = 0;
     versionNames.forEach(v => totalCount += results[v].length);
 
+    const rPlural = totalCount !== 1, vPlural = versionNames.length !== 1;
+    const countKey = !rPlural && !vPlural ? 'searchResults.allVersionsCountSingular'
+        : !rPlural && vPlural ? 'searchResults.allVersionsCountVPlural'
+        : rPlural && !vPlural ? 'searchResults.allVersionsCountRPlural'
+        : 'searchResults.allVersionsCountAllPlural';
     let html = `<div class="search-controls">
-        <div class="search-result-count">${totalCount} result${totalCount !== 1 ? 's' : ''} across ${versionNames.length} version${versionNames.length !== 1 ? 's' : ''} for "${escHtml(query)}"</div>
+        <div class="search-result-count">${escHtml(t(countKey, totalCount, versionNames.length, query))}</div>
     </div>`;
 
     versionNames.forEach(vName => {
@@ -1102,12 +1580,9 @@ window.goToVerseInVersion = function(ref, version) {
 };
 
 // ── Read chapter ──
-window.readChapter = async function(bookCode, chapter, bName, highlightNums) {
-    if (highlightNums) {
-        currentHighlightVerses = {
-            chapter,
-            verses: new Set(highlightNums.split(',').map(Number))
-        };
+window.readChapter = async function(bookCode, chapter, bName, highlightKeys) {
+    if (highlightKeys) {
+        currentHighlightVerses = { keys: new Set(highlightKeys.split(',')) };
     }
     _preserveHighlight = true;
     searchInput.value = `${bName} ${chapter}`;
@@ -1122,16 +1597,32 @@ window.readChapter = async function(bookCode, chapter, bName, highlightNums) {
 };
 
 window.clearHighlight = function() {
-    currentHighlightVerses = null;
-    renderAll();
+    const wraps = resultsWrapper.querySelectorAll('.verse-highlight-wrap');
+    const chips = resultsWrapper.querySelectorAll('.highlight-dismiss-btn');
+    if (wraps.length === 0 && chips.length === 0) {
+        currentHighlightVerses = null;
+        renderAll();
+        return;
+    }
+    wraps.forEach(w => w.classList.add('fading-out'));
+    chips.forEach(c => c.classList.add('fading-out'));
+    setTimeout(() => {
+        currentHighlightVerses = null;
+        renderAll();
+    }, 180);
 };
 
 function buildHighlightChipLabel() {
     if (!currentHighlightVerses) return '';
-    const sorted = [...currentHighlightVerses.verses].sort((a, b) => a - b);
-    if (sorted.length === 0) return '';
-    if (sorted.length === 1) return `vers ${sorted[0]}`;
-    return `vers ${sorted[0]}–${sorted[sorted.length - 1]}`;
+    const keys = [...currentHighlightVerses.keys].map(k => {
+        const [c, v] = k.split(':').map(Number);
+        return { c, v };
+    }).sort((a, b) => a.c - b.c || a.v - b.v);
+    if (keys.length === 0) return '';
+    const first = keys[0], last = keys[keys.length - 1];
+    if (keys.length === 1) return t('chip.verseSingle', first.v);
+    if (first.c === last.c) return t('chip.verseRange', first.v, last.v);
+    return t('chip.verseCrossCh', first.c, first.v, last.c, last.v);
 }
 
 // ── All versions (reference) ──
@@ -1140,15 +1631,10 @@ async function executeAllVersions(label) {
     try {
         const resp = await fetch(`/api/all_versions?q=${encodeURIComponent(label)}`);
         const data = await resp.json();
-        if (data.error) { resultsWrapper.innerHTML = errorCardHtml('Error', data.error); return; }
+        if (data.error) { resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), data.error); return; }
         renderAllVersions(data.results, label);
-    } catch { resultsWrapper.innerHTML = errorCardHtml('Error', 'Failed to fetch versions.'); }
+    } catch { resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), t('allVersions.failed')); }
 }
-
-window.showAllVersions = async function(label) {
-    pushState(label, versionSelect.value, 'allversions');
-    await executeAllVersions(label);
-};
 
 function renderAllVersions(allResults, label) {
     allVersionsCache = { results: allResults, label };
@@ -1197,7 +1683,7 @@ window.copyBlockText = function(blockIdx) {
     if (!mainData || !mainData[blockIdx]) return;
     const block = mainData[blockIdx];
     const text = buildCopyText(block.verses);
-    navigator.clipboard.writeText(text).then(() => showToast('Copied!'));
+    navigator.clipboard.writeText(text).then(() => showToast(t('toast.copied')));
 };
 
 window.copyBlockRef = function(blockIdx) {
@@ -1208,7 +1694,7 @@ window.copyBlockRef = function(blockIdx) {
     const text = buildCopyText(block.verses);
     const label = translateLabel(block.label, block.book, lang);
     const full = `"${text}"\n\n${label} ${versionLabel(ver)}`;
-    navigator.clipboard.writeText(full).then(() => showToast('Copied with reference!'));
+    navigator.clipboard.writeText(full).then(() => showToast(t('toast.copiedRef')));
 };
 
 // ── Home ──
@@ -1225,6 +1711,7 @@ window.goHome = function(pushHistory = true) {
     searchInput.value = '';
     updateSearchHighlight();
     resultsWrapper.innerHTML = emptyStateHtml;
+    applyI18n();
     if (pushHistory) history.pushState({}, '', '/');
 };
 
@@ -1319,16 +1806,16 @@ window.openStats = async function(query) {
     try {
         const resp = await fetch(`/api/stats?q=${encodeURIComponent(query)}&version=${encodeURIComponent(version)}`);
         const data = await resp.json();
-        if (data.error) { showToast('Stats error: ' + data.error); return; }
+        if (data.error) { showToast(t('toast.statsError', data.error)); return; }
         document.getElementById('statsModeSelect').value = statsNormMode;
         renderStatsModal(data);
         document.getElementById('statsModal').classList.add('open');
-    } catch { showToast('Failed to load stats.'); }
+    } catch { showToast(t('toast.statsFailed')); }
 };
 
 function normalizeCount(count, code) {
-    if (statsNormMode === 'per_chapter') return count / (BOOK_CHAPTER_COUNTS[code] || 1);
-    if (statsNormMode === 'per_verse') return count / (BOOK_VERSE_COUNTS[code] || 1);
+    if (statsNormMode === 'per_chapter') return count / (bookChapterCount(code) || 1);
+    if (statsNormMode === 'per_verse') return count / (bookTotalVerses(code) || 1);
     return count;
 }
 
@@ -1336,11 +1823,11 @@ function renderStatsModal(data) {
     lastStatsData = data;
     const { stats, total, query, scope_label } = data;
     const titleQuery = scope_label ? query : data.original_query;
-    document.getElementById('statsModalTitle').textContent = `// Stats: "${titleQuery}"`;
+    document.getElementById('statsModalTitle').textContent = t('stats.modalTitle', titleQuery);
 
     const withHits = stats.filter(s => s.count > 0);
-    const otStats = stats.filter(s => OT_BOOKS.has(s.code));
-    const ntStats = stats.filter(s => !OT_BOOKS.has(s.code));
+    const otStats = stats.filter(s => isOTBook(s.code));
+    const ntStats = stats.filter(s => !isOTBook(s.code));
     const otHits = otStats.reduce((a, s) => a + s.count, 0);
     const ntHits = ntStats.reduce((a, s) => a + s.count, 0);
 
@@ -1361,34 +1848,34 @@ function renderStatsModal(data) {
 
     function normLabel(s) {
         const nc = normalizeCount(s.count, s.code);
-        if (statsNormMode === 'per_chapter') return `${nc.toFixed(1)} / ch`;
-        if (statsNormMode === 'per_verse') return `${nc.toFixed(3)} / vs`;
-        return `${s.count} hits`;
+        if (statsNormMode === 'per_chapter') return t('stats.unitChapter', nc.toFixed(1));
+        if (statsNormMode === 'per_verse') return t('stats.unitVerse', nc.toFixed(3));
+        return t('stats.unitHits', s.count);
     }
 
     let html = `<div class="stats-summary">
-        <div class="stats-card"><div class="stats-card-label">Total hits</div><div class="stats-card-value">${total}</div></div>
-        <div class="stats-card"><div class="stats-card-label">Books hit</div><div class="stats-card-value">${withHits.length}</div></div>
-        <div class="stats-card"><div class="stats-card-label">GT hits</div><div class="stats-card-value">${otHits}</div></div>
-        <div class="stats-card"><div class="stats-card-label">NT hits</div><div class="stats-card-value">${ntHits}</div></div>`;
+        <div class="stats-card"><div class="stats-card-label">${escHtml(t('stats.totalHits'))}</div><div class="stats-card-value">${total}</div></div>
+        <div class="stats-card"><div class="stats-card-label">${escHtml(t('stats.booksHit'))}</div><div class="stats-card-value">${withHits.length}</div></div>
+        <div class="stats-card"><div class="stats-card-label">${escHtml(t('stats.gtHits'))}</div><div class="stats-card-value">${otHits}</div></div>
+        <div class="stats-card"><div class="stats-card-label">${escHtml(t('stats.ntHits'))}</div><div class="stats-card-value">${ntHits}</div></div>`;
 
     if (topOT) {
-        html += `<div class="stats-card" style="cursor:pointer${otIsTop ? ';border-color:var(--accent)' : ''}" onclick="navigateToBookInResults('${topOT.code}')" title="Go to results">
-            <div class="stats-card-label">${otIsTop ? '&#127942; ' : ''}Top GT</div>
-            <div class="stats-card-value" style="font-size:0.85rem;">${escHtml(displayBookName(topOT))}<br><span style="font-size:0.75rem;opacity:0.7">${normLabel(topOT)}</span></div>
+        html += `<div class="stats-card" style="cursor:pointer${otIsTop ? ';border-color:var(--accent)' : ''}" onclick="navigateToBookInResults('${topOT.code}')" title="${escAttr(t('stats.goToResults'))}">
+            <div class="stats-card-label">${otIsTop ? '&#127942; ' : ''}${escHtml(t('stats.topGT'))}</div>
+            <div class="stats-card-value" style="font-size:0.85rem;">${escHtml(displayBookName(topOT))}<br><span style="font-size:0.75rem;opacity:0.7">${escHtml(normLabel(topOT))}</span></div>
         </div>`;
     }
     if (topNT) {
-        html += `<div class="stats-card" style="cursor:pointer${ntIsTop ? ';border-color:var(--accent)' : ''}" onclick="navigateToBookInResults('${topNT.code}')" title="Go to results">
-            <div class="stats-card-label">${ntIsTop ? '&#127942; ' : ''}Top NT</div>
-            <div class="stats-card-value" style="font-size:0.85rem;">${escHtml(displayBookName(topNT))}<br><span style="font-size:0.75rem;opacity:0.7">${normLabel(topNT)}</span></div>
+        html += `<div class="stats-card" style="cursor:pointer${ntIsTop ? ';border-color:var(--accent)' : ''}" onclick="navigateToBookInResults('${topNT.code}')" title="${escAttr(t('stats.goToResults'))}">
+            <div class="stats-card-label">${ntIsTop ? '&#127942; ' : ''}${escHtml(t('stats.topNT'))}</div>
+            <div class="stats-card-value" style="font-size:0.85rem;">${escHtml(displayBookName(topNT))}<br><span style="font-size:0.75rem;opacity:0.7">${escHtml(normLabel(topNT))}</span></div>
         </div>`;
     }
     html += `</div>`;
 
     if (scope_label) {
         html += `<div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px;font-family:var(--font-mono);">
-            Distribution shown for entire Bible (filtered to: ${escHtml(scope_label)})</div>`;
+            ${escHtml(t('stats.distribution', scope_label))}</div>`;
     }
 
     html += buildStatsChart(stats, lang);
@@ -1409,7 +1896,7 @@ function buildStatsChart(stats, lang) {
         const barH = s.nc > 0 ? Math.max(2, Math.round((s.nc / maxNc) * chartH)) : 0;
         const x = i * (barW + barGap);
         const y = chartH - barH;
-        const cls = OT_BOOKS.has(s.code) ? 'ot' : 'nt';
+        const cls = isOTBook(s.code) ? 'ot' : 'nt';
         const tip = escAttr(lang === 'en' ? (s.name_en || s.name) : s.name);
         bars += `<rect class="chart-bar ${cls}" x="${x}" y="${y}" width="${barW}" height="${barH}"
             data-name="${tip}" data-count="${s.count}" data-nc="${s.nc.toFixed(4)}" data-code="${escAttr(s.code)}"
@@ -1463,19 +1950,22 @@ document.getElementById('statsModeSelect').addEventListener('change', function()
     if (lastStatsData) renderStatsModal(lastStatsData);
 });
 
-// ── Help ──
-window.openHelp = function() { document.getElementById('helpModal').classList.add('open'); };
+// ── Help & info (tabbed modal) ──
+function showHelpTab(tab) {
+    document.querySelectorAll('#helpModal .modal-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    document.querySelectorAll('#helpModal [data-tab-content]').forEach(c => c.hidden = (c.dataset.tabContent !== tab));
+}
+window.openHelp = function(tab) {
+    if (tab) showHelpTab(tab);
+    document.getElementById('helpModal').classList.add('open');
+};
 document.getElementById('helpToggle').addEventListener('click', () => document.getElementById('helpModal').classList.toggle('open'));
 document.getElementById('helpClose').addEventListener('click', () => document.getElementById('helpModal').classList.remove('open'));
 document.getElementById('helpModal').addEventListener('click', e => {
     if (e.target === document.getElementById('helpModal')) document.getElementById('helpModal').classList.remove('open');
 });
-
-// ── Info ──
-document.getElementById('infoToggle').addEventListener('click', () => document.getElementById('infoModal').classList.toggle('open'));
-document.getElementById('infoClose').addEventListener('click', () => document.getElementById('infoModal').classList.remove('open'));
-document.getElementById('infoModal').addEventListener('click', e => {
-    if (e.target === document.getElementById('infoModal')) document.getElementById('infoModal').classList.remove('open');
+document.querySelectorAll('#helpModal .modal-tab').forEach(tab => {
+    tab.addEventListener('click', () => showHelpTab(tab.dataset.tab));
 });
 
 // ── Settings ──
@@ -1567,13 +2057,13 @@ function renderAutocomplete() {
         if (item.type === 'group') {
             html += `<div class="ac-item${sel}" data-idx="${i}">
                 <span>${escHtml(item.label)}</span>
-                <span class="ac-badge">filter</span>
+                <span class="ac-badge">${escHtml(t('ac.filter'))}</span>
                 <span class="ac-desc">${escHtml(item.desc)}</span>
             </div>`;
         } else if (item.type === 'scope_book') {
             html += `<div class="ac-item${sel}" data-idx="${i}">
                 <span>${escHtml(item.label)}</span>
-                <span class="ac-badge">search in book</span>
+                <span class="ac-badge">${escHtml(t('ac.searchInBook'))}</span>
             </div>`;
         } else {
             const name = lang === 'en' ? item.labelEn : item.label;
@@ -1664,7 +2154,6 @@ document.addEventListener('keydown', e => {
 
     if (e.key === 'Escape') {
         if (document.getElementById('helpModal').classList.contains('open')) document.getElementById('helpModal').classList.remove('open');
-        else if (document.getElementById('infoModal').classList.contains('open')) document.getElementById('infoModal').classList.remove('open');
         else if (document.getElementById('statsModal').classList.contains('open')) document.getElementById('statsModal').classList.remove('open');
         else if (document.getElementById('settingsModal').classList.contains('open')) document.getElementById('settingsModal').classList.remove('open');
         else if (autocompleteDropdown.classList.contains('open')) closeAutocomplete();
@@ -1761,13 +2250,36 @@ applyTheme(localStorage.getItem('theme') === 'dark');
 function applyFontUI(val) {
     document.documentElement.setAttribute('data-font', val);
     localStorage.setItem('fontUI', val);
-    document.querySelectorAll('.font-ui-btn').forEach(b => b.classList.toggle('active', b.dataset.val === val));
+    document.querySelectorAll('#fontUICtrl .font-ui-btn').forEach(b => b.classList.toggle('active', b.dataset.val === val));
 }
 document.getElementById('fontUICtrl').addEventListener('click', e => {
     const btn = e.target.closest('.font-ui-btn');
     if (btn) applyFontUI(btn.dataset.val);
 });
 applyFontUI(localStorage.getItem('fontUI') || 'mono');
+
+// ── UI language ──
+function applyUILang(val) {
+    if (val !== 'en' && val !== 'no') val = 'en';
+    uiLang = val;
+    localStorage.setItem('uiLang', val);
+    document.querySelectorAll('#uiLangCtrl .font-ui-btn').forEach(b => b.classList.toggle('active', b.dataset.val === val));
+    applyI18n();
+    rerenderCurrentView();
+}
+document.getElementById('uiLangCtrl').addEventListener('click', e => {
+    const btn = e.target.closest('.font-ui-btn');
+    if (btn) applyUILang(btn.dataset.val);
+});
+function rerenderCurrentView() {
+    if (currentView === 'normal' && mainData) renderAll();
+    else if (currentView === 'all_versions' && allVersionsCache) renderAllVersions(allVersionsCache.results, allVersionsCache.label);
+    else if (currentView === 'text_search' && textSearchCache) renderTextSearch(textSearchCache.results, textSearchCache.query);
+    else if (currentView === 'text_search_all' && allVersionsTextCache) renderAllVersionsTextSearch(allVersionsTextCache.results, allVersionsTextCache.query);
+}
+// Mark current language button as active on load
+document.querySelectorAll('#uiLangCtrl .font-ui-btn').forEach(b => b.classList.toggle('active', b.dataset.val === uiLang));
+applyI18n();
 
 
 // ── Name helpers ──
@@ -1812,7 +2324,7 @@ function maxVerseInChapter(bookCode, chapter) {
     return b && b.verse_counts ? (b.verse_counts[chapter] || 0) : 0;
 }
 
-window.goVerse = function(bookCode, chapter, verse, bName, direction) {
+window.goVerse = async function(bookCode, chapter, verse, bName, direction) {
     const maxCh = (booksData.find(b => b.code === bookCode) || {}).chapters || 0;
     let targetCh = chapter, targetVerse = verse;
     if (direction === 'prev') {
@@ -1835,9 +2347,11 @@ window.goVerse = function(bookCode, chapter, verse, bName, direction) {
             return; // at very end
         }
     }
-    searchInput.value = `${bName} ${targetCh}:${targetVerse}`;
-    updateSearchHighlight();
-    doSearch();
+    await slideTransition(direction, async () => {
+        searchInput.value = `${bName} ${targetCh}:${targetVerse}`;
+        updateSearchHighlight();
+        await doSearch();
+    });
 };
 
 function interlinearUrl(bookCode, chapter, verseNum) {
@@ -1896,5 +2410,6 @@ function toggleDisplayOptions() {
     const panel = document.getElementById('displayPanel');
     const btn = document.getElementById('displayOptionsBtn');
     const isOpen = panel.classList.toggle('open');
-    btn.innerHTML = (isOpen ? '&#9660;' : '&#9658;') + ' browse &amp; display';
+    const arrow = btn.querySelector('.display-arrow');
+    if (arrow) arrow.innerHTML = isOpen ? '&#9660;' : '&#9658;';
 }

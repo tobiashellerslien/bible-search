@@ -12,9 +12,8 @@
 <div class="header">
     <h1 onclick="goHome()">Tobias' Bible Search Tool</h1>
     <div class="header-right">
-        <button class="header-btn" id="helpToggle" title="Help — press ? anytime">?</button>
-        <button class="header-btn" id="infoToggle" title="Info">&#8505;</button>
-        <button class="header-btn" id="settingsToggle" title="Settings">&#9881;</button>
+        <button class="header-btn" id="helpToggle" data-i18n-title="header.help">?</button>
+        <button class="header-btn" id="settingsToggle" data-i18n-title="header.settings">&#9881;</button>
     </div>
 </div>
 
@@ -23,9 +22,9 @@
         <div class="search-wrap">
             <div class="search-highlight-overlay" id="searchHighlightOverlay" aria-hidden="true"><span id="searchHighlightContent"></span></div>
             <input type="text" id="searchInput"
-                   placeholder="Search the Bible..."
+                   data-i18n-placeholder="search.placeholder"
                    autocomplete="off" autocorrect="off" spellcheck="false">
-            <button class="search-clear-btn" id="searchClearBtn" title="Clear search">&times;</button>
+            <button class="search-clear-btn" id="searchClearBtn" data-i18n-title="search.clear">&times;</button>
         </div>
         <!-- Custom picker shown on desktop; native select shown on mobile -->
         <div class="version-picker" id="versionPicker">
@@ -38,47 +37,47 @@
             <div class="vp-list" id="versionPickerList"></div>
         </div>
         <select id="versionSelect"></select>
-        <button class="btn btn-primary" id="searchBtn">Search</button>
+        <button class="btn btn-primary" id="searchBtn" data-i18n="search.button">Search</button>
         <div class="autocomplete-dropdown" id="autocompleteDropdown"></div>
     </div>
 </div>
 
 <div class="display-area">
 <div class="display-bar">
-    <button class="display-bar-btn" id="displayOptionsBtn" onclick="toggleDisplayOptions()">&#9658; browse &amp; display</button>
+    <button class="display-bar-btn" id="displayOptionsBtn" onclick="toggleDisplayOptions()"><span class="display-arrow">&#9658;</span> <span data-i18n="display.toggleLabel">browse &amp; display</span></button>
 </div>
 
 <div class="display-panel" id="displayPanel">
     <div class="browser-bar">
-        <label>Browse:</label>
-        <select id="bookSelect"><option value="">-- Book --</option></select>
-        <select id="chapterSelect" disabled><option value="">-- Ch --</option></select>
+        <label data-i18n="display.browse">Browse:</label>
+        <select id="bookSelect"><option value="" data-i18n="display.bookPlaceholder">-- Book --</option></select>
+        <select id="chapterSelect" disabled><option value="" data-i18n="display.chapterPlaceholder">-- Ch --</option></select>
     </div>
     <div class="toggles">
         <label class="toggle-group">
-            <span>Verse numbers</span>
+            <span data-i18n="toggle.verseNums">Verse numbers</span>
             <div class="toggle">
                 <input type="checkbox" id="toggleVerseNums" checked>
                 <span class="toggle-slider"></span>
             </div>
         </label>
         <label class="toggle-group">
-            <span>New line per verse</span>
+            <span data-i18n="toggle.newlines">New line per verse</span>
             <div class="toggle">
                 <input type="checkbox" id="toggleNewlines">
                 <span class="toggle-slider"></span>
             </div>
         </label>
-        <button class="copy-hint-btn" id="copyHintBtn" aria-label="Formatting info">i</button>
+        <button class="copy-hint-btn" id="copyHintBtn" data-i18n-aria="toggle.copyHintAria" data-i18n-tooltip="toggle.copyHint">i</button>
         <label class="toggle-group format-sep">
-            <span>Headings</span>
+            <span data-i18n="toggle.headings">Headings</span>
             <div class="toggle">
                 <input type="checkbox" id="toggleHeadings" checked>
                 <span class="toggle-slider"></span>
             </div>
         </label>
         <label class="toggle-group format-sep">
-            <span>Annotations †§</span>
+            <span data-i18n="toggle.annotations">Annotations †§</span>
             <div class="toggle">
                 <input type="checkbox" id="toggleAnnotations" checked>
                 <span class="toggle-slider"></span>
@@ -90,109 +89,105 @@
 
 <div class="results-wrapper" id="resultsWrapper">
     <div class="empty-state" id="emptyState">
-        <h2>Search the Bible</h2>
-        <p>
-            Reference: <code>Johannes 3:16</code>, <code>Salme 23</code>, <code>1. Mos 1:1-3</code><br>
-            Multi-reference: <code>Joh 3:16;17</code>, <code>1. Mos 1:1;Josva 1:8</code><br>
-            Text search: <code>kjærlighet</code>, <code>nåde OR barmhjertighet</code>, <code>"evig liv"</code><br>
-            Search in: <code>GT: frelse</code>, <code>evangeliene: disippel</code>, <code>Johannes: lys</code><br>
-            Exclude: <code>frelse -gjerninger</code>
-        </p>
-        <p class="empty-help-hint">Press <code>?</code> or <button class="help-inline-link" onclick="openHelp()">click here</button> for full search syntax &amp; hotkeys.</p>
-        <p class="empty-settings-hint">&#9881; <button class="help-inline-link" onclick="openSettings()">Settings</button> — appearance, defaults</p>
+        <h2 data-i18n="empty.title">Search the Bible</h2>
+        <p class="empty-tagline" data-i18n="empty.tagline">References, full-text search, cross-references and stats — across many translations.</p>
+        <div class="empty-examples">
+            <div class="empty-example-row"><span class="empty-example-label" data-i18n="empty.label.reference">Reference</span><code>Johannes 3:16</code><code>Salme 23</code><code>1. Mos 1:1-3</code></div>
+            <div class="empty-example-row"><span class="empty-example-label" data-i18n="empty.label.text">Text</span><code>kjærlighet</code><code>nåde OR frelse</code><code>"evig liv"</code></div>
+            <div class="empty-example-row"><span class="empty-example-label" data-i18n="empty.label.filter">Filter</span><code>GT: frelse</code><code>evangeliene: disippel</code><code>Johannes: lys</code></div>
+        </div>
+        <div class="empty-actions">
+            <button class="btn btn-secondary" onclick="openHelp('help')" data-i18n="empty.btn.help">? Search syntax</button>
+            <button class="btn btn-secondary" onclick="openHelp('info')" data-i18n="empty.btn.about">&#8505; About</button>
+            <button class="btn btn-secondary" onclick="openSettings()" data-i18n="empty.btn.settings">&#9881; Settings</button>
+        </div>
     </div>
 </div>
 
-<!-- Help modal -->
+<!-- Help & Info modal -->
 <div class="modal-overlay" id="helpModal">
     <div class="modal-panel">
         <div class="modal-header">
-            <span>// Help</span>
+            <span data-i18n="modal.helpInfo">// Help &amp; info</span>
+            <div class="modal-tabs">
+                <button class="modal-tab active" data-tab="help" data-i18n="modal.tab.help">Help</button>
+                <button class="modal-tab" data-tab="info" data-i18n="modal.tab.info">Info</button>
+            </div>
             <button class="modal-close" id="helpClose">&times;</button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body" data-tab-content="help">
             <div class="help-section">
-                <h3>Reference lookup</h3>
-                <div class="help-row"><span class="help-key">Joh 3:16</span><span class="help-desc">Single verse</span></div>
-                <div class="help-row"><span class="help-key">Salme 23</span><span class="help-desc">Whole chapter</span></div>
-                <div class="help-row"><span class="help-key">1. Mos 1:1-3</span><span class="help-desc">Verse range</span></div>
-                <div class="help-row"><span class="help-key">Joh 3:1-4:6</span><span class="help-desc">Cross-chapter range</span></div>
-                <div class="help-row"><span class="help-key">Joh 3:16;17</span><span class="help-desc">Multiple passages (context carries)</span></div>
-                <div class="help-row"><span class="help-key">joh, john, jhn</span><span class="help-desc">Abbreviations &amp; English names work</span></div>
+                <h3 data-i18n="help.section.refLookup">Reference lookup</h3>
+                <div class="help-row"><span class="help-key">Joh 3:16</span><span class="help-desc" data-i18n="help.row.singleVerse">Single verse</span></div>
+                <div class="help-row"><span class="help-key">Salme 23</span><span class="help-desc" data-i18n="help.row.wholeChapter">Whole chapter</span></div>
+                <div class="help-row"><span class="help-key">1. Mos 1:1-3</span><span class="help-desc" data-i18n="help.row.verseRange">Verse range</span></div>
+                <div class="help-row"><span class="help-key">Joh 3:1-4:6</span><span class="help-desc" data-i18n="help.row.crossChapter">Cross-chapter range</span></div>
+                <div class="help-row"><span class="help-key">Joh 3:16;17</span><span class="help-desc" data-i18n="help.row.multiPassages">Multiple passages (context carries)</span></div>
+                <div class="help-row"><span class="help-key">joh, john, jhn</span><span class="help-desc" data-i18n="help.row.abbrevs">Abbreviations &amp; English names work</span></div>
             </div>
             <div class="help-section">
-                <h3>Text search operators (can be combined)</h3>
-                <div class="help-row"><span class="help-key">tro</span><span class="help-desc">All verses containing word (also within words, like "trofast")</span></div>
-                <div class="help-row"><span class="help-key">"tro"</span><span class="help-desc">All verses containing exact word</span></div>
-                <div class="help-row"><span class="help-key">"evig liv"</span><span class="help-desc">Exact phrase</span></div>
-                <div class="help-row"><span class="help-key">nåde -dom</span><span class="help-desc">Exclude word with -</span></div>
-                <div class="help-row"><span class="help-key">nåde OR frelse</span><span class="help-desc">Either word (OR must be uppercase)</span></div>
-                <div class="help-row"><span class="help-key">nåde frelse</span><span class="help-desc">Both words (AND, implicit)</span></div>
+                <h3 data-i18n="help.section.textSearch">Text search operators (can be combined)</h3>
+                <div class="help-row"><span class="help-key">tro</span><span class="help-desc" data-i18n="help.row.allWords">All verses containing word (also within words, like "trofast")</span></div>
+                <div class="help-row"><span class="help-key">"tro"</span><span class="help-desc" data-i18n="help.row.exactWord">All verses containing exact word</span></div>
+                <div class="help-row"><span class="help-key">"evig liv"</span><span class="help-desc" data-i18n="help.row.exactPhrase">Exact phrase</span></div>
+                <div class="help-row"><span class="help-key">nåde -dom</span><span class="help-desc" data-i18n="help.row.exclude">Exclude word with -</span></div>
+                <div class="help-row"><span class="help-key">nåde OR frelse</span><span class="help-desc" data-i18n="help.row.either">Either word (OR must be uppercase)</span></div>
+                <div class="help-row"><span class="help-key">nåde frelse</span><span class="help-desc" data-i18n="help.row.bothWords">Both words (AND, implicit)</span></div>
             </div>
             <div class="help-section">
-                <h3>Apply filters</h3>
-                <div class="help-row"><span class="help-key">GT: ord</span><span class="help-desc">Gamle Testamentet (also: OT:)</span></div>
-                <div class="help-row"><span class="help-key">NT: ord</span><span class="help-desc">Nye Testamentet</span></div>
-                <div class="help-row"><span class="help-key">mosebøkene: ord</span><span class="help-desc">1–5 Mosebok (also: pentateuch:, torah:, law:)</span></div>
-                <div class="help-row"><span class="help-key">historiske: ord</span><span class="help-desc">Josva – Ester (also: historical:)</span></div>
-                <div class="help-row"><span class="help-key">poetiske: ord</span><span class="help-desc">Job, Salme, Ordsp, Fork, Høys (also: visdom:, wisdom:)</span></div>
-                <div class="help-row"><span class="help-key">profetene: ord</span><span class="help-desc">Jesaja – Malaki (also: prophets:)</span></div>
-                <div class="help-row"><span class="help-key">store profeter: ord</span><span class="help-desc">Jes, Jer, Klage, Esek, Dan (also: major prophets:)</span></div>
-                <div class="help-row"><span class="help-key">små profeter: ord</span><span class="help-desc">Hosea – Malaki (also: minor prophets:)</span></div>
-                <div class="help-row"><span class="help-key">evangeliene: ord</span><span class="help-desc">Matt, Mark, Luk, Joh (also: gospels:)</span></div>
-                <div class="help-row"><span class="help-key">synoptiske: ord</span><span class="help-desc">Matt, Mark, Luk (also: synoptic:)</span></div>
-                <div class="help-row"><span class="help-key">brev: ord</span><span class="help-desc">Alle NT-brev (also: epistles:, letters:)</span></div>
-                <div class="help-row"><span class="help-key">paulusbrevene: ord</span><span class="help-desc">Romerne – Filemon (also: pauline:)</span></div>
-                <div class="help-row"><span class="help-key">almenne brev: ord</span><span class="help-desc">Hebreerne – Judas (also: general epistles:)</span></div>
-                <div class="help-row"><span class="help-key">johanneisk: ord</span><span class="help-desc">Joh, 1–3 Joh, Åp (also: johannine:)</span></div>
-                <div class="help-row"><span class="help-key">apokalyptiske: ord</span><span class="help-desc">Daniel, Åpenbaringen (also: apocalyptic:)</span></div>
-                <div class="help-row"><span class="help-key">konger og krøniker: ord</span><span class="help-desc">1–2 Kong, 1–2 Krøn (also: kings and chronicles:)</span></div>
-                <div class="help-row"><span class="help-key">samuelsbøkene: ord</span><span class="help-desc">Every multi-volume book has its own group — samuelsbøkene, kongebøkene, krønikebøkene, korinterbrevene, tessalonikerbrevene, timoteusbrevene, petersbrevene, johannesbrevene</span></div>
-                <div class="help-row"><span class="help-key">Johannes: lys</span><span class="help-desc">BookName: text — search within a single book</span></div>
+                <h3 data-i18n="help.section.applyFilters">Apply filters</h3>
+                <div class="help-row"><span class="help-key">GT: ord</span><span class="help-desc" data-i18n="help.row.gt">Old Testament</span></div>
+                <div class="help-row"><span class="help-key">NT: ord</span><span class="help-desc" data-i18n="help.row.nt">New Testament</span></div>
+                <div class="help-row"><span class="help-key">mosebøkene: ord</span><span class="help-desc" data-i18n="help.row.pentateuch">Pentateuch</span></div>
+                <div class="help-row"><span class="help-key">historiske: ord</span><span class="help-desc" data-i18n="help.row.historical">Historical books</span></div>
+                <div class="help-row"><span class="help-key">poetiske: ord</span><span class="help-desc" data-i18n="help.row.poetic">Poetic / wisdom</span></div>
+                <div class="help-row"><span class="help-key">profetene: ord</span><span class="help-desc" data-i18n="help.row.prophets">Prophets</span></div>
+                <div class="help-row"><span class="help-key">store profeter: ord</span><span class="help-desc" data-i18n="help.row.majorProphets">Major prophets</span></div>
+                <div class="help-row"><span class="help-key">små profeter: ord</span><span class="help-desc" data-i18n="help.row.minorProphets">Minor prophets</span></div>
+                <div class="help-row"><span class="help-key">evangeliene: ord</span><span class="help-desc" data-i18n="help.row.gospels">Gospels</span></div>
+                <div class="help-row"><span class="help-key">synoptiske: ord</span><span class="help-desc" data-i18n="help.row.synoptic">Synoptic gospels</span></div>
+                <div class="help-row"><span class="help-key">brev: ord</span><span class="help-desc" data-i18n="help.row.epistles">Epistles</span></div>
+                <div class="help-row"><span class="help-key">paulusbrevene: ord</span><span class="help-desc" data-i18n="help.row.pauline">Pauline epistles</span></div>
+                <div class="help-row"><span class="help-key">almenne brev: ord</span><span class="help-desc" data-i18n="help.row.general">General epistles</span></div>
+                <div class="help-row"><span class="help-key">johanneisk: ord</span><span class="help-desc" data-i18n="help.row.johannine">Johannine literature</span></div>
+                <div class="help-row"><span class="help-key">apokalyptiske: ord</span><span class="help-desc" data-i18n="help.row.apocalyptic">Apocalyptic</span></div>
+                <div class="help-row"><span class="help-key">konger og krøniker: ord</span><span class="help-desc" data-i18n="help.row.kingsChron">Kings and Chronicles</span></div>
+                <div class="help-row"><span class="help-key">samuelsbøkene: ord</span><span class="help-desc" data-i18n="help.row.multiVolume">Multi-volume groups</span></div>
+                <div class="help-row"><span class="help-key">Johannes: lys</span><span class="help-desc" data-i18n="help.row.bookScope">BookName: text</span></div>
             </div>
             <div class="help-section">
-                <h3>Keyboard shortcuts</h3>
-                <div class="hotkey-row"><span class="hotkey-badge">/ or f</span><span class="help-desc">Focus search</span></div>
-                <div class="hotkey-row"><span class="hotkey-badge">Esc</span><span class="help-desc">Blur search / close modal</span></div>
-                <div class="hotkey-row"><span class="hotkey-badge">?</span><span class="help-desc">Open/close help</span></div>
-                <div class="hotkey-row"><span class="hotkey-badge">← →</span><span class="help-desc">Prev / next chapter (or verse when viewing a verse)</span></div>
-                <div class="hotkey-row"><span class="hotkey-badge">[ ]</span><span class="help-desc">Previous / next Bible version</span></div>
-                <div class="hotkey-row"><span class="hotkey-badge">Tab</span><span class="help-desc">Accept first autocomplete suggestion</span></div>
-                <div class="hotkey-row"><span class="hotkey-badge">Tab Tab</span><span class="help-desc">Search within completed book name</span></div>
-                <div class="hotkey-row"><span class="hotkey-badge">↑ ↓</span><span class="help-desc">Navigate autocomplete suggestions</span></div>
+                <h3 data-i18n="help.section.shortcuts">Keyboard shortcuts</h3>
+                <div class="hotkey-row"><span class="hotkey-badge">/ or f</span><span class="help-desc" data-i18n="help.row.focusSearch">Focus search</span></div>
+                <div class="hotkey-row"><span class="hotkey-badge">Esc</span><span class="help-desc" data-i18n="help.row.blurSearch">Blur search / close modal</span></div>
+                <div class="hotkey-row"><span class="hotkey-badge">?</span><span class="help-desc" data-i18n="help.row.openHelp">Open/close help</span></div>
+                <div class="hotkey-row"><span class="hotkey-badge">← →</span><span class="help-desc" data-i18n="help.row.prevNextChVs">Prev / next chapter (or verse when viewing a verse)</span></div>
+                <div class="hotkey-row"><span class="hotkey-badge">[ ]</span><span class="help-desc" data-i18n="help.row.prevNextVer">Previous / next Bible version</span></div>
+                <div class="hotkey-row"><span class="hotkey-badge">Tab</span><span class="help-desc" data-i18n="help.row.tabAccept">Accept first autocomplete suggestion</span></div>
+                <div class="hotkey-row"><span class="hotkey-badge">Tab Tab</span><span class="help-desc" data-i18n="help.row.tabBookSearch">Search within completed book name</span></div>
+                <div class="hotkey-row"><span class="hotkey-badge">↑ ↓</span><span class="help-desc" data-i18n="help.row.acNav">Navigate autocomplete suggestions</span></div>
             </div>
         </div>
-    </div>
-</div>
-
-<!-- Info modal -->
-<div class="modal-overlay" id="infoModal">
-    <div class="modal-panel">
-        <div class="modal-header">
-            <span>// Info</span>
-            <button class="modal-close" id="infoClose">&times;</button>
-        </div>
-        <div class="modal-body">
+        <div class="modal-body" data-tab-content="info" hidden>
             <div class="help-section">
-                <h3>About</h3>
-                <p class="info-text">A fast and powerful Bible search tool, designed for personal Bible study and connecting with God's Word. Quickly look up references, search for words and phrases across the whole Bible, view stats and data for searches, explore cross-references, and compare translations side by side. View help section for how to use.</p>
+                <h3 data-i18n="info.about.title">About</h3>
+                <p class="info-text" data-i18n="info.about.text"></p>
             </div>
             <div class="help-section">
-                <h3>Bible text</h3>
-                <p class="info-text">Bible text is sourced from <a href="https://www.bible.com" target="_blank" rel="noopener">YouVersion / bible.com</a> and stored locally to enable fast lookups and advanced full-text search. All rights to the Bible translations belong to their respective copyright holders and publishers. This tool is intended for personal use and Bible study only — not for redistribution.</p>
+                <h3 data-i18n="info.bibleText.title">Bible text</h3>
+                <p class="info-text" data-i18n-html="info.bibleText.text"></p>
             </div>
             <div class="help-section">
-                <h3>Cross-references</h3>
-                <p class="info-text">Cross-reference data (~345,000 references) comes from <a href="https://www.openbible.info/labs/cross-references/" target="_blank" rel="noopener">OpenBible.info's cross-reference project</a>, which is primarily sourced from the Treasury of Scripture Knowledge (TSK). Used under Creative Commons Attribution 4.0.</p>
+                <h3 data-i18n="info.crossRefs.title">Cross-references</h3>
+                <p class="info-text" data-i18n-html="info.crossRefs.text"></p>
             </div>
             <div class="help-section">
-                <h3>Open source</h3>
-                <p class="info-text">This project is open source under the MIT license — <a href="https://github.com/tobiashellerslien/bible-search" target="_blank" rel="noopener">github.com/tobiashellerslien/bible-search</a>.</p>
-                <p class="info-text" style="margin-top:8px;"><a href="https://bibel.tjelle.net/" target="_blank" rel="noopener" style="color:var(--text-muted)">link to the competition</a>.</p>
+                <h3 data-i18n="info.openSource.title">Open source</h3>
+                <p class="info-text" data-i18n-html="info.openSource.text"></p>
+                <p class="info-text" style="margin-top:8px;"><a href="https://bibel.tjelle.net/" target="_blank" rel="noopener" style="color:var(--text-muted)" data-i18n="info.openSource.competition">link to the competition</a>.</p>
             </div>
             <div class="help-section">
-                <h3>Feedback</h3>
-                <p class="info-text">Questions, suggestions, or found a bug? Reach out at <a href="mailto:tobias@hellerslien.net">tobias@hellerslien.net</a>.</p>
+                <h3 data-i18n="info.feedback.title">Feedback</h3>
+                <p class="info-text" data-i18n-html="info.feedback.text"></p>
             </div>
         </div>
     </div>
@@ -202,11 +197,11 @@
 <div class="modal-overlay" id="statsModal">
     <div class="modal-panel" style="max-width:1100px;">
         <div class="modal-header">
-            <span id="statsModalTitle">// Stats</span>
+            <span id="statsModalTitle" data-i18n="modal.stats">// Stats</span>
             <select id="statsModeSelect" class="stats-mode-select">
-                <option value="total">Total hits</option>
-                <option value="per_chapter">Per chapter</option>
-                <option value="per_verse">Per verse</option>
+                <option value="total" data-i18n="stats.totalHits">Total hits</option>
+                <option value="per_chapter" data-i18n="stats.perChapter">Per chapter</option>
+                <option value="per_verse" data-i18n="stats.perVerse">Per verse</option>
             </select>
             <button class="modal-close" id="statsClose">&times;</button>
         </div>
@@ -221,30 +216,37 @@
 <div class="modal-overlay" id="settingsModal">
     <div class="modal-panel">
         <div class="modal-header">
-            <span>// Settings</span>
+            <span data-i18n="modal.settings">// Settings</span>
             <button class="modal-close" id="settingsClose">&times;</button>
         </div>
         <div class="modal-body">
             <div class="settings-section">
-                <h3>Appearance</h3>
+                <h3 data-i18n="settings.appearance">Appearance</h3>
                 <div class="settings-row">
-                    <span class="settings-label">Dark mode</span>
-                    <button class="header-btn" id="darkToggle" title="Toggle dark mode">&#9790;</button>
+                    <span class="settings-label" data-i18n="settings.darkMode">Dark mode</span>
+                    <button class="header-btn" id="darkToggle" data-i18n-title="header.darkMode">&#9790;</button>
                 </div>
                 <div class="settings-row">
-                    <span class="settings-label">UI font</span>
-                    <div class="font-ui-ctrl" id="fontUICtrl">
-                        <button class="font-ui-btn" data-val="mono">Mono</button>
-                        <button class="font-ui-btn" data-val="sans">Sans</button>
-                        <button class="font-ui-btn" data-val="serif">Serif</button>
+                    <span class="settings-label" data-i18n="settings.uiLang">UI language</span>
+                    <div class="font-ui-ctrl" id="uiLangCtrl">
+                        <button class="font-ui-btn" data-val="en">English</button>
+                        <button class="font-ui-btn" data-val="no">Norsk</button>
                     </div>
                 </div>
                 <div class="settings-row">
-                    <span class="settings-label">Accent color</span>
+                    <span class="settings-label" data-i18n="settings.uiFont">UI font</span>
+                    <div class="font-ui-ctrl" id="fontUICtrl">
+                        <button class="font-ui-btn" data-val="mono" data-i18n="settings.fontMono">Mono</button>
+                        <button class="font-ui-btn" data-val="sans" data-i18n="settings.fontSans">Sans</button>
+                        <button class="font-ui-btn" data-val="serif" data-i18n="settings.fontSerif">Serif</button>
+                    </div>
+                </div>
+                <div class="settings-row">
+                    <span class="settings-label" data-i18n="settings.accentColor">Accent color</span>
                     <div class="color-picker" id="colorPicker"></div>
                 </div>
                 <div class="settings-row">
-                    <span class="settings-label">Verse font size</span>
+                    <span class="settings-label" data-i18n="settings.verseFontSize">Verse font size</span>
                     <div class="font-size-ctrl">
                         <span>Aa</span>
                         <input type="range" id="fontSizeSlider" min="1" max="5" value="3" step="1">
@@ -252,9 +254,9 @@
                 </div>
             </div>
             <div class="settings-section settings-section-last">
-                <h3>Default</h3>
+                <h3 data-i18n="settings.defaults">Default</h3>
                 <div class="settings-row">
-                    <span class="settings-label">Bible version</span>
+                    <span class="settings-label" data-i18n="settings.bibleVersion">Bible version</span>
                     <select id="defaultVersionSelect"></select>
                 </div>
             </div>
