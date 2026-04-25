@@ -64,6 +64,10 @@ const I18N = {
         'help.row.acNav': 'Navigate autocomplete suggestions',
         'info.about.title': 'About',
         'info.about.text': "A fast and powerful Bible search tool, designed for personal Bible study and connecting with God's Word. Quickly look up references, search for words and phrases across the whole Bible or using filters, view stats and data for searches, explore cross-references, and compare translations. View help section for how to use.",
+        'info.aboutMe.title': 'About me',
+        // Fill in your bio below. HTML is supported (e.g. <a href="..."> links).
+        'info.aboutMe.text': '',
+        'info.aboutMe.favorites': 'My favorite verses',
         'info.bibleText.title': 'Bible text',
         'info.bibleText.text': 'Bible text is sourced from <a href="https://www.bible.com" target="_blank" rel="noopener">YouVersion / bible.com</a> and stored locally to enable fast lookups and advanced full-text search. All rights to the Bible translations belong to their respective copyright holders and publishers. This tool is intended for personal use and Bible study only — not for redistribution.',
         'info.crossRefs.title': 'Cross-references',
@@ -103,9 +107,8 @@ const I18N = {
         'settings.savedDefault': 'Default version saved',
         'empty.title': 'Search the Bible',
         'empty.tagline': 'References, full-text search, cross-references and stats — across many translations.',
-        'empty.label.reference': 'Reference',
-        'empty.label.text': 'Text',
-        'empty.label.filter': 'Filter',
+        'empty.verse.text': 'All Scripture is inspired by God and profitable for teaching, for reproof, for correction, for training in righteousness; so that the man of God may be adequate, equipped for every good work.',
+        'empty.verse.ref': '2 Timothy 3:16–17',
         'empty.btn.help': '? Search syntax',
         'empty.btn.about': 'ⓘ About',
         'empty.btn.settings': '⚙ Settings',
@@ -237,7 +240,11 @@ const I18N = {
         'help.row.tabBookSearch': 'Søk innenfor fullført boknavn',
         'help.row.acNav': 'Naviger autofullføringer',
         'info.about.title': 'Om',
-        'info.about.text': 'Et raskt og kraftig bibelsøkverktøy, laget for personlig bibelstudie og for å bli bedre kjent med Guds ord. Raskt slå opp vers, søk etter ord og fraser i hele Bibelen eller ved bruk av filtre, se statistikk for søk, utforsk kryssreferanser og sammenlign oversettelser. Se hjelp-fanen for hvordan dette brukes.',
+        'info.about.text': 'Et raskt og kraftig bibelsøkeverktøy, laget for personlig bibelstudie og for å bli bedre kjent med Guds ord. Raskt slå opp vers, søk etter ord og fraser i hele Bibelen eller ved bruk av filtre, se statistikk for søk, utforsk kryssreferanser og sammenlign oversettelser. Se hjelp-fanen for hvordan dette brukes.',
+        'info.aboutMe.title': 'Om meg',
+        // Fyll inn din bio nedenfor. HTML støttes (f.eks. <a href="..."> lenker).
+        'info.aboutMe.text': '',
+        'info.aboutMe.favorites': 'Mine favorittvers',
         'info.bibleText.title': 'Bibeltekst',
         'info.bibleText.text': 'Bibelteksten er hentet fra <a href="https://www.bible.com" target="_blank" rel="noopener">YouVersion / bible.com</a> og lagret lokalt for raske oppslag og avansert fulltekstsøk. Alle rettigheter til oversettelsene tilhører deres respektive opphavsrettighetsinnehavere og forlag. Verktøyet er ment for personlig bruk og bibelstudium — ikke for videredistribusjon.',
         'info.crossRefs.title': 'Kryssreferanser',
@@ -277,9 +284,8 @@ const I18N = {
         'settings.savedDefault': 'Standardoversettelse lagret',
         'empty.title': 'Søk i Bibelen',
         'empty.tagline': 'Henvisninger, fulltekstsøk, kryssreferanser og statistikk — på tvers av oversettelser.',
-        'empty.label.reference': 'Henvisning',
-        'empty.label.text': 'Tekst',
-        'empty.label.filter': 'Filter',
+        'empty.verse.text': 'Hele Skriften er innåndet av Gud og nyttig til lærdom, til overbevisning, til rettledning, til opptuktelse i rettferdighet, for at Guds menneske kan være fullkomment, satt i stand til all god gjerning.',
+        'empty.verse.ref': '2. Timoteus 3:16–17',
         'empty.btn.help': '? Søkesyntaks',
         'empty.btn.about': 'ⓘ Om',
         'empty.btn.settings': '⚙ Innstillinger',
@@ -350,9 +356,19 @@ const I18N = {
     },
 };
 
+// ───────────────────────────────────────────────────────────────
+// FAVORITTVERS — fyll inn referanser her, separert med semikolon.
+// Format: samme som søkefeltet aksepterer.
+// Eksempler: 'Joh 3:16', 'Salme 23', '1. Mos 1:1-3', 'Rom 8:28;31-39'
+// ───────────────────────────────────────────────────────────────
+const FAVORITE_VERSES = [
+    // 'Joh 3:16',
+    // 'Salme 23:1',
+];
+
 let uiLang = (localStorage.getItem('uiLang') === 'no' || localStorage.getItem('uiLang') === 'en')
     ? localStorage.getItem('uiLang')
-    : (navigator.language && navigator.language.toLowerCase().startsWith('no') ? 'no' : 'en');
+    : 'no';
 
 function t(key, ...args) {
     let s = (I18N[uiLang] && I18N[uiLang][key]) || (I18N.en && I18N.en[key]) || key;
@@ -927,7 +943,30 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
         ? `<button class="copy-btn highlight-dismiss-btn" onclick="clearHighlight()" title="${escAttr(t('card.dismissHighlight'))}">${escHtml(buildHighlightChipLabel())} &times;</button>`
         : '';
 
-    let html = `<div class="verse-card" id="${cardId}">
+    // Compute swipe nav metadata for this card
+    let swipeAttrs = '';
+    if (block.book && block.verses.length > 0) {
+        const _ch = block.verses[0].chapter;
+        const _bName = bookRefName(block.book);
+        const _maxCh = (booksData.find(b => b.code === block.book) || {}).chapters || 0;
+        const _isVerseView = !block.is_chapter;
+        const _allSameCh = block.verses.every(v => v.chapter === _ch);
+        if (_allSameCh && _maxCh > 0) {
+            let _hasPrev = false, _hasNext = false;
+            let _firstV = block.verses[0].num, _lastV = block.verses[block.verses.length - 1].num;
+            if (_isVerseView) {
+                const _maxV = maxVerseInChapter(block.book, _ch);
+                _hasPrev = _firstV > 1 || _ch > 1;
+                _hasNext = (_maxV && _lastV < _maxV) || _ch < _maxCh;
+            } else {
+                _hasPrev = _ch > 1;
+                _hasNext = _ch < _maxCh;
+            }
+            swipeAttrs = ` data-swipe-book="${escAttr(block.book)}" data-swipe-ch="${_ch}" data-swipe-first-v="${_firstV}" data-swipe-last-v="${_lastV}" data-swipe-bname="${escAttr(_bName)}" data-swipe-is-verse="${_isVerseView ? '1' : '0'}" data-swipe-has-prev="${_hasPrev ? '1' : '0'}" data-swipe-has-next="${_hasNext ? '1' : '0'}"`;
+        }
+    }
+
+    let html = `<div class="verse-card" id="${cardId}"${swipeAttrs}>
         <div class="verse-card-header">
             <div class="verse-card-header-left">
                 <span class="verse-card-label">${escHtml(displayLabel)}</span>
@@ -1834,8 +1873,16 @@ window.copyBlockRef = function(blockIdx) {
     const lang = versionLang(ver);
     const text = buildCopyText(block.verses);
     const label = translateLabel(block.label, block.book, lang);
-    const full = `"${text}"\n\n${label} ${versionLabel(ver)}`;
+    const full = `${text}\n\n${label} ${versionLabel(ver)}`;
     navigator.clipboard.writeText(full).then(() => showToast(t('toast.copiedRef')));
+};
+
+// ── Empty state verse link ──
+window.goToEmptyVerse = function() {
+    const query = uiLang === 'no' ? '2. Timoteus 3:16-17' : '2 Timothy 3:16-17';
+    searchInput.value = query;
+    updateSearchHighlight();
+    doSearch();
 };
 
 // ── Home ──
@@ -2441,6 +2488,22 @@ function rerenderCurrentView() {
 document.querySelectorAll('#uiLangCtrl .font-ui-btn').forEach(b => b.classList.toggle('active', b.dataset.val === uiLang));
 applyI18n();
 
+// ── Favorite verses link ──
+(function() {
+    const link = document.getElementById('favoriteVersesLink');
+    const wrap = link && link.closest('p');
+    if (!link) return;
+    if (!FAVORITE_VERSES.length) { if (wrap) wrap.hidden = true; return; }
+    link.addEventListener('click', function(e) {
+        e.preventDefault();
+        const helpModal = document.getElementById('helpModal');
+        if (helpModal) helpModal.classList.remove('open');
+        searchInput.value = FAVORITE_VERSES.join('; ');
+        updateSearchHighlight();
+        doSearch();
+    });
+})();
+
 
 // ── Name helpers ──
 function bookName(code, lang) {
@@ -2565,6 +2628,145 @@ function escAttr(s) {
     if (s == null) return '';
     return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
 }
+
+// ── Swipe navigation on verse cards ──
+(function() {
+    let activeCard = null;
+    let startX = 0, startY = 0, startTime = 0;
+    let isDragging = false;
+    let indicatorLeft = null, indicatorRight = null;
+    let isAnimating = false;
+
+    function cleanup() {
+        if (activeCard) {
+            activeCard.classList.remove('swiping');
+            activeCard.classList.remove('snap-back');
+            activeCard.style.transform = '';
+        }
+        if (indicatorLeft) { indicatorLeft.style.opacity = '0'; }
+        if (indicatorRight) { indicatorRight.style.opacity = '0'; }
+        activeCard = null;
+        isDragging = false;
+    }
+
+    function getOrCreateIndicator(card, side) {
+        let el = card.querySelector(`.swipe-indicator.${side}`);
+        if (!el) {
+            el = document.createElement('div');
+            el.className = `swipe-indicator ${side}`;
+            el.textContent = side === 'left' ? '←' : '→';
+            card.appendChild(el);
+        }
+        return el;
+    }
+
+    resultsWrapper.addEventListener('touchstart', function(e) {
+        if (isAnimating) return;
+        const card = e.target.closest('.verse-card');
+        if (!card || !card.dataset.swipeBook) return;
+        activeCard = card;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        startTime = Date.now();
+        isDragging = false;
+        indicatorLeft = getOrCreateIndicator(card, 'left');
+        indicatorRight = getOrCreateIndicator(card, 'right');
+        indicatorLeft.style.opacity = '0';
+        indicatorRight.style.opacity = '0';
+        indicatorLeft.style.display = card.dataset.swipeHasPrev === '1' ? '' : 'none';
+        indicatorRight.style.display = card.dataset.swipeHasNext === '1' ? '' : 'none';
+    }, { passive: true });
+
+    resultsWrapper.addEventListener('touchmove', function(e) {
+        if (!activeCard) return;
+        const dx = e.touches[0].clientX - startX;
+        const dy = e.touches[0].clientY - startY;
+
+        if (!isDragging) {
+            if (Math.abs(dx) < 8) return;
+            if (Math.abs(dy) > Math.abs(dx)) { activeCard = null; return; }
+            isDragging = true;
+            activeCard.classList.add('swiping');
+        }
+
+        e.preventDefault();
+
+        const hasPrev = activeCard.dataset.swipeHasPrev === '1';
+        const hasNext = activeCard.dataset.swipeHasNext === '1';
+        const clampedDx = (dx < 0 && !hasNext) ? Math.max(dx, -12)
+                        : (dx > 0 && !hasPrev) ? Math.min(dx, 12)
+                        : dx * 0.92;
+
+        activeCard.style.transform = `translateX(${clampedDx}px)`;
+
+        const cardW = activeCard.offsetWidth || 300;
+        const threshold = Math.min(cardW * 0.28, 80);
+        const progress = Math.min(Math.abs(clampedDx) / threshold, 1);
+
+        if (dx < 0 && hasNext) indicatorRight.style.opacity = String(progress);
+        else indicatorRight.style.opacity = '0';
+        if (dx > 0 && hasPrev) indicatorLeft.style.opacity = String(progress);
+        else indicatorLeft.style.opacity = '0';
+    }, { passive: false });
+
+    async function commitSwipe(card, direction) {
+        isAnimating = true;
+        if (indicatorLeft) indicatorLeft.style.opacity = '0';
+        if (indicatorRight) indicatorRight.style.opacity = '0';
+
+        const book = card.dataset.swipeBook;
+        const ch = parseInt(card.dataset.swipeCh, 10);
+        const firstV = parseInt(card.dataset.swipeFirstV, 10);
+        const lastV = parseInt(card.dataset.swipeLastV, 10);
+        const bName = card.dataset.swipeBname;
+        const isVerse = card.dataset.swipeIsVerse === '1';
+
+        if (isVerse) {
+            await goVerse(book, ch, direction === 'next' ? lastV : firstV, bName, direction);
+        } else {
+            await goChapter(book, direction === 'next' ? ch + 1 : ch - 1, bName, direction);
+        }
+        isAnimating = false;
+    }
+
+    function snapBack(card) {
+        card.classList.remove('swiping');
+        card.classList.add('snap-back');
+        card.style.transform = '';
+        if (indicatorLeft) indicatorLeft.style.opacity = '0';
+        if (indicatorRight) indicatorRight.style.opacity = '0';
+        setTimeout(() => { if (card) card.classList.remove('snap-back'); }, 220);
+    }
+
+    resultsWrapper.addEventListener('touchend', function(e) {
+        if (!activeCard || !isDragging) { activeCard = null; isDragging = false; return; }
+        const card = activeCard;
+        activeCard = null;
+        isDragging = false;
+
+        const dx = e.changedTouches[0].clientX - startX;
+        const dt = Date.now() - startTime;
+        const velocity = Math.abs(dx) / Math.max(dt, 1);
+        const cardW = card.offsetWidth || 300;
+        const threshold = Math.min(cardW * 0.28, 80);
+        const hasPrev = card.dataset.swipeHasPrev === '1';
+        const hasNext = card.dataset.swipeHasNext === '1';
+
+        if ((dx < -threshold || (velocity > 0.3 && dx < -30)) && hasNext) {
+            commitSwipe(card, 'next');
+        } else if ((dx > threshold || (velocity > 0.3 && dx > 30)) && hasPrev) {
+            commitSwipe(card, 'prev');
+        } else {
+            snapBack(card);
+        }
+    }, { passive: true });
+
+    resultsWrapper.addEventListener('touchcancel', function() {
+        if (activeCard && isDragging) snapBack(activeCard);
+        activeCard = null;
+        isDragging = false;
+    }, { passive: true });
+})();
 
 function toggleDisplayOptions() {
     const panel = document.getElementById('displayPanel');

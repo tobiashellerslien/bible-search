@@ -1,4 +1,4 @@
-# Tobias' Bible Search Tool
+# Bible Search
 
 A fast and powerful Bible search app. Look up verses by reference, search the full text with advanced operators, and compare translations side by side. Uses local copies of Bibles. Inspired by [biblegateway.com](https://biblegateway.com).
 

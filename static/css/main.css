@@ -429,7 +429,7 @@
         /* ── Display area (collapsible browse & display panel) ── */
         .display-area {
             max-width: 1400px;
-            margin: 10px auto 0;
+            margin: 6px auto 0;
             padding: 0 20px;
         }
         .display-bar { /* no extra styles needed — inherits display-area gutter */ }
@@ -488,6 +488,11 @@
             gap: 4px 18px;
             align-items: center;
             flex-wrap: wrap;
+        }
+        .toggle-with-hint {
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
         .format-sep {
             margin-left: 8px;
@@ -572,7 +577,7 @@
         /* ── Results ── */
         .results-wrapper {
             max-width: 1400px;
-            margin: 16px auto;
+            margin: 10px auto;
             padding: 0 20px 40px;
         }
 
@@ -585,7 +590,25 @@
             display: flex;
             flex-direction: column;
             border: 1px solid var(--border);
+            position: relative;
+            touch-action: pan-y;
+            will-change: transform;
         }
+        .verse-card.swiping { transition: none; user-select: none; }
+        .verse-card.snap-back { transition: transform 0.2s ease; }
+        .swipe-indicator {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+            pointer-events: none;
+            font-size: 1.4rem;
+            color: var(--accent);
+            line-height: 1;
+            transition: opacity 0.06s linear;
+        }
+        .swipe-indicator.left { left: 10px; }
+        .swipe-indicator.right { right: 10px; }
         .verse-card-header {
             display: flex;
             justify-content: space-between;
@@ -1084,44 +1107,22 @@
         }
         .empty-state h2 { font-size: 1.4rem; margin-bottom: 10px; color: var(--text); font-family: var(--font-ui); }
         .empty-tagline { font-size: 0.92rem; line-height: 1.6; margin-bottom: 30px; color: var(--text-muted); }
-        .empty-examples {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            margin-bottom: 28px;
+        .empty-verse {
+            max-width: 540px;
+            margin: 0 auto 30px;
+            padding: 18px 22px;
+            border-left: 3px solid var(--accent);
             text-align: left;
-            background: var(--card-bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 16px 18px;
+            font-style: italic;
         }
-        .empty-example-row {
-            display: grid;
-            grid-template-columns: 75px 1fr;
-            align-items: center;
-            gap: 6px 10px;
-        }
-        .empty-example-codes {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-        .empty-example-label {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            font-family: var(--font-ui);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .empty-state code {
-            background: var(--accent-dim);
-            color: var(--accent);
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-family: var(--font-ui);
+        .empty-verse-text { font-size: 0.98rem; line-height: 1.75; color: var(--text); margin: 0; }
+        .empty-verse-ref {
+            margin-top: 10px;
+            font-style: normal;
             font-size: 0.82rem;
-            white-space: nowrap;
+            color: var(--text-muted);
+            text-align: right;
+            font-family: var(--font-ui);
         }
         .empty-actions {
             display: flex;
@@ -1465,9 +1466,9 @@
 
         /* ── Responsive ── */
         @media (max-width: 700px) {
-            .controls { gap: 8px; margin-top: 10px; }
-            .display-area { margin-top: 6px; }
-            .results-wrapper { margin-top: 10px; }
+            .controls { gap: 8px; margin-top: 8px; }
+            .display-area { margin-top: 4px; }
+            .results-wrapper { margin-top: 6px; }
             .header h1 { font-size: 1.05rem; }
             .chapter-nav { margin-left: 0; width: 100%; justify-content: flex-end; }
             .modal-panel { max-height: 92vh; }
@@ -1513,10 +1514,8 @@
                 gap: 12px 14px;
                 align-items: center;
             }
-            .copy-hint-btn {
-                grid-column: 1 / -1;
-                justify-self: end;
-                margin-top: -8px;
+            .toggle-with-hint {
+                justify-self: start;
             }
             .format-sep {
                 margin-left: 0;
@@ -1537,9 +1536,6 @@
             .modal-tabs { margin-left: 8px; }
             .modal-tab { padding: 3px 10px; font-size: 0.74rem; }
 
-            /* Empty state: collapse to single-column at 700px */
-            .empty-example-row { grid-template-columns: 1fr; gap: 4px; }
-
             /* More menu: align to right edge so it doesn't overflow */
             .card-more-menu { left: auto; right: 0; }
 
@@ -1559,8 +1555,8 @@
             .controls, .display-area, .results-wrapper { padding: 0 14px; }
             .verse-card { padding: 14px 16px; }
             .empty-state { padding: 40px 16px 24px; }
-            .empty-example-row { grid-template-columns: 1fr; gap: 4px; }
-            .empty-example-label { font-size: 0.65rem; }
+            .empty-verse { padding: 14px 16px; }
+            .empty-verse-text { font-size: 0.93rem; }
         }
 
         /* ── Reduced motion ── */
