@@ -5,15 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Tobias' Bible Search Tool</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
 
     <!-- PWA Meta Tags -->
-    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="48x48">
     <link rel="icon" href="/icons/icon-192x192.png" type="image/png" sizes="192x192">
     <link rel="icon" href="/icons/icon-512x512.png" type="image/png" sizes="512x512">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="48x48">
     <link rel="apple-touch-icon" href="/icons/icon-180x180.png">
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#3b82f6">
+    <meta name="theme-color" content="#2870e8">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Tobias' Bible Search Tool">
@@ -133,9 +132,9 @@
         <h2 data-i18n="empty.title">Search the Bible</h2>
         <p class="empty-tagline" data-i18n="empty.tagline">References, full-text search, cross-references and stats — across many translations.</p>
         <div class="empty-examples">
-            <div class="empty-example-row"><span class="empty-example-label" data-i18n="empty.label.reference">Reference</span><code>Johannes 3:16</code><code>Salme 23</code><code>1. Mos 1:1-3</code></div>
-            <div class="empty-example-row"><span class="empty-example-label" data-i18n="empty.label.text">Text</span><code>kjærlighet</code><code>nåde OR frelse</code><code>"evig liv"</code></div>
-            <div class="empty-example-row"><span class="empty-example-label" data-i18n="empty.label.filter">Filter</span><code>GT: frelse</code><code>evangeliene: disippel</code><code>Johannes: tro</code></div>
+            <div class="empty-example-row"><span class="empty-example-label" data-i18n="empty.label.reference">Reference</span><span class="empty-example-codes"><code>Johannes 3:16</code><code>Salme 23</code><code>1. Mos 1:1-3</code></span></div>
+            <div class="empty-example-row"><span class="empty-example-label" data-i18n="empty.label.text">Text</span><span class="empty-example-codes"><code>kjærlighet</code><code>nåde OR frelse</code><code>"evig liv"</code></span></div>
+            <div class="empty-example-row"><span class="empty-example-label" data-i18n="empty.label.filter">Filter</span><span class="empty-example-codes"><code>GT: frelse</code><code>evangeliene: disippel</code><code>Johannes: tro</code></span></div>
         </div>
         <div class="empty-actions">
             <button class="btn btn-secondary" onclick="openHelp('help')" data-i18n="empty.btn.help">? Search syntax</button>

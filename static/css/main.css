@@ -49,7 +49,7 @@
 
         html, body {
             height: 100%;
-            overflow-x: hidden;
+            overflow-x: clip;
         }
 
         body {
@@ -450,10 +450,11 @@
             transition: max-height 0.25s ease, margin-top 0.25s ease, opacity 0.15s;
         }
         .display-panel.open {
-            max-height: 200px;
+            max-height: 500px;
             margin-top: 6px;
             opacity: 1;
             pointer-events: auto;
+            overflow: visible;
         }
 
         /* ── Browser bar ── */
@@ -876,7 +877,7 @@
             transition: max-height 0.3s ease, opacity 0.2s ease, margin-top 0.3s ease, padding 0.3s ease, border-top-width 0s 0.3s;
         }
         .card-compare-section.visible {
-            max-height: 1000px;
+            max-height: 6000px;
             opacity: 1;
             margin-top: 12px;
             padding-top: 12px;
@@ -911,6 +912,14 @@
             margin-bottom: 12px;
             flex-wrap: wrap;
         }
+        .search-controls-actions {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+        .share-view-btn {
+            margin-left: auto;
+        }
         .search-result-count {
             font-size: 0.82rem;
             color: var(--text-muted);
@@ -923,9 +932,24 @@
             padding: 12px 16px;
             margin-bottom: 0;
             cursor: pointer;
-            transition: border-color 0.15s;
+            transition: border-color 0.15s, background 0.12s, transform 0.08s;
+            animation: searchItemIn 0.22s cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
+        }
+        .search-result-item:nth-child(1)  { animation-delay: 0.00s; }
+        .search-result-item:nth-child(2)  { animation-delay: 0.025s; }
+        .search-result-item:nth-child(3)  { animation-delay: 0.05s; }
+        .search-result-item:nth-child(4)  { animation-delay: 0.075s; }
+        .search-result-item:nth-child(5)  { animation-delay: 0.10s; }
+        .search-result-item:nth-child(6)  { animation-delay: 0.125s; }
+        .search-result-item:nth-child(7)  { animation-delay: 0.15s; }
+        .search-result-item:nth-child(8)  { animation-delay: 0.175s; }
+        .search-result-item:nth-child(n+9) { animation-delay: 0.20s; }
+        @keyframes searchItemIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to   { opacity: 1; transform: translateY(0); }
         }
         .search-result-item:hover { border-color: var(--accent); }
+        .search-result-item:active { transform: scale(0.995); }
         .search-result-ref {
             font-weight: 700;
             color: var(--accent);
@@ -941,7 +965,16 @@
         }
 
         /* ── Book groups (connected cards) ── */
-        .book-group { margin-bottom: 8px; }
+        .book-group {
+            margin-bottom: 8px;
+            animation: searchItemIn 0.22s cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
+        }
+        .book-group:nth-child(1)  { animation-delay: 0.00s; }
+        .book-group:nth-child(2)  { animation-delay: 0.03s; }
+        .book-group:nth-child(3)  { animation-delay: 0.06s; }
+        .book-group:nth-child(4)  { animation-delay: 0.09s; }
+        .book-group:nth-child(5)  { animation-delay: 0.12s; }
+        .book-group:nth-child(n+6) { animation-delay: 0.15s; }
         .book-group-header {
             background: var(--card-bg);
             border: 1px solid var(--border);
@@ -964,8 +997,11 @@
             border-bottom-color: transparent;
             border-radius: var(--radius) var(--radius) 0 0;
         }
+        .book-group-header.open + .book-group-items {
+            border-color: var(--accent);
+        }
         .book-group-header .chevron {
-            transition: transform 0.15s;
+            transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.3, 1);
             font-size: 0.75em;
             color: var(--text-muted);
         }
@@ -1008,7 +1044,13 @@
             border-radius: var(--radius);
             padding: 18px 20px;
             margin-bottom: 14px;
+            animation: searchItemIn 0.24s cubic-bezier(0.2, 0.8, 0.3, 1) backwards;
         }
+        .all-versions-block:nth-child(1) { animation-delay: 0.00s; }
+        .all-versions-block:nth-child(2) { animation-delay: 0.04s; }
+        .all-versions-block:nth-child(3) { animation-delay: 0.08s; }
+        .all-versions-block:nth-child(4) { animation-delay: 0.12s; }
+        .all-versions-block:nth-child(n+5) { animation-delay: 0.16s; }
         .all-versions-block .version-label {
             font-weight: 700;
             font-size: 0.82rem;
@@ -1043,10 +1085,16 @@
             padding: 16px 18px;
         }
         .empty-example-row {
-            display: flex;
+            display: grid;
+            grid-template-columns: 75px 1fr;
             align-items: center;
-            gap: 10px;
+            gap: 6px 10px;
+        }
+        .empty-example-codes {
+            display: flex;
+            gap: 6px;
             flex-wrap: wrap;
+            align-items: center;
         }
         .empty-example-label {
             font-size: 0.7rem;
@@ -1054,7 +1102,6 @@
             font-family: var(--font-ui);
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            min-width: 70px;
         }
         .empty-state code {
             background: var(--accent-dim);
@@ -1078,7 +1125,7 @@
         /* ── Toast ── */
         .toast {
             position: fixed; bottom: 24px; left: 50%;
-            transform: translateX(-50%) translateY(80px);
+            transform: translateX(-50%) translateY(80px) scale(0.96);
             background: var(--card-bg);
             border: 1px solid var(--accent);
             color: var(--accent);
@@ -1087,12 +1134,12 @@
             font-size: 0.82rem;
             font-family: var(--font-ui);
             opacity: 0;
-            transition: all 0.25s;
+            transition: opacity 0.2s ease, transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.2);
             z-index: 1000;
             pointer-events: none;
             box-shadow: var(--shadow-lg);
         }
-        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
 
         /* ── Modal overlay ── */
         .modal-overlay {
@@ -1407,7 +1454,9 @@
 
         /* ── Responsive ── */
         @media (max-width: 700px) {
-            .controls { gap: 8px; }
+            .controls { gap: 8px; margin-top: 10px; }
+            .display-area { margin-top: 6px; }
+            .results-wrapper { margin-top: 10px; }
             .header h1 { font-size: 1.05rem; }
             .chapter-nav { margin-left: 0; width: 100%; justify-content: flex-end; }
             .modal-panel { max-height: 92vh; }
@@ -1449,11 +1498,15 @@
             /* Toggles: 2-column grid; Headings + Annotations on row 2 with shared divider line */
             .toggles {
                 display: grid;
-                grid-template-columns: 1fr 1fr;
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
                 gap: 12px 14px;
                 align-items: center;
             }
-            .copy-hint-btn { display: none; }
+            .copy-hint-btn {
+                grid-column: 1 / -1;
+                justify-self: end;
+                margin-top: -8px;
+            }
             .format-sep {
                 margin-left: 0;
                 padding-left: 0;
@@ -1473,11 +1526,21 @@
             .modal-tabs { margin-left: 8px; }
             .modal-tab { padding: 3px 10px; font-size: 0.74rem; }
 
+            /* Empty state: collapse to single-column at 700px */
+            .empty-example-row { grid-template-columns: 1fr; gap: 4px; }
+
             /* More menu: align to right edge so it doesn't overflow */
             .card-more-menu { left: auto; right: 0; }
 
             /* Color picker stays comfortable on touch */
             .color-swatch { width: 24px; height: 24px; }
+
+            /* Search controls: count on its own row, action buttons + share below */
+            .search-controls { gap: 5px 8px; margin-bottom: 8px; }
+            .search-result-count { flex: 1 1 100%; }
+            .share-view-btn { margin-left: auto; }
+            .search-controls .card-action-btn,
+            .search-controls .stats-btn { padding: 3px 8px; font-size: 0.72rem; }
         }
 
         @media (max-width: 420px) {
@@ -1485,4 +1548,16 @@
             .controls, .display-area, .results-wrapper { padding: 0 14px; }
             .verse-card { padding: 14px 16px; }
             .empty-state { padding: 40px 16px 24px; }
+            .empty-example-row { grid-template-columns: 1fr; gap: 4px; }
+            .empty-example-label { font-size: 0.65rem; }
+        }
+
+        /* ── Reduced motion ── */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
         }

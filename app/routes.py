@@ -1,4 +1,6 @@
-from flask import Blueprint, current_app, jsonify, render_template, request
+from pathlib import Path
+
+from flask import Blueprint, current_app, jsonify, render_template, request, send_from_directory
 
 from .services.bible import (
     USFM_TO_ALIASES,
@@ -31,9 +33,27 @@ def _resolve_version_id(bible_data, raw):
     return next(iter(bible_data.translations), None)
 
 
+_ROOT = Path(__file__).resolve().parent.parent
+
+
 @bp.get("/")
 def index():
     return render_template("index.html")
+
+
+@bp.get("/manifest.json")
+def pwa_manifest():
+    return send_from_directory(_ROOT, "manifest.json")
+
+
+@bp.get("/icons/<path:filename>")
+def pwa_icons(filename):
+    return send_from_directory(_ROOT / "icons", filename)
+
+
+@bp.get("/splash/<path:filename>")
+def pwa_splash(filename):
+    return send_from_directory(_ROOT / "splash", filename)
 
 
 @bp.get("/api/versions")

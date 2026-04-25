@@ -120,7 +120,8 @@ const I18N = {
         'card.more.interlinear': 'interlinear',
         'card.more.commentary': 'commentary',
         'card.more.source': 'source',
-        'card.more.shareLink': 'share link',
+        'card.more.shareLink': 'share verse link',
+        'card.shareView': 'share view',
         'card.compareLoading': 'Loading...',
         'card.compareNotFound': 'Not found',
         'card.compareFailed': 'Failed to load',
@@ -291,7 +292,8 @@ const I18N = {
         'card.more.interlinear': 'grunntekst',
         'card.more.commentary': 'kommentar',
         'card.more.source': 'kilde',
-        'card.more.shareLink': 'del lenke',
+        'card.more.shareLink': 'del verslenke',
+        'card.shareView': 'del visning',
         'card.compareLoading': 'Laster...',
         'card.compareNotFound': 'Ikke funnet',
         'card.compareFailed': 'Lasting feilet',
@@ -816,7 +818,10 @@ function renderAll() {
     const showNewlines = toggleNewlines.checked;
     const showHeadings = toggleHeadings.checked;
     const mainLang = versionLang(versionSelect.value);
-    let html = '';
+    let html = `<div class="search-controls">
+        <div class="search-result-count"></div>
+        <button class="card-action-btn share-view-btn" onclick="shareView()">&#128279; ${escHtml(t('card.shareView'))}</button>
+    </div>`;
 
     mainData.forEach((block, idx) => {
         html += buildCardHtml(block, idx, showNums, showNewlines, showHeadings, mainLang, versionSelect.value);
@@ -901,7 +906,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
             if (ilUrl) html += `<a class="card-more-item" href="${ilUrl}" target="_blank" rel="noopener"><img src="/static/biblehub.png" alt=""> ${escHtml(t('card.more.interlinear'))}</a>`;
             if (crUrl) html += `<a class="card-more-item" href="${crUrl}" target="_blank" rel="noopener"><img src="/static/bibleref.png" alt=""> ${escHtml(t('card.more.commentary'))}</a>`;
             if (yvUrl) html += `<a class="card-more-item" href="${yvUrl}" target="_blank" rel="noopener">${escHtml(t('card.more.source'))}</a>`;
-            html += `<button class="card-more-item" onclick="shareLink()">${escHtml(t('card.more.shareLink'))}</button>`;
+            html += `<button class="card-more-item" onclick="shareLink(${idx})">${escHtml(t('card.more.shareLink'))}</button>`;
             html += `</div></div>`;
         }
         if (allSameCh && maxCh > 0) {
@@ -913,8 +918,8 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
                 const maxV = maxVerseInChapter(block.book, ch);
                 const hasPrev = firstV > 1 || ch > 1;
                 const hasNext = (maxV && lastV < maxV) || ch < maxCh;
-                const prevLabel = firstV > 1 ? firstV - 1 : (ch > 1 ? `${ch - 1}:${maxVerseInChapter(block.book, ch - 1) || '?'}` : null);
-                const nextLabel = (maxV && lastV < maxV) ? lastV + 1 : (ch < maxCh ? `${ch + 1}:1` : null);
+                const prevLabel = firstV > 1 ? `${ch}:${firstV - 1}` : (ch > 1 ? `${ch - 1}:${maxVerseInChapter(block.book, ch - 1) || '?'}` : null);
+                const nextLabel = (maxV && lastV < maxV) ? `${ch}:${lastV + 1}` : (ch < maxCh ? `${ch + 1}:1` : null);
                 if (hasPrev && prevLabel !== null) html += `<button class="card-action-btn" onclick="goVerse('${escAttr(block.book)}', ${ch}, ${firstV}, '${escAttr(bName)}', 'prev')" title="${escAttr(t('chapterNav.prevVs'))}">&#8592; ${prevLabel}</button>`;
                 if (hasNext && nextLabel !== null) html += `<button class="card-action-btn" onclick="goVerse('${escAttr(block.book)}', ${ch}, ${lastV}, '${escAttr(bName)}', 'next')" title="${escAttr(t('chapterNav.nextVs'))}">${nextLabel} &#8594;</button>`;
             } else {
@@ -1051,8 +1056,17 @@ document.addEventListener('click', e => {
     }
 });
 
-window.shareLink = function() {
-    const url = window.location.origin + window.location.pathname + window.location.search;
+window.shareLink = function(idx) {
+    let url;
+    if (idx !== undefined && mainData && mainData[idx]) {
+        const block = mainData[idx];
+        const ref = block.label || '';
+        url = window.location.origin + window.location.pathname
+            + '?q=' + encodeURIComponent(ref)
+            + '&version=' + encodeURIComponent(versionSelect.value);
+    } else {
+        url = window.location.origin + window.location.pathname + window.location.search;
+    }
     if (navigator.clipboard) {
         navigator.clipboard.writeText(url)
             .then(() => showToast(t('toast.linkCopied')))
@@ -1061,6 +1075,17 @@ window.shareLink = function() {
         showToast(t('toast.clipboardUnavailable'));
     }
     document.querySelectorAll('.card-more-menu.open').forEach(m => m.classList.remove('open'));
+};
+
+window.shareView = function() {
+    const url = window.location.origin + window.location.pathname + window.location.search;
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(url)
+            .then(() => showToast(t('toast.linkCopied')))
+            .catch(() => showToast(t('toast.copyFailed')));
+    } else {
+        showToast(t('toast.clipboardUnavailable'));
+    }
 };
 
 function isVerseHighlighted(v) {
@@ -1385,8 +1410,11 @@ function renderTextSearch(results, query) {
     const countKey = results.length === 1 ? 'searchResults.count' : 'searchResults.countPlural';
     html += `<div class="search-controls">
         <div class="search-result-count">${escHtml(t(countKey, results.length, query))}</div>
-        <button class="card-action-btn" id="expandCollapseBtn" onclick="toggleGroups()">${escHtml(t('searchResults.expandAll'))}</button>
-        <button class="stats-btn" onclick="openStats('${escAttr(query)}')">${escHtml(t('searchResults.statsBtn'))}</button>
+        <div class="search-controls-actions">
+            <button class="card-action-btn" id="expandCollapseBtn" onclick="toggleGroups()">${escHtml(t('searchResults.expandAll'))}</button>
+            <button class="stats-btn" onclick="openStats('${escAttr(query)}')">${escHtml(t('searchResults.statsBtn'))}</button>
+        </div>
+        <button class="card-action-btn share-view-btn" onclick="shareView()">&#128279; ${escHtml(t('card.shareView'))}</button>
     </div>`;
 
     const lang = versionLang(versionSelect.value);
@@ -1544,6 +1572,7 @@ function renderAllVersionsTextSearch(results, query) {
         : 'searchResults.allVersionsCountAllPlural';
     let html = `<div class="search-controls">
         <div class="search-result-count">${escHtml(t(countKey, totalCount, versionNames.length, query))}</div>
+        <button class="card-action-btn share-view-btn" onclick="shareView()">&#128279; ${escHtml(t('card.shareView'))}</button>
     </div>`;
 
     versionNames.forEach(vName => {
@@ -1646,7 +1675,11 @@ function renderAllVersions(allResults, label) {
     const mainLang = versionLang(versionSelect.value);
     const displayLabel = bCode ? translateLabel(label, bCode, mainLang) : label;
 
-    let html = `<div class="all-versions-block">
+    let html = `<div class="search-controls">
+        <div class="search-result-count"></div>
+        <button class="card-action-btn share-view-btn" onclick="shareView()">&#128279; ${escHtml(t('card.shareView'))}</button>
+    </div>
+    <div class="all-versions-block">
         <div class="verse-card-header" style="border-bottom:none;padding-bottom:0;margin-bottom:8px;">
             <span class="verse-card-label" style="font-size:1rem;">${escHtml(displayLabel)}</span>
         </div>`;
@@ -2272,10 +2305,26 @@ document.getElementById('uiLangCtrl').addEventListener('click', e => {
     if (btn) applyUILang(btn.dataset.val);
 });
 function rerenderCurrentView() {
+    const openBooks = new Set(
+        [...resultsWrapper.querySelectorAll('.book-group-header.open')]
+            .map(h => h.closest('.book-group')?.dataset.book)
+            .filter(Boolean)
+    );
     if (currentView === 'normal' && mainData) renderAll();
     else if (currentView === 'all_versions' && allVersionsCache) renderAllVersions(allVersionsCache.results, allVersionsCache.label);
     else if (currentView === 'text_search' && textSearchCache) renderTextSearch(textSearchCache.results, textSearchCache.query);
     else if (currentView === 'text_search_all' && allVersionsTextCache) renderAllVersionsTextSearch(allVersionsTextCache.results, allVersionsTextCache.query);
+    if (openBooks.size > 0) {
+        openBooks.forEach(book => {
+            const group = resultsWrapper.querySelector(`.book-group[data-book="${book}"]`);
+            if (group) {
+                group.querySelector('.book-group-header')?.classList.add('open');
+                group.querySelector('.book-group-items')?.classList.add('open');
+            }
+        });
+        fixOpenGroupHeights();
+    }
+    updateExpandCollapseBtn();
 }
 // Mark current language button as active on load
 document.querySelectorAll('#uiLangCtrl .font-ui-btn').forEach(b => b.classList.toggle('active', b.dataset.val === uiLang));
