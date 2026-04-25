@@ -41,19 +41,19 @@ def index():
     return render_template("index.html")
 
 
-@bp.get("/manifest.json")
+@bp.get("/static/manifest.json")
 def pwa_manifest():
-    return send_from_directory(_ROOT, "manifest.json")
+    return send_from_directory(_ROOT, "static/manifest.json")
 
 
-@bp.get("/icons/<path:filename>")
+@bp.get("/static/images/icons/<path:filename>")
 def pwa_icons(filename):
-    return send_from_directory(_ROOT / "icons", filename)
+    return send_from_directory(_ROOT / "static/images/icons", filename)
 
 
-@bp.get("/splash/<path:filename>")
+@bp.get("/static/images/splash/<path:filename>")
 def pwa_splash(filename):
-    return send_from_directory(_ROOT / "splash", filename)
+    return send_from_directory(_ROOT / "static/images/splash", filename)
 
 
 @bp.get("/api/versions")
