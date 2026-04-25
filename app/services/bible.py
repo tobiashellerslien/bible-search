@@ -689,29 +689,62 @@ def parse_search_query(query):
             query = remainder[1:].strip()
             query_lower = query.lower()
 
+    # Detect unknown group prefix (e.g. "tro: jesus" where "tro" is not a recognized group/book)
+    if scope_codes is None:
+        m_pfx = re.match(r'^([a-zA-ZæøåÆØÅ][a-zA-ZæøåÆØÅ ]*?):\s', query + ' ')
+        if m_pfx:
+            return {
+                'scope': None, 'excluded': [], 'or_groups': [],
+                'raw_terms': {'or_groups': [], 'excluded': []},
+                'error': {'code': 'unknown_prefix', 'name': m_pfx.group(1).strip()},
+            }
+
+    # Empty query after scope strip
+    if not query:
+        return {
+            'scope': scope_codes, 'excluded': [], 'or_groups': [],
+            'raw_terms': {'or_groups': [], 'excluded': []},
+            'error': {'code': 'empty_query'},
+        }
+
     excluded = []
+    excluded_raw = []
     or_groups = []
+    or_groups_raw = []
     current_and = []
+    current_and_raw = []
 
     for tok in _tokenize_query(query):
         kind = tok[0]
         if kind == 'exclude':
             excluded.append(re.compile(re.escape(tok[1].lower()), re.IGNORECASE))
+            excluded_raw.append(('word', tok[1]))
         elif kind == 'exclude_phrase':
             excluded.append(_make_word_pattern(tok[1]))
+            excluded_raw.append(('phrase', tok[1]))
         elif kind == 'OR':
             if current_and:
                 or_groups.append(current_and)
+                or_groups_raw.append(current_and_raw)
                 current_and = []
+                current_and_raw = []
         elif kind == 'phrase':
             current_and.append(_make_word_pattern(tok[1]))
+            current_and_raw.append(('phrase', tok[1]))
         else:
             current_and.append(re.compile(re.escape(tok[1].lower()), re.IGNORECASE))
+            current_and_raw.append(('word', tok[1]))
 
     if current_and:
         or_groups.append(current_and)
+        or_groups_raw.append(current_and_raw)
 
-    return {'scope': scope_codes, 'excluded': excluded, 'or_groups': or_groups}
+    return {
+        'scope': scope_codes,
+        'excluded': excluded,
+        'or_groups': or_groups,
+        'raw_terms': {'or_groups': or_groups_raw, 'excluded': excluded_raw},
+    }
 
 
 def matches_parsed_query(text_lower, parsed):
@@ -722,6 +755,30 @@ def matches_parsed_query(text_lower, parsed):
         if not any(all(pat.search(text_lower) for pat in group) for group in parsed['or_groups']):
             return False
     return True
+
+
+def _build_sql_filter(raw_terms):
+    """Build SQL WHERE fragment using INSTR for fast C-level candidate narrowing.
+    The result is a superset — matches_parsed_query handles exactness."""
+    or_groups = raw_terms.get('or_groups', [])
+    excluded = raw_terms.get('excluded', [])
+    if not or_groups:
+        return '', []
+    params = []
+    or_parts = []
+    for group in or_groups:
+        and_parts = []
+        for _kind, val in group:
+            and_parts.append('INSTR(LOWER(text), ?) > 0')
+            params.append(val.lower())
+        if and_parts:
+            or_parts.append('(' + ' AND '.join(and_parts) + ')')
+    clause = '(' + ' OR '.join(or_parts) + ')' if or_parts else ''
+    for _kind, val in excluded:
+        params.append(val.lower())
+        excl = 'INSTR(LOWER(text), ?) = 0'
+        clause = f'({clause} AND {excl})' if clause else excl
+    return clause, params
 
 
 def search_text(bible_data, version_id, query):
@@ -739,9 +796,12 @@ def search_text(bible_data, version_id, query):
         return []
 
     placeholders = ','.join('?' * len(books_to_search))
+    sql_where, extra_params = _build_sql_filter(parsed['raw_terms'])
+    where_extra = f' AND {sql_where}' if sql_where else ''
+
     rows = bible_data.db.execute(
-        f"SELECT book_usfm, chapter, verse, text FROM verses WHERE translation_id=? AND book_usfm IN ({placeholders})",
-        [version_id] + books_to_search,
+        f"SELECT book_usfm, chapter, verse, text FROM verses WHERE translation_id=? AND book_usfm IN ({placeholders}){where_extra}",
+        [version_id] + books_to_search + extra_params,
     ).fetchall()
 
     results = []
@@ -764,9 +824,17 @@ def get_search_stats(bible_data, version_id, query):
     if not parsed['or_groups']:
         return []
 
+    books_all = bible_data.version_books.get(version_id, [])
+    if not books_all:
+        return []
+
+    placeholders = ','.join('?' * len(books_all))
+    sql_where, extra_params = _build_sql_filter(parsed['raw_terms'])
+    where_extra = f' AND {sql_where}' if sql_where else ''
+
     rows = bible_data.db.execute(
-        "SELECT book_usfm, text FROM verses WHERE translation_id=?",
-        [version_id],
+        f"SELECT book_usfm, text FROM verses WHERE translation_id=? AND book_usfm IN ({placeholders}){where_extra}",
+        [version_id] + books_all + extra_params,
     ).fetchall()
 
     hit_counts = {}
@@ -782,7 +850,7 @@ def get_search_stats(bible_data, version_id, query):
             'count': hit_counts.get(usfm, 0),
             'order': USFM_TO_ORDER.get(usfm, 99),
         }
-        for usfm in bible_data.version_books.get(version_id, [])
+        for usfm in books_all
     ]
 
 

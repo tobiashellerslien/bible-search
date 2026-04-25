@@ -150,6 +150,8 @@ const I18N = {
         'toast.clipboardUnavailable': 'Clipboard unavailable',
         'toast.statsError': 'Stats error: {0}',
         'toast.statsFailed': 'Failed to load stats.',
+        'search.unknownPrefix': 'Unknown filter: "{0}". Use a valid group (e.g. GT:, NT:, gospels:) or a book name.',
+        'search.emptyQuery': 'Add a search term after the filter.',
         'searchResults.text.noResults': 'No results',
         'searchResults.text.noResultsBody': 'No verses found for "{0}" in {1}.',
         'searchResults.searchAllVersions': 'Search in all versions',
@@ -322,6 +324,8 @@ const I18N = {
         'toast.clipboardUnavailable': 'Utklippstavle ikke tilgjengelig',
         'toast.statsError': 'Statistikkfeil: {0}',
         'toast.statsFailed': 'Kunne ikke laste statistikk.',
+        'search.unknownPrefix': 'Ukjent filter: «{0}». Bruk en gyldig gruppe (f.eks. GT:, NT:, evangeliene:) eller et boknavn.',
+        'search.emptyQuery': 'Skriv inn et søkeord etter filteret.',
         'searchResults.text.noResults': 'Ingen treff',
         'searchResults.text.noResultsBody': 'Ingen vers funnet for «{0}» i {1}.',
         'searchResults.searchAllVersions': 'Søk i alle oversettelser',
@@ -460,6 +464,27 @@ const SEARCH_GROUPS = [
     { no: { label: 'johannesbrevene:',      desc: '1–3 Johannesbrev' },         en: { label: 'letters of john:',       desc: '1–3 John' } },
 ];
 
+const VALID_GROUP_PREFIXES = new Set([
+    'gt','nt',
+    'mosebøkene','mosebøker','historiske','poetiske','visdom',
+    'profetene','store profeter','små profeter',
+    'evangeliene','synoptiske','brev','paulusbrevene',
+    'fangenskapsbrev','pastorale brev','almenne brev','johanneisk','apokalyptiske',
+    'samuelsbøkene','kongebøkene','krønikebøkene','korinterbrevene',
+    'tessalonikerbrevene','timoteusbrevene','petersbrevene','johannesbrevene',
+    'konger og krøniker',
+    'ot','old testament','new testament','pentateuch','torah','law',
+    'historical','historical books','poetic','poetry','wisdom','wisdom books',
+    'prophets','major prophets','minor prophets',
+    'gospels','synoptic','synoptic gospels',
+    'epistles','letters','pauline','pauline epistles','prison epistles',
+    'pastoral','pastoral epistles','general epistles','catholic epistles',
+    'johannine','johannine literature','apocalyptic',
+    'books of samuel','books of kings','books of chronicles',
+    'corinthian letters','thessalonian letters','letters to timothy',
+    'letters of peter','letters of john','kings and chronicles',
+]);
+
 const FONT_SIZES = [null, '0.85rem', '1.0rem', '1.1rem', '1.3rem', '1.5rem'];
 
 function bookChapterCount(code) {
@@ -488,6 +513,7 @@ let currentView = 'normal';
 let booksData = [];
 let allVersionsCache = null;
 let textSearchCache = null;
+let textSearchGroupData = {};
 let allVersionsTextCache = null;
 let currentChapterInfo = null;
 let allVersionsList = [];
@@ -521,6 +547,33 @@ const bookSelect = document.getElementById('bookSelect');
 const chapterSelect = document.getElementById('chapterSelect');
 const autocompleteDropdown = document.getElementById('autocompleteDropdown');
 const chartTooltip = document.getElementById('chartTooltip');
+const searchWarningEl = document.getElementById('searchWarning');
+
+function showSearchWarning(msg) {
+    searchWarningEl.textContent = msg;
+    searchWarningEl.style.display = 'block';
+}
+function clearSearchWarning() {
+    searchWarningEl.style.display = 'none';
+    searchWarningEl.textContent = '';
+}
+
+function getUnknownPrefix(query) {
+    const q = query.trim();
+    const m = q.match(/^([a-zA-ZæøåÆØÅ][a-zA-ZæøåÆØÅ ]*?):\s?/);
+    if (!m) return null;
+    const prefix = m[1].trim().toLowerCase();
+    if (prefix === 'book') return null;
+    if (VALID_GROUP_PREFIXES.has(prefix)) return null;
+    const lang = versionLang(versionSelect.value);
+    const isBook = booksData.some(b =>
+        (b.aliases && b.aliases.some(a => a === prefix)) ||
+        bookName(b.code, lang).toLowerCase() === prefix ||
+        bookName(b.code, 'en').toLowerCase() === prefix
+    );
+    if (isBook) return null;
+    return prefix;
+}
 
 // ── Init ──
 async function init() {
@@ -726,6 +779,14 @@ async function doSearch(pushHistory = true, resetAC = true) {
     _preserveHighlight = false;
     const query = searchInput.value.trim();
     if (!query) return;
+
+    const unknownPrefix = getUnknownPrefix(query);
+    if (unknownPrefix) {
+        showSearchWarning(t('search.unknownPrefix', unknownPrefix));
+        return;
+    }
+    clearSearchWarning();
+
     lastQuery = query;
     currentView = 'normal';
     currentChapterInfo = null;
@@ -737,7 +798,17 @@ async function doSearch(pushHistory = true, resetAC = true) {
     try {
         const resp = await fetch(`/api/search?q=${encodeURIComponent(query)}&version=${encodeURIComponent(version)}`);
         const data = await resp.json();
-        if (data.error) { resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), data.error); return; }
+        if (data.error) {
+            const err = data.error;
+            if (err && err.code === 'unknown_prefix') {
+                showSearchWarning(t('search.unknownPrefix', err.name || '?'));
+            } else if (err && err.code === 'empty_query') {
+                showSearchWarning(t('search.emptyQuery'));
+            } else {
+                resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), typeof err === 'string' ? err : JSON.stringify(err));
+            }
+            return;
+        }
 
         if (data.type === 'text_search') {
             currentView = 'text_search';
@@ -1393,8 +1464,24 @@ window.openSingleVerse = function(bookCode, chapter, verse, bName) {
 };
 
 // ── Text search ──
+function materializeGroup(itemsEl, bookCode, hlQuery, lang) {
+    if (!itemsEl.dataset.pending) return;
+    const items = textSearchGroupData[bookCode] || [];
+    let html = '';
+    items.forEach(r => {
+        const ref = translateLabel(r.ref, r.book, lang);
+        html += `<div class="search-result-item" onclick="goToVerse('${escAttr(r.ref)}')">
+            <div class="search-result-ref">${escHtml(ref)}</div>
+            <div class="search-result-text">${highlightWords(escHtml(r.text), hlQuery)}</div>
+        </div>`;
+    });
+    itemsEl.innerHTML = html;
+    delete itemsEl.dataset.pending;
+}
+
 function renderTextSearch(results, query) {
     textSearchCache = { results, query };
+    textSearchGroupData = {};
     const hlQuery = stripScopePrefix(query);
     let html = '';
     if (results.length === 0) {
@@ -1424,27 +1511,29 @@ function renderTextSearch(results, query) {
         if (!groupMap[r.book]) { groupMap[r.book] = []; bookOrder.push(r.book); }
         groupMap[r.book].push(r);
     });
+    textSearchGroupData = groupMap;
     const autoExpand = bookOrder.length === 1;
     bookOrder.forEach(code => {
         const items = groupMap[code];
         const bName = bookName(code, lang);
+        const openClass = autoExpand ? ' open' : '';
+        const pendingAttr = autoExpand ? '' : ' data-pending="1"';
         html += `<div class="book-group" data-book="${escHtml(code)}">
-            <div class="book-group-header${autoExpand ? ' open' : ''}" onclick="toggleGroup(this)">
+            <div class="book-group-header${openClass}" onclick="toggleGroup(this)">
                 <span>${escHtml(bName)}<span class="book-group-count">(${items.length})</span></span>
                 <span class="chevron">&#9654;</span>
             </div>
-            <div class="book-group-items${autoExpand ? ' open' : ''}">`;
-        items.forEach(r => {
-            const ref = translateLabel(r.ref, r.book, lang);
-            html += `<div class="search-result-item" onclick="goToVerse('${escAttr(r.ref)}')">
-                <div class="search-result-ref">${escHtml(ref)}</div>
-                <div class="search-result-text">${highlightWords(escHtml(r.text), hlQuery)}</div>
-            </div>`;
-        });
-        html += '</div></div>';
+            <div class="book-group-items${openClass}"${pendingAttr}></div>
+        </div>`;
     });
 
     resultsWrapper.innerHTML = html;
+
+    if (autoExpand) {
+        const code = bookOrder[0];
+        const itemsEl = resultsWrapper.querySelector('.book-group-items');
+        materializeGroup(itemsEl, code, hlQuery, lang);
+    }
     fixOpenGroupHeights();
 }
 
@@ -1460,9 +1549,16 @@ function animateGroupItem(itemsEl, open) {
     }
 }
 
-// Called after DOM re-renders to give already-open groups an explicit height
+// Called after DOM re-renders to give already-open groups an explicit height.
+// Also materializes any pending groups that have been marked open.
 function fixOpenGroupHeights() {
+    const hlQuery = stripScopePrefix(lastTextSearchQuery);
+    const lang = versionLang(versionSelect.value);
     resultsWrapper.querySelectorAll('.book-group-items.open').forEach(el => {
+        if (el.dataset.pending) {
+            const bookCode = el.closest('.book-group')?.dataset.book;
+            if (bookCode) materializeGroup(el, bookCode, hlQuery, lang);
+        }
         if (!el.style.height) el.style.height = 'auto';
     });
 }
@@ -1471,6 +1567,12 @@ window.toggleGroup = function(headerEl) {
     const itemsEl = headerEl.nextElementSibling;
     const isOpen = headerEl.classList.contains('open');
     headerEl.classList.toggle('open');
+    if (!isOpen && itemsEl.dataset.pending) {
+        const bookCode = headerEl.closest('.book-group').dataset.book;
+        const hlQuery = stripScopePrefix(lastTextSearchQuery);
+        const lang = versionLang(versionSelect.value);
+        materializeGroup(itemsEl, bookCode, hlQuery, lang);
+    }
     animateGroupItem(itemsEl, !isOpen);
     updateExpandCollapseBtn();
 };
@@ -1478,8 +1580,14 @@ window.toggleGroup = function(headerEl) {
 window.toggleGroups = function() {
     const headers = [...resultsWrapper.querySelectorAll('.book-group-header')];
     const anyOpen = headers.some(h => h.classList.contains('open'));
+    const hlQuery = stripScopePrefix(lastTextSearchQuery);
+    const lang = versionLang(versionSelect.value);
     headers.forEach(h => {
         const itemsEl = h.nextElementSibling;
+        if (!anyOpen && itemsEl.dataset.pending) {
+            const bookCode = h.closest('.book-group').dataset.book;
+            materializeGroup(itemsEl, bookCode, hlQuery, lang);
+        }
         h.classList.toggle('open', !anyOpen);
         animateGroupItem(itemsEl, !anyOpen);
     });
@@ -2013,10 +2121,13 @@ document.getElementById('settingsModal').addEventListener('click', e => {
 let acItems = [];
 let acSelectedIndex = -1;
 
+let _acDebounceTimer = null;
 searchInput.addEventListener('input', () => {
-    handleAutocomplete();
-    // Use RAF so scrollLeft is read after the browser scrolls the input to follow the cursor
+    // Highlight update is cheap — keep it synchronous
     requestAnimationFrame(updateSearchHighlight);
+    // Autocomplete is heavier — debounce to avoid work on every keystroke
+    clearTimeout(_acDebounceTimer);
+    _acDebounceTimer = setTimeout(handleAutocomplete, 120);
 });
 searchInput.addEventListener('scroll', updateSearchHighlight);
 searchInput.addEventListener('keydown', handleAcKeydown);

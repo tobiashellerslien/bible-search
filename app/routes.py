@@ -10,6 +10,7 @@ from .services.bible import (
     get_search_stats,
     is_reference_query,
     parse_query,
+    parse_search_query,
     resolve_block,
     search_text,
     strip_scope_from_query,
@@ -97,6 +98,16 @@ def api_search():
         blocks = parse_query(query)
         results = [resolve_block(bible_data, version_id, block) for block in blocks]
         return jsonify({"type": "reference", "results": results, "version": version_id})
+
+    parsed = parse_search_query(query)
+    if parsed.get('error'):
+        return jsonify({
+            "type": "text_search",
+            "error": parsed['error'],
+            "results": [],
+            "query": query,
+            "version": version_id,
+        })
 
     results = search_text(bible_data, version_id, query)
     return jsonify({"type": "text_search", "results": results, "query": query, "version": version_id})
