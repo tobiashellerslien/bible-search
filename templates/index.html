@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Tobias' Bible Search Tool</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    <link rel="icon" href="{{ url_for(filename='favicon.ico') }}">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
 
     <!-- PWA Meta Tags -->
-    <link rel="icon" href="/favicon.ico" sizes="48x48">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="48x48">
     <link rel="icon" href="/icons/icon-192x192.png" type="image/png" sizes="192x192">
     <link rel="icon" href="/icons/icon-512x512.png" type="image/png" sizes="512x512">
     <link rel="apple-touch-icon" href="/icons/icon-180x180.png">
