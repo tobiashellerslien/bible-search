@@ -288,7 +288,7 @@ const I18N = {
         'card.compare.title': 'Sammenlign oversettelser',
         'card.allVersionsOption': '— Alle oversettelser —',
         'card.more': 'Mer',
-        'card.more.interlinear': 'interlineær',
+        'card.more.interlinear': 'grunntekst',
         'card.more.commentary': 'kommentar',
         'card.more.source': 'kilde',
         'card.more.shareLink': 'del lenke',
