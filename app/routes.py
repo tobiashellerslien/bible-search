@@ -1,4 +1,4 @@
-from flask import Blueprint, current_app, jsonify, render_template, request
+from flask import Blueprint, current_app, jsonify, render_template, request, send_from_directory
 
 from .services.bible import (
     USFM_TO_ALIASES,
@@ -35,6 +35,16 @@ def _resolve_version_id(bible_data, raw):
 @bp.get("/")
 def index():
     return render_template("index.html")
+
+
+@bp.get("/sw.js")
+def service_worker():
+    import os
+    static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "js")
+    response = send_from_directory(static_dir, "sw.js")
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Service-Worker-Allowed"] = "/"
+    return response
 
 
 

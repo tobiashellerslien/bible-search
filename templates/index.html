@@ -342,7 +342,25 @@
 </div>
 
 <div class="toast" id="toast"></div>
+<div class="sw-update-banner" id="swUpdateBanner">
+    Siden er oppdatert
+    <button onclick="window.location.reload()">Last på nytt</button>
+</div>
 
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script>
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+
+    navigator.serviceWorker.addEventListener('message', event => {
+        if (event.data?.type === 'SW_UPDATED') {
+            const banner = document.getElementById('swUpdateBanner');
+            if (banner) {
+                banner.classList.add('show');
+            }
+        }
+    });
+}
+</script>
 </body>
 </html>
