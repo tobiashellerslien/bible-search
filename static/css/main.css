@@ -89,8 +89,20 @@
             letter-spacing: -0.5px;
             white-space: nowrap;
             flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 7px;
         }
         .header h1:hover { opacity: 0.8; }
+        .logo-icon {
+            display: inline-block;
+            width: 26px;
+            height: 26px;
+            flex-shrink: 0;
+            background-color: currentColor;
+            -webkit-mask: url('/static/images/icon.svg') no-repeat center / contain;
+            mask: url('/static/images/icon.svg') no-repeat center / contain;
+        }
 
         .header-right {
             display: flex;
