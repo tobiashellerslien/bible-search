@@ -351,17 +351,20 @@
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 <script>
 if ('serviceWorker' in navigator) {
+    // If this page wasn't controlled by a SW when it loaded, any SW_UPDATED
+    // we receive in this session is from the very first install — ignore it.
+    const hadController = !!navigator.serviceWorker.controller;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+        || window.navigator.standalone === true;
+
     navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
 
     navigator.serviceWorker.addEventListener('message', event => {
-        if (event.data?.type === 'SW_UPDATED') {
-            const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-                || window.navigator.standalone === true;
-            if (isStandalone) {
-                const banner = document.getElementById('swUpdateBanner');
-                if (banner) banner.classList.add('show');
-            }
-        }
+        if (event.data?.type !== 'SW_UPDATED') return;
+        if (!hadController) return;
+        if (!isStandalone) return;
+        const banner = document.getElementById('swUpdateBanner');
+        if (banner) banner.classList.add('show');
     });
 }
 </script>

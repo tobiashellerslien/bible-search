@@ -1,5 +1,5 @@
 // Bump CACHE_VERSION on each deploy to invalidate old caches.
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = `bibelsok-${CACHE_VERSION}`;
 
 const PRECACHE = [
@@ -20,18 +20,18 @@ self.addEventListener('install', event => {
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys()
-      .then(keys => Promise.all(
-        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
-      ))
-      .then(() => self.clients.claim())
-      .then(() => self.clients.matchAll({ type: 'window' }))
-      .then(clients => {
-        // Tell pages that a new version has activated so they can prompt a reload.
-        clients.forEach(c => c.postMessage({ type: 'SW_UPDATED' }));
-      })
-  );
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    const oldKeys = keys.filter(k => k !== CACHE_NAME && k.startsWith('bibelsok-'));
+    await Promise.all(oldKeys.map(k => caches.delete(k)));
+    await self.clients.claim();
+    // Only notify pages on a real update (we replaced an older cache).
+    // First install has no old caches to delete — skip the banner then.
+    if (oldKeys.length > 0) {
+      const clients = await self.clients.matchAll({ type: 'window' });
+      clients.forEach(c => c.postMessage({ type: 'SW_UPDATED' }));
+    }
+  })());
 });
 
 self.addEventListener('fetch', event => {
