@@ -444,6 +444,7 @@
             transition: color 0.15s;
         }
         .display-bar-btn:hover { color: var(--accent); }
+        .display-arrow { font-family: var(--font-mono); }
 
         .display-panel {
             padding: 10px 20px;
@@ -597,18 +598,17 @@
         .verse-card.swiping { transition: none; user-select: none; }
         .verse-card.snap-back { transition: transform 0.2s ease; }
         .swipe-indicator {
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
+            position: fixed;
             opacity: 0;
+            transform: translateY(-50%) scale(0);
             pointer-events: none;
-            font-size: 1.4rem;
+            font-size: 1.6rem;
             color: var(--accent);
             line-height: 1;
-            transition: opacity 0.06s linear;
+            z-index: 500;
+            user-select: none;
+            transition: opacity 0.06s linear, transform 0.06s linear;
         }
-        .swipe-indicator.left { left: 10px; }
-        .swipe-indicator.right { right: 10px; }
         .verse-card-header {
             display: flex;
             justify-content: space-between;
@@ -897,6 +897,54 @@
         .card-more-item img { height: 12px; opacity: 0.8; }
         .compare-loading { color: var(--text-muted); font-size: 0.85rem; font-style: italic; }
 
+        /* ── Copy dropdown menu ── */
+        .copy-menu-wrap { position: relative; display: inline-block; }
+        .copy-menu {
+            position: absolute;
+            top: calc(100% + 4px);
+            right: 0;
+            min-width: 200px;
+            background: var(--card-bg);
+            border: 1.5px solid var(--accent);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transform-origin: top right;
+            transform: translateY(-4px) scale(0.96);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: transform 0.14s cubic-bezier(0.2, 0.8, 0.3, 1), opacity 0.12s ease, visibility 0s 0.14s;
+        }
+        .copy-menu.open {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            transition: transform 0.14s cubic-bezier(0.2, 0.8, 0.3, 1), opacity 0.12s ease, visibility 0s 0s;
+        }
+        .copy-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            font-family: var(--font-ui);
+            font-size: 0.8rem;
+            color: var(--text);
+            background: none;
+            border: none;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            text-align: left;
+            transition: background 0.12s;
+            width: 100%;
+        }
+        .copy-menu-item:last-child { border-bottom: none; }
+        .copy-menu-item:hover { background: var(--accent-dim); color: var(--accent); }
+
         /* ── Inline compare section (sits between verse text and footer) ── */
         .card-compare-section {
             overflow: hidden;
@@ -950,9 +998,6 @@
             display: flex;
             gap: 5px;
             align-items: center;
-        }
-        .share-view-btn {
-            margin-left: auto;
         }
         .search-result-count {
             font-size: 0.82rem;
@@ -1065,6 +1110,21 @@
         }
         .book-group-items .search-result-item:last-child { border-bottom: none; }
         .book-group-items .search-result-item:hover { background: var(--accent-dim); }
+        .show-all-btn {
+            display: block;
+            width: 100%;
+            padding: 10px 16px;
+            background: transparent;
+            border: none;
+            border-top: 1px solid var(--border);
+            color: var(--accent);
+            font: inherit;
+            font-size: 0.9em;
+            cursor: pointer;
+            text-align: center;
+        }
+        .show-all-btn:hover:not(:disabled) { background: var(--accent-dim); }
+        .show-all-btn:disabled { color: var(--text-muted); cursor: default; }
 
         /* ── All versions ── */
         .version-separator {
@@ -1470,7 +1530,7 @@
             .display-area { margin-top: 4px; }
             .results-wrapper { margin-top: 6px; }
             .header h1 { font-size: 1.05rem; }
-            .chapter-nav { margin-left: 0; width: 100%; justify-content: flex-end; }
+            .chapter-nav { margin-left: auto; }
             .modal-panel { max-height: 92vh; }
             .stats-card-value { font-size: 1.1rem; }
             .header-right { gap: 5px; }
@@ -1539,13 +1599,15 @@
             /* More menu: align to right edge so it doesn't overflow */
             .card-more-menu { left: auto; right: 0; }
 
+            /* Copy menu: actions row starts from left on mobile, so anchor left */
+            .copy-menu { right: auto; left: 0; }
+
             /* Color picker stays comfortable on touch */
             .color-swatch { width: 24px; height: 24px; }
 
             /* Search controls: count on its own row, action buttons + share below */
             .search-controls { gap: 5px 8px; margin-bottom: 8px; }
             .search-result-count { flex: 1 1 100%; }
-            .share-view-btn { margin-left: auto; }
             .search-controls .card-action-btn,
             .search-controls .stats-btn { padding: 3px 8px; font-size: 0.72rem; }
         }

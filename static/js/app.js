@@ -57,16 +57,16 @@ const I18N = {
         'help.row.focusSearch': 'Focus search',
         'help.row.blurSearch': 'Blur search / close modal',
         'help.row.openHelp': 'Open/close help',
-        'help.row.prevNextChVs': 'Prev / next chapter (or verse when viewing a verse)',
-        'help.row.prevNextVer': 'Previous / next Bible version',
+        'help.row.prevNextChVs': 'Prev/next chapter/verse (swipe right/left on mobile)',
+        'help.row.prevNextVer': 'Prev/next Bible version',
         'help.row.tabAccept': 'Accept first autocomplete suggestion',
         'help.row.tabBookSearch': 'Search within completed book name',
         'help.row.acNav': 'Navigate autocomplete suggestions',
-        'info.about.title': 'About',
-        'info.about.text': "A fast and powerful Bible search tool, designed for personal Bible study and connecting with God's Word. Quickly look up references, search for words and phrases across the whole Bible or using filters, view stats and data for searches, explore cross-references, and compare translations. View help section for how to use.",
+        'info.about.title': 'About website',
+        'info.about.text': "A fast and powerful Bible search tool, made to find passages fast and for personal Bible study. Look up references, search for words and phrases across the whole Bible or using filters, view stats and data for searches, explore cross-references, and compare translations. View help section for all features.",
         'info.aboutMe.title': 'About me',
         // Fill in your bio below. HTML is supported (e.g. <a href="..."> links).
-        'info.aboutMe.text': '',
+        'info.aboutMe.text': 'My name is Tobias Hellerslien, and I am a Christian student in Trondheim, Norway. I created this tool because I personally needed a way to search the Bible quickly, especially the Norwegian translations. I hope it can now be of use to others as well, whether it’s for finding the right verse at the right time, as a tool for Bible study, or as a way to get to know God and His word better.',
         'info.aboutMe.favorites': 'My favorite verses',
         'info.bibleText.title': 'Bible text',
         'info.bibleText.text': 'Bible text is sourced from <a href="https://www.bible.com" target="_blank" rel="noopener">YouVersion / bible.com</a> and stored locally to enable fast lookups and advanced full-text search. All rights to the Bible translations belong to their respective copyright holders and publishers. This tool is intended for personal use and Bible study only — not for redistribution.',
@@ -109,13 +109,17 @@ const I18N = {
         'empty.tagline': 'References, full-text search, cross-references and stats — across many translations.',
         'empty.verse.text': 'All Scripture is inspired by God and profitable for teaching, for reproof, for correction, for training in righteousness; so that the man of God may be adequate, equipped for every good work.',
         'empty.verse.ref': '2 Timothy 3:16–17',
-        'empty.btn.help': '? Search syntax',
+        'empty.btn.help': '? Help',
         'empty.btn.about': 'ⓘ About',
         'empty.btn.settings': '⚙ Settings',
         'card.copyTxt': 'copy txt',
         'card.copyTxt.title': 'Copy text only',
         'card.copyRef': 'copy w/ ref',
         'card.copyRef.title': 'Copy with reference',
+        'card.copy': 'copy',
+        'card.copy.title': 'Copy',
+        'card.copy.textOnly': 'Copy text only',
+        'card.copy.withRef': 'Copy text and reference',
         'card.compare': 'compare',
         'card.compare.title': 'Compare versions',
         'card.allVersionsOption': '— All versions —',
@@ -123,8 +127,7 @@ const I18N = {
         'card.more.interlinear': 'interlinear',
         'card.more.commentary': 'commentary',
         'card.more.source': 'source',
-        'card.more.shareLink': 'share verse link',
-        'card.shareView': 'share view',
+        'card.readChapter': '📖 read chapter',
         'card.compareLoading': 'Loading...',
         'card.compareNotFound': 'Not found',
         'card.compareFailed': 'Failed to load',
@@ -167,6 +170,8 @@ const I18N = {
         'searchResults.allVersionsCountAllPlural': '{0} results across {1} versions for "{2}"',
         'searchResults.expandAll': 'expand all',
         'searchResults.collapseAll': 'collapse all',
+        'searchResults.showAll': 'show all {0}',
+        'searchResults.loadingAll': 'loading…',
         'searchResults.statsBtn': '📊 stats',
         'loading.errorGeneric': 'Error',
         'loading.errorBody': 'Failed to connect to server.',
@@ -234,16 +239,16 @@ const I18N = {
         'help.row.focusSearch': 'Fokuser søkefelt',
         'help.row.blurSearch': 'Avbryt fokus / lukk modal',
         'help.row.openHelp': 'Åpne/lukk hjelp',
-        'help.row.prevNextChVs': 'Forrige/neste kapittel (eller vers ved versvisning)',
+        'help.row.prevNextChVs': 'Forrige/neste kapittel/vers (swipe høyre/venstre på mobil)',
         'help.row.prevNextVer': 'Forrige/neste bibeloversettelse',
         'help.row.tabAccept': 'Godta første autofullføring',
         'help.row.tabBookSearch': 'Søk innenfor fullført boknavn',
         'help.row.acNav': 'Naviger autofullføringer',
-        'info.about.title': 'Om',
-        'info.about.text': 'Et raskt og kraftig bibelsøkeverktøy, laget for personlig bibelstudie og for å bli bedre kjent med Guds ord. Raskt slå opp vers, søk etter ord og fraser i hele Bibelen eller ved bruk av filtre, se statistikk for søk, utforsk kryssreferanser og sammenlign oversettelser. Se hjelp-fanen for hvordan dette brukes.',
+        'info.about.title': 'Om nettsiden',
+        'info.about.text': 'Et raskt og kraftig bibelsøkeverktøy, laget for å finne vers raskt og for personlig bibelstudie. Slå opp vers, søk etter ord og fraser i hele Bibelen eller ved bruk av filtre, se statistikk for søk, utforsk kryssreferanser og sammenlign oversettelser. Se hjelp-fanen for alle funksjoner.',
         'info.aboutMe.title': 'Om meg',
         // Fyll inn din bio nedenfor. HTML støttes (f.eks. <a href="..."> lenker).
-        'info.aboutMe.text': '',
+        'info.aboutMe.text': 'Jeg heter Tobias Hellerslien, og er en kristen student i Trondheim. Jeg lagde dette verktøyet fordi jeg selv savnet en måte å kunne søke raskt i bibelen på, spesielt i de norske oversettelsene. Håper nå at dette kan bli til nytte for andre også, både for å kunne finne rett vers i rett tid, som en hjelp til bibelstudie, og for å bli bedre kjent med Gud og Hans ord.',
         'info.aboutMe.favorites': 'Mine favorittvers',
         'info.bibleText.title': 'Bibeltekst',
         'info.bibleText.text': 'Bibelteksten er hentet fra <a href="https://www.bible.com" target="_blank" rel="noopener">YouVersion / bible.com</a> og lagret lokalt for raske oppslag og avansert fulltekstsøk. Alle rettigheter til oversettelsene tilhører deres respektive opphavsrettighetsinnehavere og forlag. Verktøyet er ment for personlig bruk og bibelstudium — ikke for videredistribusjon.',
@@ -286,13 +291,17 @@ const I18N = {
         'empty.tagline': 'Henvisninger, fulltekstsøk, kryssreferanser og statistikk — på tvers av oversettelser.',
         'empty.verse.text': 'Hele Skriften er innåndet av Gud og nyttig til lærdom, til overbevisning, til rettledning, til opptuktelse i rettferdighet, for at Guds menneske kan være fullkomment, satt i stand til all god gjerning.',
         'empty.verse.ref': '2. Timoteus 3:16–17',
-        'empty.btn.help': '? Søkesyntaks',
+        'empty.btn.help': '? Hjelp',
         'empty.btn.about': 'ⓘ Om',
         'empty.btn.settings': '⚙ Innstillinger',
         'card.copyTxt': 'kopier tekst',
         'card.copyTxt.title': 'Kopier kun tekst',
         'card.copyRef': 'kopier m/ ref',
         'card.copyRef.title': 'Kopier med henvisning',
+        'card.copy': 'kopier',
+        'card.copy.title': 'Kopier',
+        'card.copy.textOnly': 'Kopier kun tekst',
+        'card.copy.withRef': 'Kopier tekst og referanse',
         'card.compare': 'sammenlign',
         'card.compare.title': 'Sammenlign oversettelser',
         'card.allVersionsOption': '— Alle oversettelser —',
@@ -300,8 +309,7 @@ const I18N = {
         'card.more.interlinear': 'grunntekst',
         'card.more.commentary': 'kommentar',
         'card.more.source': 'kilde',
-        'card.more.shareLink': 'del verslenke',
-        'card.shareView': 'del visning',
+        'card.readChapter': '📖 les kapittel',
         'card.compareLoading': 'Laster...',
         'card.compareNotFound': 'Ikke funnet',
         'card.compareFailed': 'Lasting feilet',
@@ -344,6 +352,8 @@ const I18N = {
         'searchResults.allVersionsCountAllPlural': '{0} treff fordelt på {1} oversettelser for «{2}»',
         'searchResults.expandAll': 'utvid alle',
         'searchResults.collapseAll': 'skjul alle',
+        'searchResults.showAll': 'vis alle {0}',
+        'searchResults.loadingAll': 'laster…',
         'searchResults.statsBtn': '📊 statistikk',
         'loading.errorGeneric': 'Feil',
         'loading.errorBody': 'Kunne ikke koble til server.',
@@ -829,8 +839,8 @@ async function doSearch(pushHistory = true, resetAC = true) {
         if (data.type === 'text_search') {
             currentView = 'text_search';
             lastTextSearchQuery = data.query;
-            textSearchCache = { results: data.results, query: data.query };
-            renderTextSearch(data.results, data.query);
+            textSearchCache = { results: data.results, query: data.query, bookTotals: data.book_totals || {} };
+            renderTextSearch(data.results, data.query, data.book_totals || {});
             return;
         }
 
@@ -862,7 +872,7 @@ function onToggleChange() {
     );
     if (currentView === 'normal' && mainData) renderAll();
     else if (currentView === 'all_versions' && allVersionsCache) renderAllVersions(allVersionsCache.results, allVersionsCache.label);
-    else if (currentView === 'text_search' && textSearchCache) renderTextSearch(textSearchCache.results, textSearchCache.query);
+    else if (currentView === 'text_search' && textSearchCache) renderTextSearch(textSearchCache.results, textSearchCache.query, textSearchCache.bookTotals || {});
     else if (currentView === 'text_search_all' && allVersionsTextCache) renderAllVersionsTextSearch(allVersionsTextCache.results, allVersionsTextCache.query);
     if (openBooks.size > 0) {
         openBooks.forEach(book => {
@@ -907,7 +917,6 @@ function renderAll() {
     const mainLang = versionLang(versionSelect.value);
     let html = `<div class="search-controls">
         <div class="search-result-count"></div>
-        <button class="card-action-btn share-view-btn" onclick="shareView()">&#128279; ${escHtml(t('card.shareView'))}</button>
     </div>`;
 
     mainData.forEach((block, idx) => {
@@ -973,8 +982,13 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
                 ${chipHtml}
             </div>
             <div class="verse-card-header-actions">
-                <button class="copy-btn" onclick="copyBlockText(${idx})" title="${escAttr(t('card.copyTxt.title'))}">${escHtml(t('card.copyTxt'))}</button>
-                <button class="copy-btn" onclick="copyBlockRef(${idx})" title="${escAttr(t('card.copyRef.title'))}">${escHtml(t('card.copyRef'))}</button>
+                <div class="copy-menu-wrap">
+                    <button class="copy-btn copy-menu-btn" onclick="toggleCopyMenu(${idx})" title="${escAttr(t('card.copy.title'))}">${escHtml(t('card.copy'))}</button>
+                    <div class="copy-menu" id="copy-menu-${idx}">
+                        <button class="copy-menu-item" onclick="copyBlockText(${idx})">${escHtml(t('card.copy.textOnly'))}</button>
+                        <button class="copy-menu-item" onclick="copyBlockRef(${idx})">${escHtml(t('card.copy.withRef'))}</button>
+                    </div>
+                </div>
                 <button class="copy-btn compare-header-btn${compareVisible ? ' active' : ''}" onclick="toggleCardCompare(${idx})" title="${escAttr(t('card.compare.title'))}">${escHtml(t('card.compare'))}</button>
             </div>
         </div>
@@ -1007,8 +1021,10 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
         const verseKeysStr = block.verses.map(v => `${v.chapter}:${v.num}`).join(',');
         const crUrl = biblerefUrl(block.book, ch, isSingleVerse ? block.verses[0].num : null);
         const yvUrl = youversionUrl(block.book, ch, block.verses, ver, !!block.is_chapter);
-        html += `<div class="verse-card-footer">
-            <button class="card-action-btn" onclick="readChapter('${escAttr(block.book)}', ${ch}, '${escAttr(bName)}', '${verseKeysStr}')">&#128214; ${escHtml(bookNameSingular(block.book, lang))} ${ch}</button>`;
+        html += `<div class="verse-card-footer">`;
+        if (!block.is_chapter) {
+            html += `<button class="card-action-btn" onclick="readChapter('${escAttr(block.book)}', ${ch}, '${escAttr(bName)}', '${verseKeysStr}')">${escHtml(t('card.readChapter'))}</button>`;
+        }
         if (ilUrl || crUrl || yvUrl) {
             html += `<div class="card-more-wrap">
                 <button class="card-action-btn card-more-btn" onclick="toggleCardMore(${idx})" title="${escAttr(t('card.more'))}">&#8943;</button>
@@ -1016,13 +1032,11 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
             if (ilUrl) html += `<a class="card-more-item" href="${ilUrl}" target="_blank" rel="noopener"><img src="/static/images/biblehub.png" alt=""> ${escHtml(t('card.more.interlinear'))}</a>`;
             if (crUrl) html += `<a class="card-more-item" href="${crUrl}" target="_blank" rel="noopener"><img src="/static/images/bibleref.png" alt=""> ${escHtml(t('card.more.commentary'))}</a>`;
             if (yvUrl) html += `<a class="card-more-item" href="${yvUrl}" target="_blank" rel="noopener">${escHtml(t('card.more.source'))}</a>`;
-            html += `<button class="card-more-item" onclick="shareLink(${idx})">${escHtml(t('card.more.shareLink'))}</button>`;
             html += `</div></div>`;
         }
         if (allSameCh && maxCh > 0) {
-            const isVerseView = !block.is_chapter;
             html += `<div class="chapter-nav">`;
-            if (isVerseView) {
+            if (!block.is_chapter) {
                 const firstV = block.verses[0].num;
                 const lastV = block.verses[block.verses.length - 1].num;
                 const maxV = maxVerseInChapter(block.book, ch);
@@ -1166,37 +1180,19 @@ document.addEventListener('click', e => {
     }
 });
 
-window.shareLink = function(idx) {
-    let url;
-    if (idx !== undefined && mainData && mainData[idx]) {
-        const block = mainData[idx];
-        const ref = block.label || '';
-        url = window.location.origin + window.location.pathname
-            + '?q=' + encodeURIComponent(ref)
-            + '&version=' + encodeURIComponent(versionSelect.value);
-    } else {
-        url = window.location.origin + window.location.pathname + window.location.search;
-    }
-    if (navigator.clipboard) {
-        navigator.clipboard.writeText(url)
-            .then(() => showToast(t('toast.linkCopied')))
-            .catch(() => showToast(t('toast.copyFailed')));
-    } else {
-        showToast(t('toast.clipboardUnavailable'));
-    }
-    document.querySelectorAll('.card-more-menu.open').forEach(m => m.classList.remove('open'));
+window.toggleCopyMenu = function(idx) {
+    const menu = document.getElementById(`copy-menu-${idx}`);
+    if (!menu) return;
+    const wasOpen = menu.classList.contains('open');
+    document.querySelectorAll('.copy-menu.open').forEach(m => m.classList.remove('open'));
+    if (!wasOpen) menu.classList.add('open');
 };
+document.addEventListener('click', e => {
+    if (!e.target.closest('.copy-menu-wrap')) {
+        document.querySelectorAll('.copy-menu.open').forEach(m => m.classList.remove('open'));
+    }
+});
 
-window.shareView = function() {
-    const url = window.location.origin + window.location.pathname + window.location.search;
-    if (navigator.clipboard) {
-        navigator.clipboard.writeText(url)
-            .then(() => showToast(t('toast.linkCopied')))
-            .catch(() => showToast(t('toast.copyFailed')));
-    } else {
-        showToast(t('toast.clipboardUnavailable'));
-    }
-};
 
 function isVerseHighlighted(v) {
     return !!(currentHighlightVerses && currentHighlightVerses.keys.has(`${v.chapter}:${v.num}`));
@@ -1503,9 +1499,9 @@ window.openSingleVerse = function(bookCode, chapter, verse, bName) {
 };
 
 // ── Text search ──
-function materializeGroup(itemsEl, bookCode, hlQuery, lang) {
-    if (!itemsEl.dataset.pending) return;
-    const items = textSearchGroupData[bookCode] || [];
+let textSearchBookTotals = {};
+
+function _renderGroupItems(items, bookCode, hlQuery, lang) {
     let html = '';
     items.forEach(r => {
         const ref = translateLabel(r.ref, r.book, lang);
@@ -1514,15 +1510,60 @@ function materializeGroup(itemsEl, bookCode, hlQuery, lang) {
             <div class="search-result-text">${highlightWords(escHtml(r.text), hlQuery)}</div>
         </div>`;
     });
-    itemsEl.innerHTML = html;
+    const total = textSearchBookTotals[bookCode] || items.length;
+    if (items.length < total) {
+        html += `<button class="show-all-btn" onclick="loadAllForBook('${escAttr(bookCode)}', this)">${escHtml(t('searchResults.showAll', total))}</button>`;
+    }
+    return html;
+}
+
+function materializeGroup(itemsEl, bookCode, hlQuery, lang) {
+    if (!itemsEl.dataset.pending) return;
+    const items = textSearchGroupData[bookCode] || [];
+    itemsEl.innerHTML = _renderGroupItems(items, bookCode, hlQuery, lang);
     delete itemsEl.dataset.pending;
 }
 
-function renderTextSearch(results, query) {
-    textSearchCache = { results, query };
+window.loadAllForBook = async function(bookCode, btnEl) {
+    const original = btnEl.textContent;
+    btnEl.textContent = t('searchResults.loadingAll');
+    btnEl.disabled = true;
+    try {
+        const q = lastTextSearchQuery;
+        const v = versionSelect.value;
+        const resp = await fetch(`/api/search?q=${encodeURIComponent(q)}&version=${encodeURIComponent(v)}&book=${encodeURIComponent(bookCode)}`);
+        const data = await resp.json();
+        const fullItems = (data.results || []).filter(r => r.book === bookCode);
+        textSearchGroupData[bookCode] = fullItems;
+        textSearchBookTotals[bookCode] = fullItems.length;
+        const group = resultsWrapper.querySelector(`.book-group[data-book="${bookCode}"]`);
+        if (!group) return;
+        const itemsEl = group.querySelector('.book-group-items');
+        const wasOpen = itemsEl.classList.contains('open');
+        const hlQuery = stripScopePrefix(lastTextSearchQuery);
+        const lang = versionLang(versionSelect.value);
+        itemsEl.innerHTML = _renderGroupItems(fullItems, bookCode, hlQuery, lang);
+        if (wasOpen) {
+            itemsEl.style.height = 'auto';
+        }
+        // Update count in header
+        const countEl = group.querySelector('.book-group-count');
+        if (countEl) countEl.textContent = `(${fullItems.length})`;
+    } catch {
+        btnEl.textContent = original;
+        btnEl.disabled = false;
+    }
+};
+
+function renderTextSearch(results, query, bookTotals) {
+    textSearchCache = { results, query, bookTotals: bookTotals || {} };
     textSearchGroupData = {};
+    textSearchBookTotals = bookTotals || {};
     const hlQuery = stripScopePrefix(query);
     let html = '';
+    const totalAcross = Object.keys(textSearchBookTotals).length
+        ? Object.values(textSearchBookTotals).reduce((a, b) => a + b, 0)
+        : results.length;
     if (results.length === 0) {
         html = `<div class="empty-state">
             <h2>${escHtml(t('searchResults.text.noResults'))}</h2>
@@ -1533,14 +1574,13 @@ function renderTextSearch(results, query) {
         return;
     }
 
-    const countKey = results.length === 1 ? 'searchResults.count' : 'searchResults.countPlural';
+    const countKey = totalAcross === 1 ? 'searchResults.count' : 'searchResults.countPlural';
     html += `<div class="search-controls">
-        <div class="search-result-count">${escHtml(t(countKey, results.length, query))}</div>
+        <div class="search-result-count">${escHtml(t(countKey, totalAcross, query))}</div>
         <div class="search-controls-actions">
             <button class="card-action-btn" id="expandCollapseBtn" onclick="toggleGroups()">${escHtml(t('searchResults.expandAll'))}</button>
             <button class="stats-btn" onclick="openStats('${escAttr(query)}')">${escHtml(t('searchResults.statsBtn'))}</button>
         </div>
-        <button class="card-action-btn share-view-btn" onclick="shareView()">&#128279; ${escHtml(t('card.shareView'))}</button>
     </div>`;
 
     const lang = versionLang(versionSelect.value);
@@ -1553,13 +1593,13 @@ function renderTextSearch(results, query) {
     textSearchGroupData = groupMap;
     const autoExpand = bookOrder.length === 1;
     bookOrder.forEach(code => {
-        const items = groupMap[code];
+        const total = textSearchBookTotals[code] || (groupMap[code] || []).length;
         const bName = bookName(code, lang);
         const openClass = autoExpand ? ' open' : '';
-        const pendingAttr = autoExpand ? '' : ' data-pending="1"';
+        const pendingAttr = ' data-pending="1"';
         html += `<div class="book-group" data-book="${escHtml(code)}">
             <div class="book-group-header${openClass}" onclick="toggleGroup(this)">
-                <span>${escHtml(bName)}<span class="book-group-count">(${items.length})</span></span>
+                <span>${escHtml(bName)}<span class="book-group-count">(${total})</span></span>
                 <span class="chevron">&#9654;</span>
             </div>
             <div class="book-group-items${openClass}"${pendingAttr}></div>
@@ -1580,6 +1620,12 @@ function animateGroupItem(itemsEl, open) {
     if (open) {
         itemsEl.classList.add('open');
         itemsEl.style.height = itemsEl.scrollHeight + 'px';
+        const onEnd = (e) => {
+            if (e.propertyName !== 'height' || e.target !== itemsEl) return;
+            itemsEl.removeEventListener('transitionend', onEnd);
+            if (itemsEl.classList.contains('open')) itemsEl.style.height = 'auto';
+        };
+        itemsEl.addEventListener('transitionend', onEnd);
     } else {
         itemsEl.style.height = itemsEl.offsetHeight + 'px';
         itemsEl.offsetHeight; // force reflow before changing target
@@ -1621,6 +1667,9 @@ window.toggleGroups = function() {
     const anyOpen = headers.some(h => h.classList.contains('open'));
     const hlQuery = stripScopePrefix(lastTextSearchQuery);
     const lang = versionLang(versionSelect.value);
+    // Skip per-group height animation when toggling many groups at once —
+    // measuring scrollHeight + transitioning N panels causes jank.
+    const skipAnim = headers.length > 5;
     headers.forEach(h => {
         const itemsEl = h.nextElementSibling;
         if (!anyOpen && itemsEl.dataset.pending) {
@@ -1628,7 +1677,12 @@ window.toggleGroups = function() {
             materializeGroup(itemsEl, bookCode, hlQuery, lang);
         }
         h.classList.toggle('open', !anyOpen);
-        animateGroupItem(itemsEl, !anyOpen);
+        if (skipAnim) {
+            itemsEl.classList.toggle('open', !anyOpen);
+            itemsEl.style.height = !anyOpen ? 'auto' : '0';
+        } else {
+            animateGroupItem(itemsEl, !anyOpen);
+        }
     });
     updateExpandCollapseBtn();
 };
@@ -1719,7 +1773,6 @@ function renderAllVersionsTextSearch(results, query) {
         : 'searchResults.allVersionsCountAllPlural';
     let html = `<div class="search-controls">
         <div class="search-result-count">${escHtml(t(countKey, totalCount, versionNames.length, query))}</div>
-        <button class="card-action-btn share-view-btn" onclick="shareView()">&#128279; ${escHtml(t('card.shareView'))}</button>
     </div>`;
 
     versionNames.forEach(vName => {
@@ -1824,7 +1877,6 @@ function renderAllVersions(allResults, label) {
 
     let html = `<div class="search-controls">
         <div class="search-result-count"></div>
-        <button class="card-action-btn share-view-btn" onclick="shareView()">&#128279; ${escHtml(t('card.shareView'))}</button>
     </div>
     <div class="all-versions-block">
         <div class="verse-card-header" style="border-bottom:none;padding-bottom:0;margin-bottom:8px;">
@@ -1860,6 +1912,7 @@ function buildCopyText(verses) {
 }
 
 window.copyBlockText = function(blockIdx) {
+    document.querySelectorAll('.copy-menu.open').forEach(m => m.classList.remove('open'));
     if (!mainData || !mainData[blockIdx]) return;
     const block = mainData[blockIdx];
     const text = buildCopyText(block.verses);
@@ -1867,6 +1920,7 @@ window.copyBlockText = function(blockIdx) {
 };
 
 window.copyBlockRef = function(blockIdx) {
+    document.querySelectorAll('.copy-menu.open').forEach(m => m.classList.remove('open'));
     if (!mainData || !mainData[blockIdx]) return;
     const block = mainData[blockIdx];
     const ver = versionSelect.value;
@@ -2470,7 +2524,7 @@ function rerenderCurrentView() {
     );
     if (currentView === 'normal' && mainData) renderAll();
     else if (currentView === 'all_versions' && allVersionsCache) renderAllVersions(allVersionsCache.results, allVersionsCache.label);
-    else if (currentView === 'text_search' && textSearchCache) renderTextSearch(textSearchCache.results, textSearchCache.query);
+    else if (currentView === 'text_search' && textSearchCache) renderTextSearch(textSearchCache.results, textSearchCache.query, textSearchCache.bookTotals || {});
     else if (currentView === 'text_search_all' && allVersionsTextCache) renderAllVersionsTextSearch(allVersionsTextCache.results, allVersionsTextCache.query);
     if (openBooks.size > 0) {
         openBooks.forEach(book => {
@@ -2643,19 +2697,19 @@ function escAttr(s) {
             activeCard.classList.remove('snap-back');
             activeCard.style.transform = '';
         }
-        if (indicatorLeft) { indicatorLeft.style.opacity = '0'; }
-        if (indicatorRight) { indicatorRight.style.opacity = '0'; }
+        if (indicatorLeft) { indicatorLeft.style.opacity = '0'; indicatorLeft.style.transform = 'translateY(-50%) scale(0)'; }
+        if (indicatorRight) { indicatorRight.style.opacity = '0'; indicatorRight.style.transform = 'translateY(-50%) scale(0)'; }
         activeCard = null;
         isDragging = false;
     }
 
-    function getOrCreateIndicator(card, side) {
-        let el = card.querySelector(`.swipe-indicator.${side}`);
+    function getOrCreateIndicator(side) {
+        let el = document.querySelector(`.swipe-indicator.${side}`);
         if (!el) {
             el = document.createElement('div');
             el.className = `swipe-indicator ${side}`;
             el.textContent = side === 'left' ? '←' : '→';
-            card.appendChild(el);
+            document.body.appendChild(el);
         }
         return el;
     }
@@ -2669,10 +2723,18 @@ function escAttr(s) {
         startY = e.touches[0].clientY;
         startTime = Date.now();
         isDragging = false;
-        indicatorLeft = getOrCreateIndicator(card, 'left');
-        indicatorRight = getOrCreateIndicator(card, 'right');
+        indicatorLeft = getOrCreateIndicator('left');
+        indicatorRight = getOrCreateIndicator('right');
+        const cardRect = card.getBoundingClientRect();
+        const cardCenterY = cardRect.top + cardRect.height / 2;
+        indicatorLeft.style.top = cardCenterY + 'px';
+        indicatorLeft.style.left = (cardRect.left + 14) + 'px';
+        indicatorRight.style.top = cardCenterY + 'px';
+        indicatorRight.style.left = (cardRect.right - 38) + 'px';
         indicatorLeft.style.opacity = '0';
         indicatorRight.style.opacity = '0';
+        indicatorLeft.style.transform = 'translateY(-50%) scale(0)';
+        indicatorRight.style.transform = 'translateY(-50%) scale(0)';
         indicatorLeft.style.display = card.dataset.swipeHasPrev === '1' ? '' : 'none';
         indicatorRight.style.display = card.dataset.swipeHasNext === '1' ? '' : 'none';
     }, { passive: true });
@@ -2703,16 +2765,26 @@ function escAttr(s) {
         const threshold = Math.min(cardW * 0.28, 80);
         const progress = Math.min(Math.abs(clampedDx) / threshold, 1);
 
-        if (dx < 0 && hasNext) indicatorRight.style.opacity = String(progress);
-        else indicatorRight.style.opacity = '0';
-        if (dx > 0 && hasPrev) indicatorLeft.style.opacity = String(progress);
-        else indicatorLeft.style.opacity = '0';
+        if (dx < 0 && hasNext) {
+            indicatorRight.style.opacity = String(progress);
+            indicatorRight.style.transform = `translateY(-50%) scale(${0.4 + progress * 0.6})`;
+        } else {
+            indicatorRight.style.opacity = '0';
+            indicatorRight.style.transform = 'translateY(-50%) scale(0)';
+        }
+        if (dx > 0 && hasPrev) {
+            indicatorLeft.style.opacity = String(progress);
+            indicatorLeft.style.transform = `translateY(-50%) scale(${0.4 + progress * 0.6})`;
+        } else {
+            indicatorLeft.style.opacity = '0';
+            indicatorLeft.style.transform = 'translateY(-50%) scale(0)';
+        }
     }, { passive: false });
 
     async function commitSwipe(card, direction) {
         isAnimating = true;
-        if (indicatorLeft) indicatorLeft.style.opacity = '0';
-        if (indicatorRight) indicatorRight.style.opacity = '0';
+        if (indicatorLeft) { indicatorLeft.style.opacity = '0'; indicatorLeft.style.transform = 'translateY(-50%) scale(0)'; }
+        if (indicatorRight) { indicatorRight.style.opacity = '0'; indicatorRight.style.transform = 'translateY(-50%) scale(0)'; }
 
         const book = card.dataset.swipeBook;
         const ch = parseInt(card.dataset.swipeCh, 10);
@@ -2733,8 +2805,8 @@ function escAttr(s) {
         card.classList.remove('swiping');
         card.classList.add('snap-back');
         card.style.transform = '';
-        if (indicatorLeft) indicatorLeft.style.opacity = '0';
-        if (indicatorRight) indicatorRight.style.opacity = '0';
+        if (indicatorLeft) { indicatorLeft.style.opacity = '0'; indicatorLeft.style.transform = 'translateY(-50%) scale(0)'; }
+        if (indicatorRight) { indicatorRight.style.opacity = '0'; indicatorRight.style.transform = 'translateY(-50%) scale(0)'; }
         setTimeout(() => { if (card) card.classList.remove('snap-back'); }, 220);
     }
 
