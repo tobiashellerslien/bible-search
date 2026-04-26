@@ -67,13 +67,18 @@
             border-bottom: 1px solid var(--border);
             padding: 12px 20px;
             padding-top: max(12px, env(safe-area-inset-top, 12px));
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header-inner {
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 12px;
-            position: sticky;
-            top: 0;
-            z-index: 100;
         }
         .header h1 {
             font-size: 1.1rem;
@@ -1350,6 +1355,34 @@
             min-width: 60px;
             text-align: center;
         }
+
+        .help-group-heading {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--text);
+            font-family: var(--font-ui);
+            letter-spacing: -0.2px;
+            margin: 0 0 10px;
+            padding: 14px 0 10px;
+            border-top: 1px solid var(--border);
+        }
+        .help-group { margin-bottom: 8px; }
+        .help-group .help-section h3 { border-bottom: none; padding-bottom: 0; }
+        .help-group-end {
+            border-top: 1px solid var(--border);
+            margin: 14px 0 18px;
+        }
+        .feature-list { margin: 0; padding: 0; }
+        .feature-item {
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+            padding: 4px 0;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+        .feature-item::before { content: '→'; color: var(--accent); flex-shrink: 0; margin-top: 1px; }
 
         /* ── Stats modal ── */
         .stats-summary {

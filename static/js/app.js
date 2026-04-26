@@ -20,6 +20,12 @@ const I18N = {
         'modal.helpInfo': '// Help & info',
         'modal.tab.help': 'Help',
         'modal.tab.info': 'Info',
+        'help.section.features': 'Features',
+        'help.feature.perVerse': 'Per verse: compare translations, copy text (with or without reference), link to original text / interlinear (biblehub.com)',
+        'help.feature.commentary': 'Per verse: link to Bible commentary (bibleref.com) — note: not all OT verses have commentary yet',
+        'help.feature.stats': 'Search: stats panel with data overview and distribution of hits across the Bible',
+        'help.feature.shareUrl': 'Share the URL to share your current view (passage, search, version)',
+        'help.section.searchSyntax': 'Search & Syntax',
         'help.section.refLookup': 'Reference lookup',
         'help.row.singleVerse': 'Single verse',
         'help.row.wholeChapter': 'Whole chapter',
@@ -57,7 +63,8 @@ const I18N = {
         'help.row.focusSearch': 'Focus search',
         'help.row.blurSearch': 'Blur search / close modal',
         'help.row.openHelp': 'Open/close help',
-        'help.row.prevNextChVs': 'Prev/next chapter/verse (swipe right/left on mobile)',
+        'help.row.prevNextChVs': 'Prev/next chapter (or verse when viewing a single verse)',
+        'help.row.swipeMobile': 'Swipe right/left to navigate chapters or verses (mobile)',
         'help.row.prevNextVer': 'Prev/next Bible version',
         'help.row.tabAccept': 'Accept first autocomplete suggestion',
         'help.row.tabBookSearch': 'Search within completed book name',
@@ -202,6 +209,12 @@ const I18N = {
         'modal.helpInfo': '// Hjelp & info',
         'modal.tab.help': 'Hjelp',
         'modal.tab.info': 'Info',
+        'help.section.features': 'Funksjoner',
+        'help.feature.perVerse': 'Per vers: sammenlign oversettelser, kopier tekst (med eller uten referanse), lenke til grunntekst / interlineær (biblehub.com)',
+        'help.feature.commentary': 'Per vers: lenke til bibelkommentar (bibleref.com) — merk: ikke alle GT-vers har kommentar enda',
+        'help.feature.stats': 'Søk: statistikkpanel med dataoversikt og fordeling av treff gjennom Bibelen',
+        'help.feature.shareUrl': 'Del URL-en for å dele visningen du er i (tekst, søk, oversettelse)',
+        'help.section.searchSyntax': 'Søk & syntaks',
         'help.section.refLookup': 'Henvisninger',
         'help.row.singleVerse': 'Enkelt vers',
         'help.row.wholeChapter': 'Helt kapittel',
@@ -239,7 +252,8 @@ const I18N = {
         'help.row.focusSearch': 'Fokuser søkefelt',
         'help.row.blurSearch': 'Avbryt fokus / lukk modal',
         'help.row.openHelp': 'Åpne/lukk hjelp',
-        'help.row.prevNextChVs': 'Forrige/neste kapittel/vers (swipe høyre/venstre på mobil)',
+        'help.row.prevNextChVs': 'Forrige/neste kapittel (eller vers ved enkeltvers-visning)',
+        'help.row.swipeMobile': 'Sveip høyre/venstre for å navigere kapitler eller vers (mobil)',
         'help.row.prevNextVer': 'Forrige/neste bibeloversettelse',
         'help.row.tabAccept': 'Godta første autofullføring',
         'help.row.tabBookSearch': 'Søk innenfor fullført boknavn',
@@ -372,8 +386,16 @@ const I18N = {
 // Eksempler: 'Joh 3:16', 'Salme 23', '1. Mos 1:1-3', 'Rom 8:28;31-39'
 // ───────────────────────────────────────────────────────────────
 const FAVORITE_VERSES = [
-    // 'Joh 3:16',
-    // 'Salme 23:1',
+    'Ef 2:8-9',
+    'Apg 16:30-31',
+    'Joh 10:28-29',
+    'Joh 5:24',
+    'Apg 17:11',
+    '2. Tim 3:16-17',
+    '2. Tim 2:11-13',
+    'Salme 27:4',
+    'Matt 6:25-34',
+    'Jes 46:9-11'
 ];
 
 let uiLang = (localStorage.getItem('uiLang') === 'no' || localStorage.getItem('uiLang') === 'en')
@@ -2408,7 +2430,7 @@ document.addEventListener('keydown', e => {
 
     if (inInput) return;
 
-    if (e.key === '/' || e.key === 'f') { e.preventDefault(); searchInput.focus(); searchInput.select(); return; }
+    if (e.key === '/') { e.preventDefault(); searchInput.focus(); searchInput.select(); return; }
     if (e.key === '?') { document.getElementById('helpModal').classList.toggle('open'); return; }
 
     if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && currentChapterInfo) {

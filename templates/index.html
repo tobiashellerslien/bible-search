@@ -12,10 +12,12 @@
 <body>
 
 <div class="header">
-    <h1 onclick="goHome()">Bibelsøk</h1>
-    <div class="header-right">
-        <button class="header-btn" id="helpToggle" data-i18n-title="header.help">?</button>
-        <button class="header-btn" id="settingsToggle" data-i18n-title="header.settings">&#9881;</button>
+    <div class="header-inner">
+        <h1 onclick="goHome()">Bibelsøk</h1>
+        <div class="header-right">
+            <button class="header-btn" id="helpToggle" data-i18n-title="header.help">?</button>
+            <button class="header-btn" id="settingsToggle" data-i18n-title="header.settings">&#9881;</button>
+        </div>
     </div>
 </div>
 
@@ -121,6 +123,17 @@
         </div>
         <div class="modal-body" data-tab-content="help">
             <div class="help-section">
+                <h3 data-i18n="help.section.features">Features</h3>
+                <div class="feature-list">
+                    <div class="feature-item"><span data-i18n="help.feature.perVerse">Per verse: compare translations, copy text (with or without reference), link to original text / interlinear (biblehub.com)</span></div>
+                    <div class="feature-item"><span data-i18n="help.feature.commentary">Per verse: link to Bible commentary (bibleref.com) — note: not all OT verses have commentary yet</span></div>
+                    <div class="feature-item"><span data-i18n="help.feature.stats">Search: stats panel with data overview and distribution of hits across the Bible</span></div>
+                    <div class="feature-item"><span data-i18n="help.feature.shareUrl">Share the URL to share your current view (passage, search, version)</span></div>
+                </div>
+            </div>
+            <h2 class="help-group-heading" data-i18n="help.section.searchSyntax">Search &amp; Syntax</h2>
+            <div class="help-group">
+            <div class="help-section">
                 <h3 data-i18n="help.section.refLookup">Reference lookup</h3>
                 <div class="help-row"><span class="help-key">Joh 3:16</span><span class="help-desc" data-i18n="help.row.singleVerse">Single verse</span></div>
                 <div class="help-row"><span class="help-key">Salme 23</span><span class="help-desc" data-i18n="help.row.wholeChapter">Whole chapter</span></div>
@@ -159,12 +172,14 @@
                 <div class="help-row"><span class="help-key">samuelsbøkene: ord</span><span class="help-desc" data-i18n="help.row.multiVolume">Multi-volume groups</span></div>
                 <div class="help-row"><span class="help-key">Johannes: ord</span><span class="help-desc" data-i18n="help.row.bookScope">BookName: text</span></div>
             </div>
+            </div><!-- /.help-group -->
             <div class="help-section">
                 <h3 data-i18n="help.section.shortcuts">Keyboard shortcuts</h3>
-                <div class="hotkey-row"><span class="hotkey-badge">/ or f</span><span class="help-desc" data-i18n="help.row.focusSearch">Focus search</span></div>
+                <div class="hotkey-row"><span class="hotkey-badge">/</span><span class="help-desc" data-i18n="help.row.focusSearch">Focus search</span></div>
                 <div class="hotkey-row"><span class="hotkey-badge">Esc</span><span class="help-desc" data-i18n="help.row.blurSearch">Blur search / close modal</span></div>
                 <div class="hotkey-row"><span class="hotkey-badge">?</span><span class="help-desc" data-i18n="help.row.openHelp">Open/close help</span></div>
                 <div class="hotkey-row"><span class="hotkey-badge">← →</span><span class="help-desc" data-i18n="help.row.prevNextChVs">Prev / next chapter (or verse when viewing a verse)</span></div>
+                <div class="hotkey-row"><span class="hotkey-badge">swipe ← →</span><span class="help-desc" data-i18n="help.row.swipeMobile">Swipe right/left to navigate chapters or verses (mobile)</span></div>
                 <div class="hotkey-row"><span class="hotkey-badge">[ ]</span><span class="help-desc" data-i18n="help.row.prevNextVer">Previous / next Bible version</span></div>
                 <div class="hotkey-row"><span class="hotkey-badge">Tab</span><span class="help-desc" data-i18n="help.row.tabAccept">Accept first autocomplete suggestion</span></div>
                 <div class="hotkey-row"><span class="hotkey-badge">Tab Tab</span><span class="help-desc" data-i18n="help.row.tabBookSearch">Search within completed book name</span></div>
@@ -173,13 +188,13 @@
         </div>
         <div class="modal-body" data-tab-content="info" hidden>
             <div class="help-section">
+                <h3 data-i18n="info.about.title">About</h3>
+                <p class="info-text" data-i18n="info.about.text"></p>
+            </div>
+            <div class="help-section">
                 <h3 data-i18n="info.aboutMe.title">About me</h3>
                 <p class="info-text" data-i18n-html="info.aboutMe.text"></p>
                 <p class="info-text" style="margin-top:8px;"><a href="#" id="favoriteVersesLink" data-i18n="info.aboutMe.favorites">Mine favorittvers</a></p>
-            </div>
-            <div class="help-section">
-                <h3 data-i18n="info.about.title">About</h3>
-                <p class="info-text" data-i18n="info.about.text"></p>
             </div>
             <div class="help-section">
                 <h3 data-i18n="info.bibleText.title">Bible text</h3>
