@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     
     <!-- FAVICON -->
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/icon.svg') }}">
     <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" sizes="any">
 
     <!-- PWA -->
@@ -354,9 +355,11 @@ if ('serviceWorker' in navigator) {
 
     navigator.serviceWorker.addEventListener('message', event => {
         if (event.data?.type === 'SW_UPDATED') {
-            const banner = document.getElementById('swUpdateBanner');
-            if (banner) {
-                banner.classList.add('show');
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+                || window.navigator.standalone === true;
+            if (isStandalone) {
+                const banner = document.getElementById('swUpdateBanner');
+                if (banner) banner.classList.add('show');
             }
         }
     });
