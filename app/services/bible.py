@@ -604,14 +604,6 @@ def is_reference_query(query):
 
 # ── Text search ───────────────────────────────────────────────────────────────
 
-_WBL = r'(?<![a-zA-ZÀ-ɏ0-9_])'
-_WBR = r'(?![a-zA-ZÀ-ɏ0-9_])'
-
-
-def _make_word_pattern(term):
-    return re.compile(_WBL + re.escape(term.lower()) + _WBR, re.IGNORECASE)
-
-
 def _tokenize_query(text):
     i = 0
     text = text.strip()
@@ -702,111 +694,139 @@ def parse_search_query(query):
     # Empty query after scope strip
     if not query:
         return {
-            'scope': scope_codes, 'excluded': [], 'or_groups': [],
+            'scope': scope_codes, 'or_groups': [],
             'raw_terms': {'or_groups': [], 'excluded': []},
             'error': {'code': 'empty_query'},
         }
 
-    excluded = []
     excluded_raw = []
-    or_groups = []
     or_groups_raw = []
-    current_and = []
     current_and_raw = []
 
     for tok in _tokenize_query(query):
         kind = tok[0]
         if kind == 'exclude':
-            excluded.append(re.compile(re.escape(tok[1].lower()), re.IGNORECASE))
             excluded_raw.append(('word', tok[1]))
         elif kind == 'exclude_phrase':
-            excluded.append(_make_word_pattern(tok[1]))
             excluded_raw.append(('phrase', tok[1]))
         elif kind == 'OR':
-            if current_and:
-                or_groups.append(current_and)
+            if current_and_raw:
                 or_groups_raw.append(current_and_raw)
-                current_and = []
                 current_and_raw = []
         elif kind == 'phrase':
-            current_and.append(_make_word_pattern(tok[1]))
             current_and_raw.append(('phrase', tok[1]))
         else:
-            current_and.append(re.compile(re.escape(tok[1].lower()), re.IGNORECASE))
             current_and_raw.append(('word', tok[1]))
 
-    if current_and:
-        or_groups.append(current_and)
+    if current_and_raw:
         or_groups_raw.append(current_and_raw)
 
     return {
         'scope': scope_codes,
-        'excluded': excluded,
-        'or_groups': or_groups,
+        'or_groups': or_groups_raw,
         'raw_terms': {'or_groups': or_groups_raw, 'excluded': excluded_raw},
     }
 
 
-def matches_parsed_query(text_lower, parsed):
-    for exc in parsed['excluded']:
-        if exc.search(text_lower):
-            return False
-    if parsed['or_groups']:
-        if not any(all(pat.search(text_lower) for pat in group) for group in parsed['or_groups']):
-            return False
-    return True
+def _fts_escape(term):
+    """Escape \" inside an FTS5 phrase literal."""
+    return term.replace('"', '""')
 
 
-def _build_sql_filter(raw_terms):
-    """Build SQL WHERE fragment using INSTR for fast C-level candidate narrowing.
-    The result is a superset — matches_parsed_query handles exactness."""
-    or_groups = raw_terms.get('or_groups', [])
-    excluded = raw_terms.get('excluded', [])
-    if not or_groups:
-        return '', []
-    params = []
-    or_parts = []
-    for group in or_groups:
-        and_parts = []
-        for _kind, val in group:
-            and_parts.append('INSTR(LOWER(text), ?) > 0')
-            params.append(val.lower())
-        if and_parts:
-            or_parts.append('(' + ' AND '.join(and_parts) + ')')
-    clause = '(' + ' OR '.join(or_parts) + ')' if or_parts else ''
-    for _kind, val in excluded:
-        params.append(val.lower())
-        excl = 'INSTR(LOWER(text), ?) = 0'
-        clause = f'({clause} AND {excl})' if clause else excl
-    return clause, params
+def _like_escape(s):
+    """Escape % and _ in LIKE patterns."""
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-def search_text(bible_data, version_id, query):
+def _build_group_sql(group_raw, excluded_raw, version_id, books, select_cols):
+    """Build (sql, params) for one OR-group.
+    Quoted phrases use FTS5 MATCH (word-boundary). Bare words use LIKE (substring).
+    Excluded phrases use FTS5 NOT when the group joins FTS, else NOT LIKE.
+    Excluded words use NOT LIKE."""
+    phrases = [v for k, v in group_raw if k == 'phrase']
+    words = [v for k, v in group_raw if k == 'word']
+    excl_phrases = [v for k, v in excluded_raw if k == 'phrase']
+    excl_words = [v for k, v in excluded_raw if k == 'word']
+
+    placeholders = ','.join('?' * len(books))
+    where = ["v.translation_id = ?", f"v.book_usfm IN ({placeholders})"]
+    params = [version_id, *books]
+
+    if phrases:
+        # Use IN-subquery so SQLite drives the search from FTS (cheap inverted index)
+        # rather than scanning all verses for the translation and calling MATCH per row.
+        match_parts = [f'"{_fts_escape(p)}"' for p in phrases]
+        for ep in excl_phrases:
+            match_parts.append(f'NOT "{_fts_escape(ep)}"')
+        where.append("v.id IN (SELECT rowid FROM verses_fts WHERE verses_fts MATCH ?)")
+        params.append(" ".join(match_parts))
+    else:
+        # No required phrases — fall back to NOT LIKE for excluded phrases (substring).
+        for ep in excl_phrases:
+            where.append("LOWER(v.text) NOT LIKE ? ESCAPE '\\'")
+            params.append(f"%{_like_escape(ep.lower())}%")
+
+    for w in words:
+        where.append("LOWER(v.text) LIKE ? ESCAPE '\\'")
+        params.append(f"%{_like_escape(w.lower())}%")
+
+    for w in excl_words:
+        where.append("LOWER(v.text) NOT LIKE ? ESCAPE '\\'")
+        params.append(f"%{_like_escape(w.lower())}%")
+
+    sql = f"SELECT {select_cols} FROM verses v WHERE {' AND '.join(where)}"
+    return sql, params
+
+
+def search_text(bible_data, version_id, query, per_book=20, book_filter=None):
+    """Returns (results, book_totals).
+    `per_book` caps verses per book in the returned list (None = uncapped).
+    `book_filter` restricts the search to a single USFM code and bypasses the cap.
+    `book_totals` always reports the true (uncapped) hit count per book."""
     parsed = parse_search_query(query)
     if not parsed['or_groups']:
-        return []
+        return [], {}
 
     scope = parsed['scope']
     books_to_search = bible_data.version_books.get(version_id, [])
     if scope:
         scope_set = set(scope)
         books_to_search = [c for c in books_to_search if c in scope_set]
+    if book_filter:
+        books_to_search = [c for c in books_to_search if c == book_filter]
 
     if not books_to_search:
-        return []
+        return [], {}
 
-    placeholders = ','.join('?' * len(books_to_search))
-    sql_where, extra_params = _build_sql_filter(parsed['raw_terms'])
-    where_extra = f' AND {sql_where}' if sql_where else ''
+    or_groups_raw = parsed['raw_terms']['or_groups']
+    excluded_raw = parsed['raw_terms']['excluded']
 
-    rows = bible_data.db.execute(
-        f"SELECT book_usfm, chapter, verse, text FROM verses WHERE translation_id=? AND book_usfm IN ({placeholders}){where_extra}",
-        [version_id] + books_to_search + extra_params,
-    ).fetchall()
+    seen = set()
+    rows_by_book = {}
+    for grp_raw in or_groups_raw:
+        sql, params = _build_group_sql(
+            grp_raw, excluded_raw, version_id, books_to_search,
+            "v.book_usfm, v.chapter, v.verse, v.text",
+        )
+        for book_usfm, chapter, verse, text in bible_data.db.execute(sql, params):
+            key = (book_usfm, chapter, verse)
+            if key in seen:
+                continue
+            seen.add(key)
+            rows_by_book.setdefault(book_usfm, []).append((chapter, verse, text))
+
+    book_totals = {b: len(rs) for b, rs in rows_by_book.items()}
+    # Bypass cap when search is scoped to a single book (explicit book_filter,
+    # `book:` prefix, or `Joh:` style scope all collapse to one book).
+    single_book = len(books_to_search) == 1
+    cap = None if (book_filter or single_book or per_book is None) else per_book
 
     results = []
-    for book_usfm, chapter, verse, text in rows:
-        if matches_parsed_query(text.lower(), parsed):
+    for book_usfm in sorted(rows_by_book, key=lambda b: USFM_TO_ORDER.get(b, 99)):
+        rows = sorted(rows_by_book[book_usfm], key=lambda r: (r[0], r[1]))
+        if cap is not None:
+            rows = rows[:cap]
+        for chapter, verse, text in rows:
             results.append({
                 "ref": f"{USFM_TO_NAME.get(book_usfm, book_usfm)} {chapter}:{verse}",
                 "book": book_usfm,
@@ -815,8 +835,7 @@ def search_text(bible_data, version_id, query):
                 "text": text,
             })
 
-    results.sort(key=lambda r: (USFM_TO_ORDER.get(r['book'], 99), r['chapter'], r['verse']))
-    return results
+    return results, book_totals
 
 
 def get_search_stats(bible_data, version_id, query):
@@ -828,18 +847,21 @@ def get_search_stats(bible_data, version_id, query):
     if not books_all:
         return []
 
-    placeholders = ','.join('?' * len(books_all))
-    sql_where, extra_params = _build_sql_filter(parsed['raw_terms'])
-    where_extra = f' AND {sql_where}' if sql_where else ''
+    or_groups_raw = parsed['raw_terms']['or_groups']
+    excluded_raw = parsed['raw_terms']['excluded']
 
-    rows = bible_data.db.execute(
-        f"SELECT book_usfm, text FROM verses WHERE translation_id=? AND book_usfm IN ({placeholders}){where_extra}",
-        [version_id] + books_all + extra_params,
-    ).fetchall()
-
+    seen = set()
     hit_counts = {}
-    for book_usfm, text in rows:
-        if matches_parsed_query(text.lower(), parsed):
+    for grp_raw in or_groups_raw:
+        sql, params = _build_group_sql(
+            grp_raw, excluded_raw, version_id, books_all,
+            "v.book_usfm, v.chapter, v.verse",
+        )
+        for book_usfm, chapter, verse in bible_data.db.execute(sql, params):
+            key = (book_usfm, chapter, verse)
+            if key in seen:
+                continue
+            seen.add(key)
             hit_counts[book_usfm] = hit_counts.get(book_usfm, 0) + 1
 
     return [

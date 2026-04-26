@@ -90,8 +90,16 @@ def api_search():
             "version": version_id,
         })
 
-    results = search_text(bible_data, version_id, query)
-    return jsonify({"type": "text_search", "results": results, "query": query, "version": version_id})
+    book_filter = request.args.get("book") or None
+    results, book_totals = search_text(bible_data, version_id, query, book_filter=book_filter)
+    return jsonify({
+        "type": "text_search",
+        "results": results,
+        "book_totals": book_totals,
+        "book_filter": book_filter,
+        "query": query,
+        "version": version_id,
+    })
 
 
 @bp.get("/api/all_versions")
@@ -132,11 +140,11 @@ def api_all_text_search():
     query = request.args.get("q", "")
     if not query:
         return jsonify({"error": "No query provided"}), 400
-    all_results = {
-        version_id: results
-        for version_id in bible_data.translations
-        if (results := search_text(bible_data, version_id, query))
-    }
+    all_results = {}
+    for version_id in bible_data.translations:
+        results, _ = search_text(bible_data, version_id, query, per_book=None)
+        if results:
+            all_results[version_id] = results
     return jsonify({"results": all_results, "query": query})
 
 
