@@ -1,9 +1,10 @@
 import json
+import os
 import re
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parents[2] / "bible.db"
+DB_PATH = Path(os.getenv("BIBLE_DB_PATH") or (Path(__file__).resolve().parents[2] / "bible.db"))
 
 # ── Book metadata (used by query parser — kept in-process for speed) ──────────
 
