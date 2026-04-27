@@ -4,7 +4,10 @@ import json
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(os.getenv("BIBLE_DB_PATH") or (Path(__file__).resolve().parents[2] / "bible.db"))
+_db_env = os.getenv("BIBLE_DB_PATH")
+DB_PATH = Path(_db_env) if _db_env else Path(__file__).resolve().parents[2] / "bible.db"
+if DB_PATH.is_dir():
+    DB_PATH = DB_PATH / "bible.db"
 print(f"[bible] DB_PATH={DB_PATH} (exists={DB_PATH.exists()})")
 
 # ── Book metadata (used by query parser — kept in-process for speed) ──────────
