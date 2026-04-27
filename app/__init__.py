@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from flask import Flask
+from flask import Flask, request
 
 from .config import config
 from .routes import bp
@@ -27,4 +27,15 @@ def create_app():
 
     app.config["BIBLE_DATA"] = bible_data
     app.register_blueprint(bp)
+
+    # Force revalidation on JS/CSS so a redeploy isn't masked by a still-valid
+    # browser HTTP cache entry. Flask still emits ETag/Last-Modified, so unchanged
+    # files come back as 304 — cheap, and the SW gets fresh bytes when it precaches.
+    @app.after_request
+    def _no_cache_for_assets(response):
+        path = (request.path or "")
+        if path.startswith("/static/") and (path.endswith(".js") or path.endswith(".css")):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
     return app

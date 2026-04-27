@@ -372,12 +372,15 @@
 <div class="modal-overlay" id="mapModal">
     <div class="modal-panel map-modal-panel">
         <div class="modal-header">
+            <button class="map-sidebar-toggle" id="mapSidebarToggle" title="Toggle place list">&#9776;</button>
             <span id="mapModalTitle">// Map</span>
             <button class="modal-close" id="mapClose">&times;</button>
         </div>
         <div class="modal-body map-modal-body">
             <aside id="mapSidebar"></aside>
-            <div id="mapContainer"></div>
+            <div id="mapContainer">
+                <div class="map-disclaimer" data-i18n-html="map.disclaimer"></div>
+            </div>
         </div>
     </div>
 </div>

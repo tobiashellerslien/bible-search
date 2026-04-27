@@ -271,6 +271,7 @@ def api_places():
     chapter_end = _maybe_int("chapter_end")
     verse_start = _maybe_int("verse_start")
     verse_end = _maybe_int("verse_end")
+    version_id = _resolve_version_id(bible_data, request.args.get("version"))
 
     if chapter is None:
         # Whole book — gather min/max chapter from any version
@@ -279,10 +280,11 @@ def api_places():
             max_ch = max(max_ch, vbooks.get(book, 0))
         if max_ch == 0:
             return jsonify({"places": []})
-        places = bible_data.get_places_for_range(book, 1, None, max_ch, None)
+        places = bible_data.get_places_for_range(book, 1, None, max_ch, None, translation_id=version_id)
     else:
         places = bible_data.get_places_for_range(
-            book, chapter, verse_start, chapter_end or chapter, verse_end
+            book, chapter, verse_start, chapter_end or chapter, verse_end,
+            translation_id=version_id,
         )
     return jsonify({"places": places})
 

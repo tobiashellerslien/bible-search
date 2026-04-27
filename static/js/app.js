@@ -197,10 +197,12 @@ const I18N = {
         'ac.filter': 'filter',
         'ac.searchInBook': 'search in book',
         'verse.chapterHeading': 'Chapter {0}',
+        'verse.openVerse': 'Open verse',
         'quickSearch.toggle': 'Quick search — live results as you type',
         'quickSearch.hint': 'Type at least 3 characters',
         'quickSearch.none': 'No matches.',
         'quickSearch.truncated': 'Showing first {0} — keep typing to narrow.',
+        'map.disclaimer': 'Many locations are approximate (regions) and may contain errors. See <a href="https://openbible.info/geo/" target="_blank" rel="noopener">openbible.info/geo</a> for sources and alternative locations.',
     },
     no: {
         'header.help': 'Hjelp & info — trykk ? når som helst',
@@ -399,10 +401,12 @@ const I18N = {
         'ac.filter': 'filter',
         'ac.searchInBook': 'søk i bok',
         'verse.chapterHeading': 'Kapittel {0}',
+        'verse.openVerse': 'Åpne vers',
         'quickSearch.toggle': 'Hurtigsøk — direkte treff mens du skriver',
         'quickSearch.hint': 'Skriv minst 3 tegn',
         'quickSearch.none': 'Ingen treff.',
         'quickSearch.truncated': 'Viser første {0} — skriv mer for å smalne inn.',
+        'map.disclaimer': 'Mange av plasseringene er omtrentlige (regioner) og kan inneholde feil. Se <a href="https://openbible.info/geo/" target="_blank" rel="noopener">openbible.info/geo</a> for kilder og alternative plasseringer.',
     },
 };
 
@@ -1245,7 +1249,7 @@ window.toggleCardMore = function(idx) {
     const menu = document.getElementById(`card-more-${idx}`);
     if (!menu) return;
     const wasOpen = menu.classList.contains('open');
-    document.querySelectorAll('.card-more-menu.open, .card-more-menu.menu-up').forEach(m => m.classList.remove('open', 'menu-up'));
+    document.querySelectorAll('.card-more-menu.open').forEach(m => m.classList.remove('open'));
     if (!wasOpen) {
         const wrap = menu.closest('.card-more-wrap') || menu.parentElement;
         const rect = wrap.getBoundingClientRect();
@@ -1263,7 +1267,7 @@ window.toggleCopyMenu = function(idx) {
     const menu = document.getElementById(`copy-menu-${idx}`);
     if (!menu) return;
     const wasOpen = menu.classList.contains('open');
-    document.querySelectorAll('.copy-menu.open, .copy-menu.menu-up').forEach(m => m.classList.remove('open', 'menu-up'));
+    document.querySelectorAll('.copy-menu.open').forEach(m => m.classList.remove('open'));
     if (!wasOpen) {
         const wrap = menu.closest('.copy-menu-wrap') || menu.parentElement;
         const rect = wrap.getBoundingClientRect();
@@ -1308,6 +1312,7 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
     let html = '';
     let lastChapter = null;
     const isMultiChapter = verses.some(x => x.chapter !== verses[0]?.chapter);
+    const enableOpen = verses.length > 1;
 
     verses.forEach((v, vi) => {
         if (isMultiChapter && v.chapter !== lastChapter) {
@@ -1339,7 +1344,11 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
         if (showNums) {
             html += `<span class="verse-num" onclick="openSingleVerse('${bookCodeSafe}',${v.chapter},${v.num},'${refName}')" title="${escAttr(bookRefName(bookCode))} ${v.chapter}:${v.num}">${v.num}</span>`;
         }
-        html += escHtml(v.text);
+        if (enableOpen && bookCodeSafe) {
+            html += `<span class="verse-text-clickable" data-book="${bookCodeSafe}" data-chapter="${v.chapter}" data-verse="${v.num}" data-ref="${refName}">${escHtml(v.text)}</span>`;
+        } else {
+            html += escHtml(v.text);
+        }
 
         const fnText = footnoteMap[v.chapter]?.[v.num];
         if (showFootnotes && fnText) {
@@ -1601,6 +1610,71 @@ window.openSingleVerse = function(bookCode, chapter, verse, bName) {
     updateSearchHighlight();
     doSearch();
 };
+
+// ── Verse-text click popup ───────────────────────────────────────────────────
+let _versePopupEl = null;
+let _versePopupKey = null;
+function _ensureVersePopup() {
+    if (_versePopupEl) return _versePopupEl;
+    const el = document.createElement('div');
+    el.className = 'verse-open-popup';
+    el.style.display = 'none';
+    document.body.appendChild(el);
+    _versePopupEl = el;
+    return el;
+}
+function _hideVersePopup() {
+    if (_versePopupEl) _versePopupEl.style.display = 'none';
+    _versePopupKey = null;
+}
+document.addEventListener('click', (ev) => {
+    const target = ev.target.closest('.verse-text-clickable');
+    if (target) {
+        // ignore if a child interactive element handled it
+        if (ev.target.closest('.verse-btn, .place-chip, .verse-num, a, button')) return;
+        ev.stopPropagation();
+        const book = target.dataset.book;
+        const chapter = parseInt(target.dataset.chapter, 10);
+        const verse = parseInt(target.dataset.verse, 10);
+        const ref = target.dataset.ref || book;
+        const key = `${book}|${chapter}|${verse}`;
+        if (_versePopupEl && _versePopupEl.style.display === 'block' && _versePopupKey === key) {
+            _hideVersePopup();
+            return;
+        }
+        const popup = _ensureVersePopup();
+        _versePopupKey = key;
+        popup.innerHTML = `<button type="button" class="verse-open-popup-btn">${escHtml(t('verse.openVerse'))}</button>`;
+        popup.style.display = 'block';
+        // Position above the click point
+        const px = ev.clientX;
+        const py = ev.clientY;
+        popup.style.visibility = 'hidden';
+        popup.style.left = '0px';
+        popup.style.top = '0px';
+        const rect = popup.getBoundingClientRect();
+        let left = px - rect.width / 2;
+        let top = py - rect.height - 10;
+        if (top < 8) top = py + 14;
+        left = Math.max(8, Math.min(left, window.innerWidth - rect.width - 8));
+        popup.style.left = (left + window.scrollX) + 'px';
+        popup.style.top = (top + window.scrollY) + 'px';
+        popup.style.visibility = 'visible';
+        const btn = popup.querySelector('.verse-open-popup-btn');
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            _hideVersePopup();
+            window.openSingleVerse(book, chapter, verse, ref);
+        };
+        return;
+    }
+    if (_versePopupEl && _versePopupEl.style.display === 'block' && !ev.target.closest('.verse-open-popup')) {
+        _hideVersePopup();
+    }
+});
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') _hideVersePopup(); });
+window.addEventListener('scroll', _hideVersePopup, true);
+window.addEventListener('resize', _hideVersePopup);
 
 // ── Text search ──
 let textSearchBookTotals = {};
@@ -3174,6 +3248,43 @@ function ensureMap() {
     mapState.baseLayers = { esri, osm };
     mapState.layerGroup = L.layerGroup().addTo(map);
     mapState.entries = [];
+    mapState.hoveredPolygonId = null;
+
+    map.on('mousemove', (e) => {
+        const { lat, lng } = e.latlng;
+        const containing = (mapState.entries || []).filter(en =>
+            en.isPolygon && geometryContains(en.place.geometry, lat, lng)
+        );
+        let targetId = null;
+        if (containing.length > 0) {
+            let smallest = Infinity;
+            containing.forEach(en => {
+                const b = en.layer.getBounds();
+                const area = (b.getEast() - b.getWest()) * (b.getNorth() - b.getSouth());
+                if (area < smallest) { smallest = area; targetId = en.place.id; }
+            });
+        }
+        if (targetId !== mapState.hoveredPolygonId) {
+            if (mapState.hoveredPolygonId !== null) {
+                const prev = (mapState.entries || []).find(en => en.place.id === mapState.hoveredPolygonId);
+                if (prev) prev.layer.setStyle(placeStyle(prev.place.kind, false));
+            }
+            if (targetId !== null) {
+                const cur = (mapState.entries || []).find(en => en.place.id === targetId);
+                if (cur) { cur.layer.setStyle(placeStyle(cur.place.kind, true)); if (cur.layer.bringToFront) cur.layer.bringToFront(); }
+            }
+            mapState.hoveredPolygonId = targetId;
+        }
+    });
+
+    map.on('mouseout', () => {
+        if (mapState.hoveredPolygonId !== null) {
+            const prev = (mapState.entries || []).find(en => en.place.id === mapState.hoveredPolygonId);
+            if (prev) prev.layer.setStyle(placeStyle(prev.place.kind, false));
+            mapState.hoveredPolygonId = null;
+        }
+    });
+
     return map;
 }
 
@@ -3266,18 +3377,31 @@ function buildSidebar(places) {
 
 function attachLayerHandlers(entry) {
     const { layer, place, isPolygon } = entry;
-    const baseStyle = placeStyle(place.kind, false);
-    const hoverStyle = placeStyle(place.kind, true);
-    layer.on('mouseover', () => {
-        layer.setStyle ? layer.setStyle(hoverStyle) : null;
-        if (isPolygon && layer.bringToFront) layer.bringToFront();
-    });
-    layer.on('mouseout', () => {
-        layer.setStyle ? layer.setStyle(baseStyle) : null;
-    });
+    // Polygon hover is handled by the map-level mousemove in ensureMap (supports nested polygons).
+    // Keep per-layer hover only for points/circles.
+    if (!isPolygon) {
+        const baseStyle = placeStyle(place.kind, false);
+        const hoverStyle = placeStyle(place.kind, true);
+        layer.on('mouseover', () => { layer.setStyle ? layer.setStyle(hoverStyle) : null; });
+        layer.on('mouseout',  () => { layer.setStyle ? layer.setStyle(baseStyle)  : null; });
+    }
     layer.on('click', (e) => {
         L.DomEvent.stopPropagation(e);
-        selectPlace(place.id, { fly: false, clickLatLng: e.latlng });
+        const clickLatLng = e.latlng;
+        // When polygons overlap, pick the one with the smallest bounding box (most specific/innermost)
+        const candidates = (mapState.entries || []).filter(en =>
+            en.isPolygon && geometryContains(en.place.geometry, clickLatLng.lat, clickLatLng.lng)
+        );
+        let targetId = place.id;
+        if (candidates.length > 1) {
+            let smallest = Infinity;
+            candidates.forEach(en => {
+                const b = en.layer.getBounds();
+                const area = (b.getEast() - b.getWest()) * (b.getNorth() - b.getSouth());
+                if (area < smallest) { smallest = area; targetId = en.place.id; }
+            });
+        }
+        selectPlace(targetId, { fly: false, clickLatLng });
     });
 }
 
@@ -3357,6 +3481,14 @@ window.openMapForBlock = function(idx, focusId) {
 function closeMapModal() {
     document.getElementById('mapModal').classList.remove('open');
 }
+
+function toggleMapSidebar() {
+    const panel = document.querySelector('.map-modal-panel');
+    const isHidden = panel.classList.toggle('sidebar-hidden');
+    if (!isHidden && mapState.instance) mapState.instance.invalidateSize();
+}
+
+document.getElementById('mapSidebarToggle').addEventListener('click', toggleMapSidebar);
 document.getElementById('mapClose').addEventListener('click', closeMapModal);
 document.getElementById('mapModal').addEventListener('click', (e) => {
     if (e.target === e.currentTarget) closeMapModal();
