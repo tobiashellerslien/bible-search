@@ -22,8 +22,11 @@ Abbreviations and English names work: `joh`, `gen`, `1. mos`, `romans`.
 
 ## Features
 
+- **Search** - search across the entire bible, with search syntax, autofill and filters
 - **Quick search** — find a verse quickly
+- **Map** — view all places mentioned in an interactive map
+- **Cross references** - ~340,000 cross references, based mainly on TSK
 - **Compare** — view two translations simultaneously
 - **Stats** — word frequency chart across all books
-- **Resource links** to BibleHub for Hebrew/Greek, and BibleRef for commentary
+- **Resource links** — BibleHub for Hebrew/Greek, and BibleRef for commentary
 - **Appearance** — options in settings
