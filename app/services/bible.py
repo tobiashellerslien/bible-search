@@ -3,11 +3,9 @@ import re
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(os.getenv("BIBLE_DB_PATH") or (Path(__file__).resolve().parents[2] / "bible.db"))
-
-# def _resolve_db_path(path_value):
-#     path = Path(path_value)
-#     return path / "bible.db" if path.is_dir() else path
+DB_PATH = (lambda p: p / "bible.db" if p.is_dir() else p)(
+    Path(os.getenv("BIBLE_DB_PATH") or (Path(__file__).resolve().parents[2] / "bible.db"))
+)
 
 # ── Book metadata (used by query parser — kept in-process for speed) ──────────
 
@@ -234,8 +232,7 @@ _VERSIFICATION_SENTINELS = {
 
 class BibleData:
     def __init__(self, db_path=None):
-        # path = _resolve_db_path(db_path or DB_PATH)
-        self.db = sqlite3.connect(str(db_path), check_same_thread=False)
+        self.db = sqlite3.connect(str(db_path or DB_PATH), check_same_thread=False)
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("PRAGMA foreign_keys=ON")
         self._load_metadata()
