@@ -1,5 +1,3 @@
-import json
-import os
 import re
 import sqlite3
 from pathlib import Path
@@ -273,8 +271,7 @@ def _eng_to_mt_verse(book, eng_ch, eng_v):
 
 class BibleData:
     def __init__(self, db_path=None):
-        path = str(db_path or DB_PATH)
-        self.db = sqlite3.connect(path, check_same_thread=False)
+        self.db = sqlite3.connect(str(db_path or DB_PATH), check_same_thread=False)
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("PRAGMA foreign_keys=ON")
         self._load_metadata()
