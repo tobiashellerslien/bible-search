@@ -84,6 +84,14 @@
                    autocomplete="off" autocorrect="off" spellcheck="false">
             <button class="search-clear-btn" id="searchClearBtn" data-i18n-title="search.clear">&times;</button>
         </div>
+        <button class="search-mode-btn" id="quickModeBtn" type="button"
+                data-i18n-title="quickSearch.toggle"
+                aria-pressed="false">
+            <svg class="search-mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/>
+            </svg>
+            <span class="search-mode-label" data-i18n="quickSearch.label">Quick</span>
+        </button>
         <!-- Custom picker shown on desktop; native select shown on mobile -->
         <div class="version-picker" id="versionPicker">
             <button class="vp-trigger" id="versionPickerBtn" type="button" onclick="toggleVersionPicker()">
@@ -179,6 +187,7 @@
             <div class="help-section">
                 <h3 data-i18n="help.section.features">Features</h3>
                 <div class="feature-list">
+                    <div class="feature-item"><span data-i18n="help.feature.quickSearch">Quick search (⚡ toggle next to the search bar): live, forgiving search that updates as you type — best for finding a single half-remembered verse fast</span></div>
                     <div class="feature-item"><span data-i18n="help.feature.perVerse">Per verse: compare translations, copy text (with or without reference), link to original text / interlinear (biblehub.com)</span></div>
                     <div class="feature-item"><span data-i18n="help.feature.commentary">Per verse: link to Bible commentary (bibleref.com) — note: not all OT verses have commentary yet</span></div>
                     <div class="feature-item"><span data-i18n="help.feature.stats">Search: stats panel with data overview and distribution of hits across the Bible</span></div>

@@ -838,6 +838,59 @@ def search_text(bible_data, version_id, query, per_book=20, book_filter=None):
     return results, book_totals
 
 
+_QUICK_TOKEN_RE = re.compile(r"[\wÀ-ÿ]+", re.UNICODE)
+
+
+def quick_search(bible_data, version_id, query, limit=25):
+    """Fast live-search for finding a single half-remembered verse.
+
+    Tokenizes on word chars, lower-cases, builds an FTS5 prefix-AND query
+    (`tok1* tok2* ...`), ranks by bm25. Falls back to OR if AND returns nothing.
+    Returns (results, truncated)."""
+    tokens = [t.lower() for t in _QUICK_TOKEN_RE.findall(query or "")]
+    # Drop tokens shorter than 2 chars except the last (so "lov" still works while typing).
+    if len(tokens) > 1:
+        tokens = [t for i, t in enumerate(tokens) if len(t) >= 2 or i == len(tokens) - 1]
+    tokens = [t for t in tokens if t]
+    if not tokens:
+        return [], False
+    if version_id not in bible_data.translations:
+        return [], False
+
+    def _run(match_expr):
+        sql = (
+            "SELECT v.book_usfm, v.chapter, v.verse, v.text "
+            "FROM verses_fts fts "
+            "JOIN verses v ON v.id = fts.rowid "
+            "WHERE verses_fts MATCH ? AND v.translation_id = ? "
+            "ORDER BY bm25(verses_fts), v.book_usfm, v.chapter, v.verse "
+            "LIMIT ?"
+        )
+        return list(bible_data.db.execute(sql, (match_expr, version_id, limit + 1)))
+
+    and_expr = " ".join(f'"{_fts_escape(t)}"*' for t in tokens)
+    rows = _run(and_expr)
+
+    if not rows and len(tokens) > 1:
+        # Fallback: OR-of-prefixes catches single-typo / wrong-word cases.
+        or_expr = " OR ".join(f'"{_fts_escape(t)}"*' for t in tokens)
+        rows = _run(or_expr)
+
+    truncated = len(rows) > limit
+    rows = rows[:limit]
+    results = [
+        {
+            "ref": f"{USFM_TO_NAME.get(book_usfm, book_usfm)} {chapter}:{verse}",
+            "book": book_usfm,
+            "chapter": chapter,
+            "verse": verse,
+            "text": text,
+        }
+        for book_usfm, chapter, verse, text in rows
+    ]
+    return results, truncated
+
+
 def get_search_stats(bible_data, version_id, query):
     parsed = parse_search_query(query)
     if not parsed['or_groups']:
