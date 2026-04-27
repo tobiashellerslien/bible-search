@@ -23,27 +23,27 @@ Tables: `translations(id,name,full_name,language)`, `books(usfm,order_num,name_n
 ## bible.py service
 - `BibleData` opens db once, loads metadata: `translations`, `version_books[tid]`, `book_chapters[tid][usfm]`
 - Book aliases: `BOOKS` list → `ALIAS_MAP` (case-insensitive) → `SORTED_ALIASES` (longest-first). `USFM_TO_ENG`/`USFM_TO_NAME` for display.
-- `parse_query()` splits on `;`, carries context (book/chapter) across blocks. `identify_book()` uses longest-match-first.
-- `is_reference_query()` → True if first block resolves to a book alias
-- `search_text()` → FTS5 SQL; supports AND/OR/exclusion/phrases/book-group scope
+- `parse_query()` splits on `;`, carries context. `is_reference_query()` → True if first block is a book alias.
+- `search_text()` → FTS5; AND/OR/exclusion/phrases/book-group scope. Concordance use case.
+- `quick_search()` → FTS5 prefix-AND (`tok*`) + `bm25` ranking, OR-fallback on zero hits, hard-capped. Live-typing use case.
 - `resolve_block()` → `{label, book, verses, headings, footnotes, xrefs}`; xrefs lazy-loaded
 
 ## API endpoints
 - `GET /api/versions` → `{versions:[{id,name,full_name,language}]}`
-- `GET /api/books?version=<id>` → `{books:[{code,name,name_en,chapters}]}`
+- `GET /api/books?version=<id>` → `{books:[...]}`
 - `GET /api/search?q=&version=<id>` → `{type:"reference"|"text_search", results, version}`
+- `GET /api/quick_search?q=&version=<id>&limit=<n>` → `{results, truncated, limit, version}` (live single-verse finder)
 - `GET /api/all_versions?q=` → reference across all versions
 - `GET /api/crossrefs?book=&chapter=&verse=&version=&limit=` → `{refs,total}`
 - `GET /api/heartbeat` → `{ok:true}`
 
 ## Frontend (app.js)
-State: `currentView` (`normal`|`text_search`|`all_versions`), `mainData`, caches, `showFootnotes`, `showXrefs`, `xrefCache` (Map).
-- Compare mode: two `/api/search` calls, side-by-side
-- All versions mode: one `/api/all_versions` call
-- `BIBLEHUB_SLUGS`/`ENG_NAMES` for interlinear links and language toggle
-- `translateLabel(label, bookCode)` swaps Norwegian book name per UI language
-- Dark mode via `data-theme="dark"` on `<html>`; accent via `applyAccent()` / CSS vars
-- Footnote/xref panels: `†`/`§` buttons per verse → collapsible `<div class="verse-panel">` (max-height transition); xrefs lazy-fetch and cache
+State: `currentView` (`normal`|`text_search`|`all_versions`|`quick_search`), `mainData`, caches, `showFootnotes`, `showXrefs`, `xrefCache`, `quickMode` (persisted in localStorage).
+- Quick mode: ⚡ toggle next to search input; debounced fetch (150ms, min 3 chars) with AbortController; results in `.quick-row` (ref + verse-serif text); click → standard reference lookup.
+- Compare mode: two `/api/search` calls. All-versions: one `/api/all_versions` call.
+- `translateLabel(label, bookCode)` swaps Norwegian book name per UI language.
+- Dark mode via `data-theme="dark"`; accent via `applyAccent()` / CSS vars.
+- Footnote/xref panels: `†`/`§` buttons → collapsible `<div class="verse-panel">`; xrefs lazy-fetched and cached.
 
 ## Key patterns
 - **New version**: insert into `translations`, import verse/heading/footnote rows. `id` must match bible.com's ID.

@@ -9,6 +9,7 @@ from .services.bible import (
     is_reference_query,
     parse_query,
     parse_search_query,
+    quick_search,
     resolve_block,
     search_text,
     strip_scope_from_query,
@@ -107,6 +108,27 @@ def api_search():
         "results": results,
         "book_totals": book_totals,
         "book_filter": book_filter,
+        "query": query,
+        "version": version_id,
+    })
+
+
+@bp.get("/api/quick_search")
+def api_quick_search():
+    bible_data = _bible_data()
+    query = request.args.get("q", "")
+    version_id = _resolve_version_id(bible_data, request.args.get("version"))
+    if version_id is None:
+        return jsonify({"results": [], "truncated": False, "query": query, "version": None})
+    try:
+        limit = max(1, min(100, int(request.args.get("limit", 25))))
+    except (TypeError, ValueError):
+        limit = 25
+    results, truncated = quick_search(bible_data, version_id, query, limit=limit)
+    return jsonify({
+        "results": results,
+        "truncated": truncated,
+        "limit": limit,
         "query": query,
         "version": version_id,
     })

@@ -21,6 +21,7 @@ const I18N = {
         'modal.tab.help': 'Help',
         'modal.tab.info': 'Info',
         'help.section.features': 'Features',
+        'help.feature.quickSearch': 'Quick search (⚡ toggle next to the search bar): live, forgiving search that updates as you type — best for finding a single half-remembered verse fast',
         'help.feature.perVerse': 'Per verse: compare translations, copy text (with or without reference), link to original text / interlinear (biblehub.com)',
         'help.feature.commentary': 'Per verse: link to Bible commentary (bibleref.com) — note: not all OT verses have commentary yet',
         'help.feature.stats': 'Search: stats panel with data overview and distribution of hits across the Bible',
@@ -189,6 +190,11 @@ const I18N = {
         'ac.filter': 'filter',
         'ac.searchInBook': 'search in book',
         'verse.chapterHeading': 'Chapter {0}',
+        'quickSearch.label': 'Quick',
+        'quickSearch.toggle': 'Quick search — live results as you type',
+        'quickSearch.hint': 'Type at least 3 characters',
+        'quickSearch.none': 'No matches.',
+        'quickSearch.truncated': 'Showing first {0} — keep typing to narrow.',
     },
     no: {
         'header.help': 'Hjelp & info — trykk ? når som helst',
@@ -211,6 +217,7 @@ const I18N = {
         'modal.tab.help': 'Hjelp',
         'modal.tab.info': 'Info',
         'help.section.features': 'Funksjoner',
+        'help.feature.quickSearch': 'Hurtigsøk (⚡-bryter ved siden av søkefeltet): direkte, tolerant søk som oppdateres mens du skriver — best for å finne ett enkelt vers du nesten husker',
         'help.feature.perVerse': 'Per vers: sammenlign oversettelser, kopier tekst (med eller uten referanse), lenke til grunntekst / interlineær (biblehub.com)',
         'help.feature.commentary': 'Per vers: lenke til bibelkommentar (bibleref.com) — merk: ikke alle GT-vers har kommentar enda',
         'help.feature.stats': 'Søk: statistikkpanel med dataoversikt og fordeling av treff gjennom Bibelen',
@@ -379,6 +386,11 @@ const I18N = {
         'ac.filter': 'filter',
         'ac.searchInBook': 'søk i bok',
         'verse.chapterHeading': 'Kapittel {0}',
+        'quickSearch.label': 'Hurtig',
+        'quickSearch.toggle': 'Hurtigsøk — direkte treff mens du skriver',
+        'quickSearch.hint': 'Skriv minst 3 tegn',
+        'quickSearch.none': 'Ingen treff.',
+        'quickSearch.truncated': 'Viser første {0} — skriv mer for å smalne inn.',
     },
 };
 
@@ -723,7 +735,9 @@ function refreshBookDropdown() {
 versionSelect.addEventListener('change', () => {
     updateVersionPickerDisplay();
     loadBooks();
-    if (currentView === 'text_search' && textSearchCache) {
+    if (quickMode && searchInput.value.trim().length >= 3) {
+        runQuickSearch();
+    } else if (currentView === 'text_search' && textSearchCache) {
         searchInput.value = textSearchCache.query;
         updateSearchHighlight();
         doSearch(false);
@@ -820,7 +834,14 @@ window.addEventListener('popstate', async e => {
 // ── Search ──
 searchBtn.addEventListener('click', doSearch);
 searchInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && acSelectedIndex < 0) doSearch();
+    if (e.key === 'Enter' && acSelectedIndex < 0) {
+        if (quickMode) {
+            const firstRow = resultsWrapper.querySelector('.quick-row');
+            if (firstRow) firstRow.click();
+            return;
+        }
+        doSearch();
+    }
 });
 
 async function doSearch(pushHistory = true, resetAC = true) {
@@ -1987,6 +2008,10 @@ searchClearBtn.addEventListener('click', () => {
     searchInput.value = '';
     updateSearchHighlight();
     closeAutocomplete();
+    if (quickMode) {
+        if (_quickAbortCtrl) _quickAbortCtrl.abort();
+        renderQuickHint();
+    }
     searchInput.focus();
 });
 
@@ -2242,6 +2267,128 @@ document.getElementById('settingsModal').addEventListener('click', e => {
     if (e.target === document.getElementById('settingsModal')) document.getElementById('settingsModal').classList.remove('open');
 });
 
+// ── Quick search mode ──
+let quickMode = localStorage.getItem('quickMode') === 'true';
+let _quickDebounceTimer = null;
+let _quickAbortCtrl = null;
+let _viewBeforeQuick = null;
+const quickModeBtn = document.getElementById('quickModeBtn');
+
+function setQuickModeBtnState() {
+    quickModeBtn.setAttribute('aria-pressed', quickMode ? 'true' : 'false');
+}
+
+function renderQuickHint() {
+    resultsWrapper.innerHTML = `<div class="quick-empty">${escHtmlFast(t('quickSearch.hint'))}</div>`;
+}
+
+function renderQuickEmpty() {
+    resultsWrapper.innerHTML = `<div class="quick-empty">${escHtmlFast(t('quickSearch.none'))}</div>`;
+}
+
+function highlightTokens(text, tokens) {
+    if (!tokens.length) return escHtmlFast(text);
+    const escaped = tokens.map(tok => tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const re = new RegExp(`(${escaped.join('|')})`, 'gi');
+    return escHtmlFast(text).replace(re, '<mark>$1</mark>');
+}
+
+function renderQuickSearch(data, tokens) {
+    const rows = (data.results || []).map(r => `
+        <div class="quick-row" data-ref="${escHtmlFast(r.ref)}" data-book="${escHtmlFast(r.book)}" data-chapter="${r.chapter}" data-verse="${r.verse}">
+            <span class="qr-ref">${escHtmlFast(translateLabel(r.ref, r.book))}</span>
+            <span class="qr-text">${highlightTokens(r.text, tokens)}</span>
+        </div>
+    `).join('');
+    const footer = data.truncated ? `<div class="quick-footer">${escHtmlFast(t('quickSearch.truncated', data.limit || 25))}</div>` : '';
+    resultsWrapper.innerHTML = `<div class="quick-results">${rows}${footer}</div>`;
+}
+
+resultsWrapper.addEventListener('click', e => {
+    const row = e.target.closest('.quick-row');
+    if (!row) return;
+    const ref = `${row.dataset.book} ${row.dataset.chapter}:${row.dataset.verse}`;
+    setQuickMode(false);
+    searchInput.value = ref;
+    updateSearchHighlight();
+    doSearch();
+});
+
+function tokenizeQuick(query) {
+    const all = (query.toLowerCase().match(/[\wÀ-ÿ]+/gu) || []);
+    if (all.length <= 1) return all;
+    return all.filter((t, i) => t.length >= 2 || i === all.length - 1);
+}
+
+async function runQuickSearch() {
+    const raw = searchInput.value.trim();
+    if (raw.length < 3) {
+        if (_quickAbortCtrl) _quickAbortCtrl.abort();
+        renderQuickHint();
+        return;
+    }
+    if (_quickAbortCtrl) _quickAbortCtrl.abort();
+    _quickAbortCtrl = new AbortController();
+    const version = versionSelect.value;
+    try {
+        const resp = await fetch(`/api/quick_search?q=${encodeURIComponent(raw)}&version=${encodeURIComponent(version)}`, { signal: _quickAbortCtrl.signal });
+        const data = await resp.json();
+        const tokens = tokenizeQuick(raw);
+        if (!data.results || data.results.length === 0) {
+            renderQuickEmpty();
+        } else {
+            renderQuickSearch(data, tokens);
+        }
+    } catch (err) {
+        if (err.name === 'AbortError') return;
+        // Silent fail — keep prior results visible
+    }
+}
+
+function setQuickMode(on) {
+    if (on === quickMode) return;
+    quickMode = on;
+    localStorage.setItem('quickMode', on ? 'true' : 'false');
+    setQuickModeBtnState();
+    if (on) {
+        _viewBeforeQuick = currentView;
+        closeAutocomplete();
+        clearSearchWarning && clearSearchWarning();
+        currentView = 'quick_search';
+        if (searchInput.value.trim().length >= 3) {
+            runQuickSearch();
+        } else {
+            renderQuickHint();
+        }
+    } else {
+        if (_quickAbortCtrl) _quickAbortCtrl.abort();
+        clearTimeout(_quickDebounceTimer);
+        // Restore the view we were on before quick mode was enabled.
+        currentView = _viewBeforeQuick || 'normal';
+        if (currentView === 'normal' && mainData) {
+            renderAll();
+        } else if (currentView === 'all_versions' && allVersionsCache) {
+            renderAllVersions(allVersionsCache.results, allVersionsCache.label);
+        } else if (currentView === 'text_search' && textSearchCache) {
+            renderTextSearch(textSearchCache.results, textSearchCache.query, textSearchCache.bookTotals || {});
+        } else if (currentView === 'text_search_all' && allVersionsTextCache) {
+            renderAllVersionsTextSearch(allVersionsTextCache.results, allVersionsTextCache.query);
+        } else {
+            currentView = 'normal';
+            mainData = null;
+            resultsWrapper.innerHTML = emptyStateHtml;
+            applyI18n();
+        }
+    }
+}
+
+quickModeBtn.addEventListener('click', () => setQuickMode(!quickMode));
+setQuickModeBtnState();
+if (quickMode && searchInput.value.trim().length >= 3) {
+    // Trigger initial quick search if mode persisted with a value (rare)
+    runQuickSearch();
+}
+
 // ── Autocomplete ──
 let acItems = [];
 let acSelectedIndex = -1;
@@ -2250,6 +2397,13 @@ let _acDebounceTimer = null;
 searchInput.addEventListener('input', () => {
     // Highlight update is cheap — keep it synchronous
     requestAnimationFrame(updateSearchHighlight);
+    if (quickMode) {
+        clearTimeout(_acDebounceTimer);
+        closeAutocomplete();
+        clearTimeout(_quickDebounceTimer);
+        _quickDebounceTimer = setTimeout(runQuickSearch, 150);
+        return;
+    }
     // Autocomplete is heavier — debounce to avoid work on every keystroke
     clearTimeout(_acDebounceTimer);
     _acDebounceTimer = setTimeout(handleAutocomplete, 120);
