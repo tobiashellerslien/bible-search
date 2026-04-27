@@ -670,7 +670,7 @@ async function init() {
     if (savedDefault && idStrings.includes(savedDefault)) {
         versionSelect.value = savedDefault;
     } else {
-        const nb88 = data.versions.find(v => v.name === 'NB88/07');
+        const nb88 = data.versions.find(v => v.name === 'NB88');
         if (nb88) versionSelect.value = String(nb88.id);
     }
     const dvSel = document.getElementById('defaultVersionSelect');
@@ -3327,6 +3327,18 @@ function buildPopupHtml(place, alsoHere = []) {
 function selectPlace(placeId, opts = {}) {
     const entry = (mapState.entries || []).find(e => e.place.id === placeId);
     if (!entry) return;
+    // Activate region outline for the selected polygon (same as mousemove hover)
+    if (mapState.hoveredPolygonId !== placeId) {
+        if (mapState.hoveredPolygonId !== null) {
+            const prev = (mapState.entries || []).find(en => en.place.id === mapState.hoveredPolygonId);
+            if (prev && prev.isPolygon) prev.layer.setStyle(placeStyle(prev.place.kind, false));
+        }
+        if (entry.isPolygon) {
+            entry.layer.setStyle(placeStyle(entry.place.kind, true));
+            if (entry.layer.bringToFront) entry.layer.bringToFront();
+        }
+        mapState.hoveredPolygonId = entry.isPolygon ? placeId : null;
+    }
     // Reference point: click location if provided (precise), else this place's centroid (sidebar/focus)
     const c = geometryCentroid(entry.place.geometry);
     const probe = opts.clickLatLng ? [opts.clickLatLng.lat, opts.clickLatLng.lng] : c;
