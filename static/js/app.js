@@ -120,7 +120,7 @@ const I18N = {
         'settings.bibleVersion': 'Bible version',
         'settings.savedDefault': 'Default version saved',
         'empty.title': 'Search the Bible',
-        'empty.tagline': 'References, full-text search, cross-references and more  — across multiple translations.',
+        'empty.tagline': 'References, full-text search, cross-references, maps and more  — across multiple translations.',
         'empty.verse.text': 'All Scripture is inspired by God and profitable for teaching, for reproof, for correction, for training in righteousness; so that the man of God may be adequate, equipped for every good work.',
         'empty.verse.ref': '2 Timothy 3:16–17',
         'empty.btn.help': '? Help',
@@ -324,7 +324,7 @@ const I18N = {
         'settings.bibleVersion': 'Bibeloversettelse',
         'settings.savedDefault': 'Standardoversettelse lagret',
         'empty.title': 'Søk i Bibelen',
-        'empty.tagline': 'Oppslag, fulltekstsøk, kryssreferanser og mer — på tvers av oversettelser.',
+        'empty.tagline': 'Oppslag, fulltekstsøk, kryssreferanser, kart og mer — på tvers av oversettelser.',
         'empty.verse.text': 'Hele Skriften er innåndet av Gud og nyttig til lærdom, til overbevisning, til rettledning, til opptuktelse i rettferdighet, for at Guds menneske kan være fullkomment, satt i stand til all god gjerning.',
         'empty.verse.ref': '2. Timoteus 3:16–17',
         'empty.btn.help': '? Hjelp',
@@ -3415,9 +3415,14 @@ function placeToLayer(place) {
     }).bindPopup(buildPopupHtml(place), { maxWidth: 240, autoPanPadding: [20, 20] });
 }
 
+let _mapCloseTimer = null;
+
 function openMap(places, focusId) {
     const modal = document.getElementById('mapModal');
-    modal.classList.add('open');
+    clearTimeout(_mapCloseTimer);
+    modal.style.display = 'flex';
+    // Double rAF: ensure browser paints display:flex before transition starts
+    requestAnimationFrame(() => requestAnimationFrame(() => modal.classList.add('open')));
     setTimeout(() => {
         if (typeof L === 'undefined') return;
         const map = ensureMap();
@@ -3479,7 +3484,10 @@ window.openMapForBlock = function(idx, focusId) {
 };
 
 function closeMapModal() {
-    document.getElementById('mapModal').classList.remove('open');
+    const modal = document.getElementById('mapModal');
+    modal.classList.remove('open');
+    // Wait for CSS transition to finish before hiding (matches .modal-overlay transition: 0.2s)
+    _mapCloseTimer = setTimeout(() => { modal.style.display = 'none'; }, 250);
 }
 
 function toggleMapSidebar() {

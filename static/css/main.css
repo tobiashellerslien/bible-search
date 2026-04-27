@@ -1223,7 +1223,7 @@
             margin-left: 5px;
         }
         .book-group-items {
-            border: 1px solid var(--border);
+            border: 1px solid transparent;
             border-top: none;
             border-radius: 0 0 var(--radius) var(--radius);
             overflow: clip;
@@ -1232,6 +1232,7 @@
             transition: height 0.22s ease;
         }
         .book-group-items.open {
+            border-color: var(--border);
             pointer-events: auto;
         }
         .book-group-items .search-result-item {
@@ -1968,8 +1969,9 @@
         .leaflet-popup-content .place-popup-link:hover { text-decoration: underline; }
 
         /* Map modal must be fully removed from layout when closed,
-           otherwise Leaflet's touch handlers can swallow page scroll. */
-        #mapModal:not(.open) { display: none; }
+           otherwise Leaflet's touch handlers can swallow page scroll.
+           display toggled by JS (openMap/closeMapModal) to allow CSS transitions. */
+        #mapModal { display: none; }
 
         @media (max-width: 600px) {
             .map-modal-panel {
