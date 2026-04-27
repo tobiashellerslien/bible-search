@@ -4,3 +4,4 @@ __pycache__/
 todo.md
 *.db-*
 migrate_to_db.py
+bible.db
