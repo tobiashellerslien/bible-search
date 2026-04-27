@@ -5,7 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Bibelsøk</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+    <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
     <!-- FAVICON -->
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon-96x96.png') }}" sizes="96x96" />
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}" />
@@ -90,7 +94,6 @@
             <svg class="search-mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/>
             </svg>
-            <span class="search-mode-label" data-i18n="quickSearch.label">Quick</span>
         </button>
         <!-- Custom picker shown on desktop; native select shown on mobile -->
         <div class="version-picker" id="versionPicker">
@@ -152,6 +155,13 @@
                 <span class="toggle-slider"></span>
             </div>
         </label>
+        <label class="toggle-group format-sep">
+            <span data-i18n="toggle.places">Places 📍</span>
+            <div class="toggle">
+                <input type="checkbox" id="togglePlaces">
+                <span class="toggle-slider"></span>
+            </div>
+        </label>
     </div>
 </div>
 </div>
@@ -159,7 +169,7 @@
 <div class="results-wrapper" id="resultsWrapper">
     <div class="empty-state" id="emptyState">
         <h2 data-i18n="empty.title">Search the Bible</h2>
-        <p class="empty-tagline" data-i18n="empty.tagline">References, full-text search, cross-references and stats — across many translations.</p>
+        <p class="empty-tagline" data-i18n="empty.tagline">References, full-text search, cross-references and more  — across multiple translations.</p>
         <blockquote class="empty-verse" onclick="goToEmptyVerse()" style="cursor:pointer;">
             <p class="empty-verse-text" data-i18n="empty.verse.text"></p>
             <footer class="empty-verse-ref" data-i18n="empty.verse.ref"></footer>
@@ -187,10 +197,12 @@
             <div class="help-section">
                 <h3 data-i18n="help.section.features">Features</h3>
                 <div class="feature-list">
+                    <div class="feature-item"><span data-i18n="help.feature.search">Search: Search the entire bible, or look up references. Powerful search syntax with autocomplete and filters (e.g. search within a single book or testament). See search syntax section below.</span></div>
                     <div class="feature-item"><span data-i18n="help.feature.quickSearch">Quick search (⚡ toggle next to the search bar): live, forgiving search that updates as you type — best for finding a single half-remembered verse fast</span></div>
+                    <div class="feature-item"><span data-i18n="help.feature.places">Places: Bible places appear as 📍 chips next to verses; click 🗺️ Map on a passage to see them on a satellite map.</span></div>
                     <div class="feature-item"><span data-i18n="help.feature.perVerse">Per verse: compare translations, copy text (with or without reference), link to original text / interlinear (biblehub.com)</span></div>
-                    <div class="feature-item"><span data-i18n="help.feature.commentary">Per verse: link to Bible commentary (bibleref.com) — note: not all OT verses have commentary yet</span></div>
-                    <div class="feature-item"><span data-i18n="help.feature.stats">Search: stats panel with data overview and distribution of hits across the Bible</span></div>
+                    <div class="feature-item"><span data-i18n="help.feature.commentary">Per verse/chapter: link to Bible commentary (bibleref.com) — note: not all OT verses/chapters have commentary yet</span></div>
+                    <div class="feature-item"><span data-i18n="help.feature.stats">Stats: stats panel with data overview and distribution of hits across the Bible</span></div>
                     <div class="feature-item"><span data-i18n="help.feature.shareUrl">Share the URL to share your current view (passage, search, version)</span></div>
                     <div class="feature-item"><span data-i18n="help.feature.pwa">Install as app: add to home screen (iOS: Share → Add to Home Screen, Android: browser menu → Install) for a full-screen app experience</span></div>
                 </div>
@@ -267,6 +279,10 @@
             <div class="help-section">
                 <h3 data-i18n="info.crossRefs.title">Cross-references</h3>
                 <p class="info-text" data-i18n-html="info.crossRefs.text"></p>
+            </div>
+            <div class="help-section">
+                <h3 data-i18n="info.places.title">Place data &amp; maps</h3>
+                <p class="info-text" data-i18n-html="info.places.text"></p>
             </div>
             <div class="help-section">
                 <h3 data-i18n="info.openSource.title">Open source</h3>
@@ -348,6 +364,20 @@
                     <select id="defaultVersionSelect"></select>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Map modal -->
+<div class="modal-overlay" id="mapModal">
+    <div class="modal-panel map-modal-panel">
+        <div class="modal-header">
+            <span id="mapModalTitle">// Map</span>
+            <button class="modal-close" id="mapClose">&times;</button>
+        </div>
+        <div class="modal-body map-modal-body">
+            <aside id="mapSidebar"></aside>
+            <div id="mapContainer"></div>
         </div>
     </div>
 </div>

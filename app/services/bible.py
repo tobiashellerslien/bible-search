@@ -1,3 +1,4 @@
+import json
 import re
 import sqlite3
 from pathlib import Path
@@ -399,6 +400,48 @@ class BibleData:
             result.append({"chapter": ch, "verse": v, "text": t})
         return result
 
+    def get_places_for_range(self, book_usfm, ch_start, vs_start=None, ch_end=None, vs_end=None):
+        """Distinct places mentioned in a verse/chapter range. ch_end defaults to ch_start.
+        If vs_start is None: whole chapter(s). Otherwise restricts first/last chapter to verse window.
+        Returns list of {id, name, aliases, placemark, kind, geometry, refs} where refs is the list
+        of (chapter, verse) hits within the queried range (used by the frontend to attach chips)."""
+        if ch_end is None:
+            ch_end = ch_start
+
+        where = ["pv.book_usfm = ?", "pv.chapter BETWEEN ? AND ?"]
+        params = [book_usfm, ch_start, ch_end]
+        if vs_start is not None:
+            where.append("NOT (pv.chapter = ? AND pv.verse < ?)")
+            params.extend([ch_start, vs_start])
+        if vs_end is not None:
+            where.append("NOT (pv.chapter = ? AND pv.verse > ?)")
+            params.extend([ch_end, vs_end])
+
+        sql = (
+            "SELECT p.id, p.name, p.aliases, p.placemark, p.kind, p.geometry, "
+            "       pv.chapter, pv.verse "
+            "FROM place_verses pv JOIN places p ON p.id = pv.place_id "
+            f"WHERE {' AND '.join(where)} "
+            "ORDER BY p.name, pv.chapter, pv.verse"
+        )
+
+        by_id = {}
+        order = []
+        for pid, name, aliases, placemark, kind, geometry, ch, vs in self.db.execute(sql, params):
+            if pid not in by_id:
+                by_id[pid] = {
+                    "id": pid,
+                    "name": name,
+                    "aliases": json.loads(aliases) if aliases else [],
+                    "placemark": placemark,
+                    "kind": kind,
+                    "geometry": json.loads(geometry),
+                    "refs": [],
+                }
+                order.append(pid)
+            by_id[pid]["refs"].append({"chapter": ch, "verse": vs})
+        return [by_id[pid] for pid in order]
+
     def get_chapter_range(self, version_id, book_code, ch_start, ch_end):
         if version_id not in self.translations:
             return None, f"Version '{version_id}' not found"
@@ -521,7 +564,7 @@ def parse_query(query):
 
 def resolve_block(bible_data, version_id, block):
     if "error" in block:
-        return {"label": "Error", "error": block["error"], "verses": [], "headings": [], "footnotes": [], "xrefs": []}
+        return {"label": "Error", "error": block["error"], "verses": [], "headings": [], "footnotes": [], "xrefs": [], "places": []}
     book = block["book"]
     btype = block["type"]
     is_chapter = btype in ("whole_chapter", "chapter_range")
@@ -530,14 +573,15 @@ def resolve_block(bible_data, version_id, block):
     if btype == "single_verse":
         verses, err = bible_data.get_verses(version_id, book, block["chapter"], block["verse"])
         if err:
-            return {**base, "error": err, "verses": [], "headings": []}
+            return {**base, "error": err, "verses": [], "headings": [], "places": []}
         headings = bible_data.get_headings(version_id, book, block["chapter"], block["chapter"], block["verse"], block["verse"])
         footnotes = bible_data.get_footnotes(version_id, book, block["chapter"], block["chapter"], block["verse"], block["verse"])
-        return {**base, "verses": [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses], "headings": headings, "footnotes": footnotes}
+        places = bible_data.get_places_for_range(book, block["chapter"], block["verse"], block["chapter"], block["verse"])
+        return {**base, "verses": [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses], "headings": headings, "footnotes": footnotes, "places": places}
     elif btype == "verse_range":
         verses, err = bible_data.get_verses(version_id, book, block["chapter"], block["vs_start"], block["vs_end"])
         if err:
-            return {**base, "error": err, "verses": [], "headings": []}
+            return {**base, "error": err, "verses": [], "headings": [], "places": []}
         result_verses = [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses]
         if result_verses:
             a, z = result_verses[0]["num"], result_verses[-1]["num"]
@@ -546,25 +590,28 @@ def resolve_block(bible_data, version_id, block):
             base = {**base, "label": f"{book_name} {ch}:{a}" if a == z else f"{book_name} {ch}:{a}-{z}"}
         headings = bible_data.get_headings(version_id, book, block["chapter"], block["chapter"], block["vs_start"], block["vs_end"])
         footnotes = bible_data.get_footnotes(version_id, book, block["chapter"], block["chapter"], block["vs_start"], block["vs_end"])
-        return {**base, "verses": result_verses, "headings": headings, "footnotes": footnotes}
+        places = bible_data.get_places_for_range(book, block["chapter"], block["vs_start"], block["chapter"], block["vs_end"])
+        return {**base, "verses": result_verses, "headings": headings, "footnotes": footnotes, "places": places}
     elif btype == "whole_chapter":
         verses, err = bible_data.get_verses(version_id, book, block["chapter"])
         if err:
-            return {**base, "error": err, "verses": [], "headings": []}
+            return {**base, "error": err, "verses": [], "headings": [], "places": []}
         headings = bible_data.get_headings(version_id, book, block["chapter"], block["chapter"])
         footnotes = bible_data.get_footnotes(version_id, book, block["chapter"])
-        return {**base, "verses": [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses], "headings": headings, "footnotes": footnotes}
+        places = bible_data.get_places_for_range(book, block["chapter"])
+        return {**base, "verses": [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses], "headings": headings, "footnotes": footnotes, "places": places}
     elif btype == "chapter_range":
         verses, err = bible_data.get_chapter_range(version_id, book, block["ch_start"], block["ch_end"])
         if err:
-            return {**base, "error": err, "verses": [], "headings": []}
+            return {**base, "error": err, "verses": [], "headings": [], "places": []}
         headings = bible_data.get_headings(version_id, book, block["ch_start"], block["ch_end"])
         footnotes = bible_data.get_footnotes(version_id, book, block["ch_start"], block["ch_end"])
-        return {**base, "verses": [{"num": v, "chapter": ch, "text": t} for v, t, ch in verses], "headings": headings, "footnotes": footnotes}
+        places = bible_data.get_places_for_range(book, block["ch_start"], None, block["ch_end"], None)
+        return {**base, "verses": [{"num": v, "chapter": ch, "text": t} for v, t, ch in verses], "headings": headings, "footnotes": footnotes, "places": places}
     elif btype == "cross_chapter":
         verses, err = bible_data.get_verses_cross_chapter(version_id, book, block["ch_start"], block["vs_start"], block["ch_end"], block["vs_end"])
         if err:
-            return {**base, "error": err, "verses": [], "headings": []}
+            return {**base, "error": err, "verses": [], "headings": [], "places": []}
         result_verses = [{"num": v, "chapter": ch, "text": t} for v, t, ch in verses]
         if result_verses:
             fa, fz = result_verses[0]["chapter"], result_verses[0]["num"]
@@ -578,9 +625,10 @@ def resolve_block(bible_data, version_id, block):
                 base = {**base, "label": f"{book_name} {fa}:{fz}-{la}:{lz}"}
         headings = bible_data.get_headings(version_id, book, block["ch_start"], block["ch_end"], block["vs_start"], block["vs_end"])
         footnotes = bible_data.get_footnotes(version_id, book, block["ch_start"], block["ch_end"])
-        return {**base, "verses": result_verses, "headings": headings, "footnotes": footnotes}
+        places = bible_data.get_places_for_range(book, block["ch_start"], block["vs_start"], block["ch_end"], block["vs_end"])
+        return {**base, "verses": result_verses, "headings": headings, "footnotes": footnotes, "places": places}
 
-    return {"label": block.get("label", "?"), "error": "Unknown block type", "verses": [], "headings": [], "footnotes": [], "xrefs": []}
+    return {"label": block.get("label", "?"), "error": "Unknown block type", "verses": [], "headings": [], "footnotes": [], "xrefs": [], "places": []}
 
 
 def is_reference_query(query):
