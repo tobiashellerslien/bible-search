@@ -2,15 +2,6 @@
 
 A fast and powerful Bible search app. Look up verses by reference, search the full text with advanced operators, and compare translations side by side. Uses local copies of Bibles. Inspired by [biblegateway.com](https://biblegateway.com).
 
-## Run locally
-
-```bash
-pip install -r requirements.txt
-python main.py
-```
-
-Runs at `http://localhost:8421`
-
 ## Search syntax
 
 | Example | What it does |
@@ -31,7 +22,8 @@ Abbreviations and English names work: `joh`, `gen`, `1. mos`, `romans`.
 
 ## Features
 
+- **Quick search** — find a verse quickly
 - **Compare** — view two translations simultaneously
 - **Stats** — word frequency chart across all books
-- **Interlinear links** to BibleHub for Hebrew/Greek
-- **Theme** — options in settings
+- **Resource links** to BibleHub for Hebrew/Greek, and BibleRef for commentary
+- **Appearance** — options in settings
