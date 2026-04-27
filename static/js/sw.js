@@ -12,9 +12,13 @@ const PRECACHE = [
 ];
 
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE))
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    // {cache: 'reload'} bypasses the browser HTTP cache so a SW version bump
+    // can't accidentally re-cache stale assets from a still-valid max-age entry.
+    const requests = PRECACHE.map(u => new Request(u, { cache: 'reload' }));
+    await cache.addAll(requests);
+  })());
   // Take over immediately — don't wait for old SW to finish.
   self.skipWaiting();
 });

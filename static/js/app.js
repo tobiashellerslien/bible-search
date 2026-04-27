@@ -15,17 +15,20 @@ const I18N = {
         'toggle.newlines': 'New line per verse',
         'toggle.headings': 'Headings',
         'toggle.annotations': 'Annotations †§',
+        'toggle.places': 'Places 📍',
         'toggle.copyHint': 'Verse numbers & new line affect copy formatting',
         'toggle.copyHintAria': 'Formatting info',
         'modal.helpInfo': '// Help & info',
         'modal.tab.help': 'Help',
         'modal.tab.info': 'Info',
         'help.section.features': 'Features',
+        'help.feature.search': 'Search: Search the entire bible, or look up references. Powerful search syntax with autocomplete and filters (e.g. search within a single book or testament). See search syntax section below.',
         'help.feature.quickSearch': 'Quick search (⚡ toggle next to the search bar): live, forgiving search that updates as you type — best for finding a single half-remembered verse fast',
         'help.feature.perVerse': 'Per verse: compare translations, copy text (with or without reference), link to original text / interlinear (biblehub.com)',
-        'help.feature.commentary': 'Per verse: link to Bible commentary (bibleref.com) — note: not all OT verses have commentary yet',
-        'help.feature.stats': 'Search: stats panel with data overview and distribution of hits across the Bible',
+        'help.feature.commentary': 'Per verse/chapter: link to Bible commentary (bibleref.com) — note: not all OT verses/chapters have commentary yet',
+        'help.feature.stats': 'Stats: stats panel with data overview and distribution of hits across the Bible',
         'help.feature.shareUrl': 'Share the URL to share your current view (passage, search, version)',
+        'help.feature.places': 'Places: Bible places (cities, regions, rivers) appear as 📍 chips next to verses; click "🗺️ Map" on a passage to see them all on a satellite map. Toggle the chips on/off in browse & display.',
         'help.feature.pwa': 'Install as app: add to home screen (iOS: Share → Add to Home Screen, Android: browser menu → Install) for a full-screen app experience',
         'help.section.searchSyntax': 'Search & Syntax',
         'help.section.refLookup': 'Reference lookup',
@@ -72,7 +75,7 @@ const I18N = {
         'help.row.tabBookSearch': 'Search within completed book name',
         'help.row.acNav': 'Navigate autocomplete suggestions',
         'info.about.title': 'About website',
-        'info.about.text': "A fast and powerful Bible search tool, made to find passages fast and for personal Bible study. Look up references, search for words and phrases across the whole Bible or using filters, view stats and data for searches, explore cross-references, and compare translations. View help section for all features.",
+        'info.about.text': "A fast and powerful Bible search tool, made to find passages fast and for personal Bible study. View help section for all features.",
         'info.aboutMe.title': 'About me',
         // Fill in your bio below. HTML is supported (e.g. <a href="..."> links).
         'info.aboutMe.text': 'My name is Tobias, and I am a Christian student in Trondheim, Norway. I created this tool because I personally needed a way to search the Bible quickly, especially the Norwegian translations. I hope it can now be of use to others as well, whether it’s for finding the right verse at the right time, as a tool for Bible study, or as a way to get to know God and His word better.',
@@ -81,6 +84,8 @@ const I18N = {
         'info.bibleText.text': 'Bible text is sourced from <a href="https://www.bible.com" target="_blank" rel="noopener">YouVersion / bible.com</a> and stored locally to enable fast lookups and advanced full-text search. All rights to the Bible translations belong to their respective copyright holders and publishers. This tool is intended for personal use and Bible study only — not for redistribution.',
         'info.crossRefs.title': 'Cross-references',
         'info.crossRefs.text': 'Cross-reference data (~345,000 references) comes from <a href="https://www.openbible.info/labs/cross-references/" target="_blank" rel="noopener">OpenBible.info\'s cross-reference project</a>, which is primarily sourced from the Treasury of Scripture Knowledge (TSK). Used under Creative Commons Attribution 4.0.',
+        'info.places.title': 'Place data & maps',
+        'info.places.text': 'Place identifications (~1,300 cities, regions, rivers and paths from the Bible) come from <a href="https://www.openbible.info/geo/" target="_blank" rel="noopener">OpenBible.info\'s Bible geocoding project</a>. The dataset as a whole is licensed under the Creative Commons Attribution license, meaning it can be used for any purpose as long as OpenBible.info is credited. <br><br><strong>Important caveat:</strong> only the single <em>most-likely</em> location for each place is shown here. Many biblical places have several plausible identifications proposed by different scholars, and as the author writes: <em>"There are almost certainly errors."</em> For alternative locations, sources behind each identification, and the full dataset, see <a href="https://www.openbible.info/geo/" target="_blank" rel="noopener">openbible.info/geo</a>. <br><br>Map tiles: satellite imagery © <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a>, Maxar, Earthstar Geographics; street tiles © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors. Map rendering by <a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>.',
         'info.openSource.title': 'Open source',
         'info.openSource.text': 'This project is open source under the MIT license — <a href="https://github.com/tobiashellerslien/bible-search" target="_blank" rel="noopener">github.com/tobiashellerslien/bible-search</a>.',
         'info.openSource.competition': 'link to the competing service',
@@ -115,7 +120,7 @@ const I18N = {
         'settings.bibleVersion': 'Bible version',
         'settings.savedDefault': 'Default version saved',
         'empty.title': 'Search the Bible',
-        'empty.tagline': 'References, full-text search, cross-references and stats — across many translations.',
+        'empty.tagline': 'References, full-text search, cross-references and more  — across multiple translations.',
         'empty.verse.text': 'All Scripture is inspired by God and profitable for teaching, for reproof, for correction, for training in righteousness; so that the man of God may be adequate, equipped for every good work.',
         'empty.verse.ref': '2 Timothy 3:16–17',
         'empty.btn.help': '? Help',
@@ -136,7 +141,9 @@ const I18N = {
         'card.more.interlinear': 'interlinear',
         'card.more.commentary': 'commentary',
         'card.more.source': 'source',
-        'card.readChapter': '📖 read chapter',
+        'card.readChapter': '📖 Read chapter',
+        'card.mapBtn': '🗺️ Map ({0})',
+        'card.mapBtn.title': 'View {0} place(s) on map',
         'card.compareLoading': 'Loading...',
         'card.compareNotFound': 'Not found',
         'card.compareFailed': 'Failed to load',
@@ -190,11 +197,12 @@ const I18N = {
         'ac.filter': 'filter',
         'ac.searchInBook': 'search in book',
         'verse.chapterHeading': 'Chapter {0}',
-        'quickSearch.label': 'Quick',
+        'verse.openVerse': 'Open verse',
         'quickSearch.toggle': 'Quick search — live results as you type',
         'quickSearch.hint': 'Type at least 3 characters',
         'quickSearch.none': 'No matches.',
         'quickSearch.truncated': 'Showing first {0} — keep typing to narrow.',
+        'map.disclaimer': 'Many locations are approximate (regions) and may contain errors. See <a href="https://openbible.info/geo/" target="_blank" rel="noopener">openbible.info/geo</a> for sources and alternative locations.',
     },
     no: {
         'header.help': 'Hjelp & info — trykk ? når som helst',
@@ -211,20 +219,23 @@ const I18N = {
         'toggle.newlines': 'Linjeskift per vers',
         'toggle.headings': 'Overskrifter',
         'toggle.annotations': 'Annotasjoner †§',
+        'toggle.places': 'Steder 📍',
         'toggle.copyHint': 'Versnummer og linjeskift påvirker kopiering',
         'toggle.copyHintAria': 'Formateringsinfo',
         'modal.helpInfo': '// Hjelp & info',
         'modal.tab.help': 'Hjelp',
         'modal.tab.info': 'Info',
         'help.section.features': 'Funksjoner',
-        'help.feature.quickSearch': 'Hurtigsøk (⚡-bryter ved siden av søkefeltet): direkte, tolerant søk som oppdateres mens du skriver — best for å finne ett enkelt vers du nesten husker',
+        'help.feature.search': 'Søk: Søk i hele Bibelen, eller slå opp referanser. Kraftig søkesyntaks med autofullføring og filtre (f.eks. søk innenfor en enkelt bok eller testament). Se seksjon for søkesyntaks nedenfor.',
+        'help.feature.quickSearch': 'Hurtigsøk (⚡-bryter ved siden av søkefeltet): direkte, feiltolerant søk som oppdateres mens du skriver — best for å finne ett enkelt vers du nesten husker',
         'help.feature.perVerse': 'Per vers: sammenlign oversettelser, kopier tekst (med eller uten referanse), lenke til grunntekst / interlineær (biblehub.com)',
-        'help.feature.commentary': 'Per vers: lenke til bibelkommentar (bibleref.com) — merk: ikke alle GT-vers har kommentar enda',
-        'help.feature.stats': 'Søk: statistikkpanel med dataoversikt og fordeling av treff gjennom Bibelen',
+        'help.feature.commentary': 'Per vers/kapittel: lenke til bibelkommentar (bibleref.com) — merk: ikke alle GT-vers/kapitler har kommentar enda',
+        'help.feature.stats': 'Statistikk: statistikkpanel med dataoversikt og fordeling av treff gjennom Bibelen',
         'help.feature.shareUrl': 'Del URL-en for å dele visningen du er i (tekst, søk, oversettelse)',
+        'help.feature.places': 'Steder: bibelske steder (byer, regioner, elver) vises som 📍-merker ved siden av versene; trykk "🗺️ Kart" på en passasje for å se alle på et satellittkart. Skru merkene av/på i bla & vis.',
         'help.feature.pwa': 'Installer som app: legg til på hjemskjerm (iOS: Del → Legg til på hjemskjerm, Android: nettlesermeny → Installer) for en fullskjermsopplevelse',
         'help.section.searchSyntax': 'Søk & syntaks',
-        'help.section.refLookup': 'Henvisninger',
+        'help.section.refLookup': 'Referanser',
         'help.row.singleVerse': 'Enkelt vers',
         'help.row.wholeChapter': 'Helt kapittel',
         'help.row.verseRange': 'Vers-område',
@@ -268,7 +279,7 @@ const I18N = {
         'help.row.tabBookSearch': 'Søk innenfor fullført boknavn',
         'help.row.acNav': 'Naviger autofullføringer',
         'info.about.title': 'Om nettsiden',
-        'info.about.text': 'Et raskt og kraftig bibelsøkeverktøy, laget for å finne vers raskt og for personlig bibelstudie. Slå opp vers, søk etter ord og fraser i hele Bibelen eller ved bruk av filtre, se statistikk for søk, utforsk kryssreferanser og sammenlign oversettelser. Se hjelp-fanen for alle funksjoner.',
+        'info.about.text': 'Et raskt og kraftig bibelsøkeverktøy, laget for å finne vers fort og for personlig bibelstudie. Se hjelp-fanen for alle funksjoner.',
         'info.aboutMe.title': 'Om meg',
         // Fyll inn din bio nedenfor. HTML støttes (f.eks. <a href="..."> lenker).
         'info.aboutMe.text': 'Jeg heter Tobias, og er en kristen student i Trondheim. Jeg lagde dette verktøyet fordi jeg selv savnet en måte å kunne søke raskt i bibelen på, spesielt i de norske oversettelsene. Håper nå at dette kan bli til nytte for andre også, både for å kunne finne rett vers i rett tid, som en hjelp til bibelstudie, og for å bli bedre kjent med Gud og Hans ord.',
@@ -277,6 +288,8 @@ const I18N = {
         'info.bibleText.text': 'Bibelteksten er hentet fra <a href="https://www.bible.com" target="_blank" rel="noopener">YouVersion / bible.com</a> og lagret lokalt for raske oppslag og avansert fulltekstsøk. Alle rettigheter til oversettelsene tilhører deres respektive opphavsrettighetsinnehavere og forlag. Verktøyet er ment for personlig bruk og bibelstudium — ikke for videredistribusjon.',
         'info.crossRefs.title': 'Kryssreferanser',
         'info.crossRefs.text': 'Kryssreferanser (~345 000 referanser) kommer fra <a href="https://www.openbible.info/labs/cross-references/" target="_blank" rel="noopener">OpenBible.info sitt kryssreferanseprosjekt</a>, hovedsakelig basert på Treasury of Scripture Knowledge (TSK). Brukt under Creative Commons Attribution 4.0.',
+        'info.places.title': 'Stedsdata & kart',
+        'info.places.text': 'Stedsidentifikasjoner (~1300 byer, regioner, elver og veier fra Bibelen) kommer fra <a href="https://www.openbible.info/geo/" target="_blank" rel="noopener">OpenBible.info sitt bibelske geokodingsprosjekt</a>. Datasettet er som helhet lisensiert under Creative Commons Attribution-lisensen, hvilket betyr at det kan brukes til ethvert formål så lenge OpenBible.info krediteres. <br><br><strong>Viktig forbehold:</strong> her vises kun den ene <em>mest sannsynlige</em> plasseringen for hvert sted. Mange bibelske steder har flere foreslåtte identifikasjoner fra ulike forskere, og som forfatteren selv skriver: <em>«There are almost certainly errors.»</em> For alternative plasseringer, kilder for hver identifikasjon, og det komplette datasettet, se <a href="https://www.openbible.info/geo/" target="_blank" rel="noopener">openbible.info/geo</a>. <br><br>Kartfliser: satellittbilder © <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a>, Maxar, Earthstar Geographics; gatekart © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>-bidragsytere. Kartrendering med <a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>.',
         'info.openSource.title': 'Åpen kildekode',
         'info.openSource.text': 'Dette prosjektet er åpen kildekode under MIT-lisensen — <a href="https://github.com/tobiashellerslien/bible-search" target="_blank" rel="noopener">github.com/tobiashellerslien/bible-search</a>.',
         'info.openSource.competition': 'lenke til konkurrerende tjeneste',
@@ -311,7 +324,7 @@ const I18N = {
         'settings.bibleVersion': 'Bibeloversettelse',
         'settings.savedDefault': 'Standardoversettelse lagret',
         'empty.title': 'Søk i Bibelen',
-        'empty.tagline': 'Henvisninger, fulltekstsøk, kryssreferanser og statistikk — på tvers av oversettelser.',
+        'empty.tagline': 'Oppslag, fulltekstsøk, kryssreferanser og mer — på tvers av oversettelser.',
         'empty.verse.text': 'Hele Skriften er innåndet av Gud og nyttig til lærdom, til overbevisning, til rettledning, til opptuktelse i rettferdighet, for at Guds menneske kan være fullkomment, satt i stand til all god gjerning.',
         'empty.verse.ref': '2. Timoteus 3:16–17',
         'empty.btn.help': '? Hjelp',
@@ -320,7 +333,7 @@ const I18N = {
         'card.copyTxt': 'kopier tekst',
         'card.copyTxt.title': 'Kopier kun tekst',
         'card.copyRef': 'kopier m/ ref',
-        'card.copyRef.title': 'Kopier med henvisning',
+        'card.copyRef.title': 'Kopier med referanse',
         'card.copy': 'kopier',
         'card.copy.title': 'Kopier',
         'card.copy.textOnly': 'Kopier kun tekst',
@@ -332,7 +345,9 @@ const I18N = {
         'card.more.interlinear': 'grunntekst',
         'card.more.commentary': 'kommentar',
         'card.more.source': 'kilde',
-        'card.readChapter': '📖 les kapittel',
+        'card.readChapter': '📖 Les kapittel',
+        'card.mapBtn': '🗺️ Kart ({0})',
+        'card.mapBtn.title': 'Se {0} sted(er) på kart',
         'card.compareLoading': 'Laster...',
         'card.compareNotFound': 'Ikke funnet',
         'card.compareFailed': 'Lasting feilet',
@@ -355,7 +370,7 @@ const I18N = {
         'chapterNav.nextVs': 'Neste vers',
         'verseNum.titleFmt': '{0} {1}:{2}',
         'toast.copied': 'Kopiert!',
-        'toast.copiedRef': 'Kopiert med henvisning!',
+        'toast.copiedRef': 'Kopiert med referanse!',
         'toast.linkCopied': 'Lenke kopiert!',
         'toast.copyFailed': 'Kopiering feilet',
         'toast.clipboardUnavailable': 'Utklippstavle ikke tilgjengelig',
@@ -386,11 +401,12 @@ const I18N = {
         'ac.filter': 'filter',
         'ac.searchInBook': 'søk i bok',
         'verse.chapterHeading': 'Kapittel {0}',
-        'quickSearch.label': 'Hurtig',
+        'verse.openVerse': 'Åpne vers',
         'quickSearch.toggle': 'Hurtigsøk — direkte treff mens du skriver',
         'quickSearch.hint': 'Skriv minst 3 tegn',
         'quickSearch.none': 'Ingen treff.',
         'quickSearch.truncated': 'Viser første {0} — skriv mer for å smalne inn.',
+        'map.disclaimer': 'Mange av plasseringene er omtrentlige (regioner) og kan inneholde feil. Se <a href="https://openbible.info/geo/" target="_blank" rel="noopener">openbible.info/geo</a> for kilder og alternative plasseringer.',
     },
 };
 
@@ -589,7 +605,10 @@ let statsNormMode = 'total';
 let showAnnotations = localStorage.getItem('showAnnotations') !== 'false';
 let showFootnotes = showAnnotations;
 let showXrefs = showAnnotations;
+let showPlaces = localStorage.getItem('showPlaces') === 'true';
 const xrefCache = new Map();
+const blockPlacesRegistry = {}; // { [cardIdx]: places[] }
+const mapState = { instance: null, baseLayers: null, layerGroup: null };
 
 // ── Elements ──
 const searchInput = document.getElementById('searchInput');
@@ -942,6 +961,15 @@ toggleAnnotations.addEventListener('change', () => {
     localStorage.setItem('showAnnotations', showAnnotations);
     onToggleChange();
 });
+const togglePlaces = document.getElementById('togglePlaces');
+if (togglePlaces) {
+    togglePlaces.checked = showPlaces;
+    togglePlaces.addEventListener('change', () => {
+        showPlaces = togglePlaces.checked;
+        localStorage.setItem('showPlaces', showPlaces);
+        onToggleChange();
+    });
+}
 
 document.getElementById('copyHintBtn').addEventListener('click', function() {
     this.classList.toggle('open');
@@ -1039,7 +1067,8 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
         </div>
         <div class="verse-text">`;
 
-    html += renderVerseTextHtml(block.verses, showNums, showNewlines, showHeadings, block.book, lang, ver, block.headings || [], block.footnotes || []);
+    blockPlacesRegistry[idx] = block.places || [];
+    html += renderVerseTextHtml(block.verses, showNums, showNewlines, showHeadings, block.book, lang, ver, block.headings || [], block.footnotes || [], block.places || [], idx);
     html += '</div>';
 
     if (block.book && block.verses.length > 0) {
@@ -1069,6 +1098,10 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
         html += `<div class="verse-card-footer">`;
         if (!block.is_chapter) {
             html += `<button class="card-action-btn" onclick="readChapter('${escAttr(block.book)}', ${ch}, '${escAttr(bName)}', '${verseKeysStr}')">${escHtml(t('card.readChapter'))}</button>`;
+        }
+        const placeCount = (block.places || []).length;
+        if (placeCount > 0) {
+            html += `<button class="block-map-btn" onclick="openMapForBlock(${idx},null)" title="${escAttr(t('card.mapBtn.title', placeCount))}">${escHtml(t('card.mapBtn', placeCount))}</button>`;
         }
         if (ilUrl || crUrl || yvUrl) {
             html += `<div class="card-more-wrap">
@@ -1217,7 +1250,12 @@ window.toggleCardMore = function(idx) {
     if (!menu) return;
     const wasOpen = menu.classList.contains('open');
     document.querySelectorAll('.card-more-menu.open').forEach(m => m.classList.remove('open'));
-    if (!wasOpen) menu.classList.add('open');
+    if (!wasOpen) {
+        const wrap = menu.closest('.card-more-wrap') || menu.parentElement;
+        const rect = wrap.getBoundingClientRect();
+        menu.classList.toggle('menu-up', window.innerHeight - rect.bottom < 200);
+        menu.classList.add('open');
+    }
 };
 document.addEventListener('click', e => {
     if (!e.target.closest('.card-more-wrap')) {
@@ -1230,7 +1268,12 @@ window.toggleCopyMenu = function(idx) {
     if (!menu) return;
     const wasOpen = menu.classList.contains('open');
     document.querySelectorAll('.copy-menu.open').forEach(m => m.classList.remove('open'));
-    if (!wasOpen) menu.classList.add('open');
+    if (!wasOpen) {
+        const wrap = menu.closest('.copy-menu-wrap') || menu.parentElement;
+        const rect = wrap.getBoundingClientRect();
+        menu.classList.toggle('menu-up', window.innerHeight - rect.bottom < 200);
+        menu.classList.add('open');
+    }
 };
 document.addEventListener('click', e => {
     if (!e.target.closest('.copy-menu-wrap')) {
@@ -1243,7 +1286,7 @@ function isVerseHighlighted(v) {
     return !!(currentHighlightVerses && currentHighlightVerses.keys.has(`${v.chapter}:${v.num}`));
 }
 
-function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookCode, lang, ver, headings = [], footnotes = []) {
+function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookCode, lang, ver, headings = [], footnotes = [], places = [], cardIdx = null) {
     const headingMap = {};
     headings.forEach(h => {
         if (!headingMap[h.chapter]) headingMap[h.chapter] = {};
@@ -1256,9 +1299,20 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
         footnoteMap[fn.chapter][fn.verse] = fn.text;
     });
 
+    // (chapter:verse) -> [{id, name}, ...]
+    const placeMap = {};
+    (places || []).forEach(p => {
+        (p.refs || []).forEach(r => {
+            const key = `${r.chapter}:${r.verse}`;
+            if (!placeMap[key]) placeMap[key] = [];
+            placeMap[key].push(p);
+        });
+    });
+
     let html = '';
     let lastChapter = null;
     const isMultiChapter = verses.some(x => x.chapter !== verses[0]?.chapter);
+    const enableOpen = verses.length > 1;
 
     verses.forEach((v, vi) => {
         if (isMultiChapter && v.chapter !== lastChapter) {
@@ -1290,7 +1344,11 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
         if (showNums) {
             html += `<span class="verse-num" onclick="openSingleVerse('${bookCodeSafe}',${v.chapter},${v.num},'${refName}')" title="${escAttr(bookRefName(bookCode))} ${v.chapter}:${v.num}">${v.num}</span>`;
         }
-        html += escHtml(v.text);
+        if (enableOpen && bookCodeSafe) {
+            html += `<span class="verse-text-clickable" data-book="${bookCodeSafe}" data-chapter="${v.chapter}" data-verse="${v.num}" data-ref="${refName}">${escHtml(v.text)}</span>`;
+        } else {
+            html += escHtml(v.text);
+        }
 
         const fnText = footnoteMap[v.chapter]?.[v.num];
         if (showFootnotes && fnText) {
@@ -1298,6 +1356,16 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
         }
         if (showXrefs && bookCodeSafe) {
             html += `<button class="verse-btn xr-btn" data-book="${bookCodeSafe}" data-chapter="${v.chapter}" data-verse="${v.num}" onclick="toggleXrefPanel(this)" title="${escAttr(t('annot.xrTitle'))}">§</button>`;
+        }
+
+        if (showPlaces && cardIdx !== null) {
+            const verseKey = `${v.chapter}:${v.num}`;
+            const versePlaces = placeMap[verseKey];
+            if (versePlaces && versePlaces.length) {
+                versePlaces.forEach(p => {
+                    html += `<button class="place-chip" onclick="openMapForBlock(${cardIdx},${p.id})" title="${escAttr(p.placemark || p.name)}"><span class="place-chip-icon">\u{1F4CD}</span>${escHtml(p.name)}</button>`;
+                });
+            }
         }
 
         html += `</span> `;
@@ -1542,6 +1610,71 @@ window.openSingleVerse = function(bookCode, chapter, verse, bName) {
     updateSearchHighlight();
     doSearch();
 };
+
+// ── Verse-text click popup ───────────────────────────────────────────────────
+let _versePopupEl = null;
+let _versePopupKey = null;
+function _ensureVersePopup() {
+    if (_versePopupEl) return _versePopupEl;
+    const el = document.createElement('div');
+    el.className = 'verse-open-popup';
+    el.style.display = 'none';
+    document.body.appendChild(el);
+    _versePopupEl = el;
+    return el;
+}
+function _hideVersePopup() {
+    if (_versePopupEl) _versePopupEl.style.display = 'none';
+    _versePopupKey = null;
+}
+document.addEventListener('click', (ev) => {
+    const target = ev.target.closest('.verse-text-clickable');
+    if (target) {
+        // ignore if a child interactive element handled it
+        if (ev.target.closest('.verse-btn, .place-chip, .verse-num, a, button')) return;
+        ev.stopPropagation();
+        const book = target.dataset.book;
+        const chapter = parseInt(target.dataset.chapter, 10);
+        const verse = parseInt(target.dataset.verse, 10);
+        const ref = target.dataset.ref || book;
+        const key = `${book}|${chapter}|${verse}`;
+        if (_versePopupEl && _versePopupEl.style.display === 'block' && _versePopupKey === key) {
+            _hideVersePopup();
+            return;
+        }
+        const popup = _ensureVersePopup();
+        _versePopupKey = key;
+        popup.innerHTML = `<button type="button" class="verse-open-popup-btn">${escHtml(t('verse.openVerse'))}</button>`;
+        popup.style.display = 'block';
+        // Position above the click point
+        const px = ev.clientX;
+        const py = ev.clientY;
+        popup.style.visibility = 'hidden';
+        popup.style.left = '0px';
+        popup.style.top = '0px';
+        const rect = popup.getBoundingClientRect();
+        let left = px - rect.width / 2;
+        let top = py - rect.height - 10;
+        if (top < 8) top = py + 14;
+        left = Math.max(8, Math.min(left, window.innerWidth - rect.width - 8));
+        popup.style.left = (left + window.scrollX) + 'px';
+        popup.style.top = (top + window.scrollY) + 'px';
+        popup.style.visibility = 'visible';
+        const btn = popup.querySelector('.verse-open-popup-btn');
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            _hideVersePopup();
+            window.openSingleVerse(book, chapter, verse, ref);
+        };
+        return;
+    }
+    if (_versePopupEl && _versePopupEl.style.display === 'block' && !ev.target.closest('.verse-open-popup')) {
+        _hideVersePopup();
+    }
+});
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') _hideVersePopup(); });
+window.addEventListener('scroll', _hideVersePopup, true);
+window.addEventListener('resize', _hideVersePopup);
 
 // ── Text search ──
 let textSearchBookTotals = {};
@@ -3025,3 +3158,344 @@ function toggleDisplayOptions() {
     const arrow = btn.querySelector('.display-arrow');
     if (arrow) arrow.innerHTML = isOpen ? '&#9660;' : '&#9658;';
 }
+
+// ── Map: place visualization ─────────────────────────────────────────────────
+
+function placeStyle(kind, highlighted = false) {
+    const w = highlighted ? 4 : 2;
+    if (kind === 'water' || kind === 'waterpoint' || kind === 'waterrepresentativepoint') {
+        return { color: '#1769aa', fillColor: '#3a8fd0', fillOpacity: 0.45, weight: w, radius: 6 };
+    }
+    if (kind === 'region') {
+        return { color: highlighted ? '#ffeb3b' : '#555', fillColor: '#777', fillOpacity: highlighted ? 0.45 : 0.25, weight: highlighted ? 3 : 1, radius: 6 };
+    }
+    if (kind === 'path') {
+        return { color: '#7a5a25', weight: w, radius: 6, fillOpacity: 0.6 };
+    }
+    if (kind === 'landrepresentativepoint') {
+        return { color: '#444', fillColor: '#fff', fillOpacity: 0.95, weight: w, radius: 6 };
+    }
+    return { color: '#7a1a1a', fillColor: '#d23f3f', fillOpacity: 0.9, weight: w, radius: 6 };
+}
+
+function placeDotColor(kind) {
+    if (kind === 'water' || kind === 'waterpoint' || kind === 'waterrepresentativepoint') return '#3a8fd0';
+    if (kind === 'region') return '#777';
+    if (kind === 'path') return '#7a5a25';
+    if (kind === 'landrepresentativepoint') return '#fff';
+    return '#d23f3f';
+}
+
+function geometryCentroid(geom) {
+    if (!geom) return null;
+    if (geom.type === 'Point') return [geom.coordinates[1], geom.coordinates[0]];
+    if (geom.type === 'LineString' && geom.coordinates.length) {
+        const mid = geom.coordinates[Math.floor(geom.coordinates.length / 2)];
+        return [mid[1], mid[0]];
+    }
+    if (geom.type === 'Polygon' && geom.coordinates[0]?.length) {
+        const ring = geom.coordinates[0];
+        let sx = 0, sy = 0;
+        ring.forEach(c => { sx += c[0]; sy += c[1]; });
+        return [sy / ring.length, sx / ring.length];
+    }
+    if (geom.type === 'GeometryCollection' && geom.geometries.length) {
+        return geometryCentroid(geom.geometries[0]);
+    }
+    return null;
+}
+
+function pointInRing(lng, lat, ring) {
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const xi = ring[i][0], yi = ring[i][1];
+        const xj = ring[j][0], yj = ring[j][1];
+        const intersect = ((yi > lat) !== (yj > lat)) &&
+            (lng < (xj - xi) * (lat - yi) / (yj - yi + 1e-12) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
+function geometryContains(geom, lat, lng) {
+    if (!geom) return false;
+    if (geom.type === 'Polygon') return pointInRing(lng, lat, geom.coordinates[0]);
+    if (geom.type === 'GeometryCollection') return geom.geometries.some(g => geometryContains(g, lat, lng));
+    return false;
+}
+
+function ensureMap() {
+    if (mapState.instance) return mapState.instance;
+    const esri = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
+            maxZoom: 19,
+        }
+    );
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+    });
+    const map = L.map('mapContainer', { layers: [esri], zoomControl: true, worldCopyJump: true });
+    L.control.layers({ 'Satellite (Esri)': esri, 'Street (OSM)': osm }, {}).addTo(map);
+    map.setView([31.78, 35.22], 7);
+    // Custom panes for layer ordering: regions back, lines middle, points top.
+    map.createPane('regionsPane'); map.getPane('regionsPane').style.zIndex = 400;
+    map.createPane('linesPane');   map.getPane('linesPane').style.zIndex   = 410;
+    map.createPane('pointsPane');  map.getPane('pointsPane').style.zIndex  = 420;
+    mapState.instance = map;
+    mapState.baseLayers = { esri, osm };
+    mapState.layerGroup = L.layerGroup().addTo(map);
+    mapState.entries = [];
+    mapState.hoveredPolygonId = null;
+
+    map.on('mousemove', (e) => {
+        const { lat, lng } = e.latlng;
+        const containing = (mapState.entries || []).filter(en =>
+            en.isPolygon && geometryContains(en.place.geometry, lat, lng)
+        );
+        let targetId = null;
+        if (containing.length > 0) {
+            let smallest = Infinity;
+            containing.forEach(en => {
+                const b = en.layer.getBounds();
+                const area = (b.getEast() - b.getWest()) * (b.getNorth() - b.getSouth());
+                if (area < smallest) { smallest = area; targetId = en.place.id; }
+            });
+        }
+        if (targetId !== mapState.hoveredPolygonId) {
+            if (mapState.hoveredPolygonId !== null) {
+                const prev = (mapState.entries || []).find(en => en.place.id === mapState.hoveredPolygonId);
+                if (prev) prev.layer.setStyle(placeStyle(prev.place.kind, false));
+            }
+            if (targetId !== null) {
+                const cur = (mapState.entries || []).find(en => en.place.id === targetId);
+                if (cur) { cur.layer.setStyle(placeStyle(cur.place.kind, true)); if (cur.layer.bringToFront) cur.layer.bringToFront(); }
+            }
+            mapState.hoveredPolygonId = targetId;
+        }
+    });
+
+    map.on('mouseout', () => {
+        if (mapState.hoveredPolygonId !== null) {
+            const prev = (mapState.entries || []).find(en => en.place.id === mapState.hoveredPolygonId);
+            if (prev) prev.layer.setStyle(placeStyle(prev.place.kind, false));
+            mapState.hoveredPolygonId = null;
+        }
+    });
+
+    return map;
+}
+
+function geometryPane(geom) {
+    if (!geom) return 'pointsPane';
+    if (geom.type === 'Point') return 'pointsPane';
+    if (geom.type === 'LineString') return 'linesPane';
+    if (geom.type === 'Polygon') return 'regionsPane';
+    if (geom.type === 'GeometryCollection') {
+        const types = geom.geometries.map(g => g.type);
+        if (types.includes('Point')) return 'pointsPane';
+        if (types.includes('LineString')) return 'linesPane';
+        return 'regionsPane';
+    }
+    return 'pointsPane';
+}
+
+function buildPopupHtml(place, alsoHere = []) {
+    const center = geometryCentroid(place.geometry);
+    const aliases = (place.aliases || []).filter(a => a && a !== place.name);
+    let html = `<div class="place-popup-name"><b>${escHtml(place.name)}</b></div>`;
+    if (place.placemark && place.placemark !== place.name) {
+        html += `<div class="place-popup-aliases">${escHtml(place.placemark)}</div>`;
+    }
+    if (aliases.length) {
+        html += `<div class="place-popup-aliases">${escHtml(aliases.join(', '))}</div>`;
+    }
+    if (center) {
+        html += `<div><a class="place-popup-link" href="https://www.google.com/maps?q=${center[0]},${center[1]}" target="_blank" rel="noopener">Open in Google Maps</a></div>`;
+    }
+    if (alsoHere.length) {
+        html += `<div class="place-popup-aliases" style="margin-top:6px;">Also here:</div>`;
+        alsoHere.forEach(p => {
+            html += `<div><a class="place-popup-link" href="#" data-focus-id="${p.id}">→ ${escHtml(p.name)}</a></div>`;
+        });
+    }
+    return html;
+}
+
+function selectPlace(placeId, opts = {}) {
+    const entry = (mapState.entries || []).find(e => e.place.id === placeId);
+    if (!entry) return;
+    // Reference point: click location if provided (precise), else this place's centroid (sidebar/focus)
+    const c = geometryCentroid(entry.place.geometry);
+    const probe = opts.clickLatLng ? [opts.clickLatLng.lat, opts.clickLatLng.lng] : c;
+    const alsoHere = [];
+    if (probe) {
+        (mapState.entries || []).forEach(e => {
+            if (e.place.id === placeId) return;
+            if (e.isPolygon && geometryContains(e.place.geometry, probe[0], probe[1])) {
+                alsoHere.push(e.place);
+            }
+        });
+    }
+    entry.layer.setPopupContent(buildPopupHtml(entry.place, alsoHere));
+    if (c && opts.fly !== false) {
+        const targetZoom = entry.isPolygon ? Math.max(mapState.instance.getZoom(), 9) : 12;
+        mapState.instance.flyTo(c, targetZoom, { duration: 0.5 });
+        setTimeout(() => entry.layer.openPopup(c), 550);
+    } else if (opts.clickLatLng) {
+        entry.layer.openPopup(opts.clickLatLng);
+    } else {
+        entry.layer.openPopup();
+    }
+    highlightSidebarItem(placeId);
+}
+
+function highlightSidebarItem(placeId) {
+    const sidebar = document.getElementById('mapSidebar');
+    if (!sidebar) return;
+    sidebar.querySelectorAll('.map-place-item').forEach(el => {
+        const isActive = Number(el.dataset.placeId) === placeId;
+        el.classList.toggle('active', isActive);
+        if (isActive) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+}
+
+function buildSidebar(places) {
+    const sidebar = document.getElementById('mapSidebar');
+    if (!sidebar) return;
+    const sorted = [...places].sort((a, b) => a.name.localeCompare(b.name));
+    sidebar.innerHTML = sorted.map(p => {
+        const dot = `<span class="map-place-dot" style="background:${placeDotColor(p.kind)}"></span>`;
+        return `<div class="map-place-item" data-place-id="${p.id}" title="${escAttr(p.placemark || p.name)}">${dot}<span class="map-place-name">${escHtml(p.name)}</span></div>`;
+    }).join('');
+    sidebar.querySelectorAll('.map-place-item').forEach(el => {
+        el.addEventListener('click', () => selectPlace(Number(el.dataset.placeId)));
+    });
+}
+
+function attachLayerHandlers(entry) {
+    const { layer, place, isPolygon } = entry;
+    // Polygon hover is handled by the map-level mousemove in ensureMap (supports nested polygons).
+    // Keep per-layer hover only for points/circles.
+    if (!isPolygon) {
+        const baseStyle = placeStyle(place.kind, false);
+        const hoverStyle = placeStyle(place.kind, true);
+        layer.on('mouseover', () => { layer.setStyle ? layer.setStyle(hoverStyle) : null; });
+        layer.on('mouseout',  () => { layer.setStyle ? layer.setStyle(baseStyle)  : null; });
+    }
+    layer.on('click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        const clickLatLng = e.latlng;
+        // When polygons overlap, pick the one with the smallest bounding box (most specific/innermost)
+        const candidates = (mapState.entries || []).filter(en =>
+            en.isPolygon && geometryContains(en.place.geometry, clickLatLng.lat, clickLatLng.lng)
+        );
+        let targetId = place.id;
+        if (candidates.length > 1) {
+            let smallest = Infinity;
+            candidates.forEach(en => {
+                const b = en.layer.getBounds();
+                const area = (b.getEast() - b.getWest()) * (b.getNorth() - b.getSouth());
+                if (area < smallest) { smallest = area; targetId = en.place.id; }
+            });
+        }
+        selectPlace(targetId, { fly: false, clickLatLng });
+    });
+}
+
+function placeToLayer(place) {
+    const style = placeStyle(place.kind);
+    const pane = geometryPane(place.geometry);
+    return L.geoJSON(place.geometry, {
+        pane,
+        pointToLayer: (_feat, latlng) => L.circleMarker(latlng, { ...style, pane: 'pointsPane' }),
+        style: () => style,
+    }).bindPopup(buildPopupHtml(place), { maxWidth: 240, autoPanPadding: [20, 20] });
+}
+
+function openMap(places, focusId) {
+    const modal = document.getElementById('mapModal');
+    modal.classList.add('open');
+    setTimeout(() => {
+        if (typeof L === 'undefined') return;
+        const map = ensureMap();
+        mapState.layerGroup.clearLayers();
+        mapState.entries = [];
+
+        const layers = [];
+        places.forEach(p => {
+            const layer = placeToLayer(p);
+            layer.addTo(mapState.layerGroup);
+            const isPolygon = p.geometry.type === 'Polygon' ||
+                (p.geometry.type === 'GeometryCollection' && p.geometry.geometries.some(g => g.type === 'Polygon'));
+            const entry = { place: p, layer, isPolygon };
+            mapState.entries.push(entry);
+            attachLayerHandlers(entry);
+            layers.push(layer);
+        });
+
+        // Delegated click on popup "→ Also here" links
+        map.off('popupopen.alsoHere');
+        map.on('popupopen', (e) => {
+            const el = e.popup.getElement();
+            if (!el) return;
+            el.querySelectorAll('a[data-focus-id]').forEach(a => {
+                a.addEventListener('click', (ev) => {
+                    ev.preventDefault();
+                    selectPlace(Number(a.dataset.focusId));
+                });
+            });
+        });
+
+        buildSidebar(places);
+
+        map.invalidateSize();
+        if (focusId !== null && focusId !== undefined) {
+            const focusEntry = mapState.entries.find(e => e.place.id === focusId);
+            if (focusEntry) {
+                // First fit bounds to all (gives context), then fly to the focus
+                if (layers.length > 1) {
+                    const group = L.featureGroup(layers);
+                    if (group.getBounds().isValid()) map.fitBounds(group.getBounds(), { padding: [30, 30], maxZoom: 12, animate: false });
+                }
+                selectPlace(focusId);
+            }
+        } else if (layers.length) {
+            const group = L.featureGroup(layers);
+            if (group.getBounds().isValid()) map.fitBounds(group.getBounds(), { padding: [30, 30], maxZoom: 12 });
+        }
+
+        const titleEl = document.getElementById('mapModalTitle');
+        if (titleEl) titleEl.textContent = `// Map · ${places.length} place${places.length === 1 ? '' : 's'}`;
+    }, 50);
+}
+
+window.openMapForBlock = function(idx, focusId) {
+    const places = blockPlacesRegistry[idx] || [];
+    if (!places.length) return;
+    openMap(places, focusId);
+};
+
+function closeMapModal() {
+    document.getElementById('mapModal').classList.remove('open');
+}
+
+function toggleMapSidebar() {
+    const panel = document.querySelector('.map-modal-panel');
+    const isHidden = panel.classList.toggle('sidebar-hidden');
+    if (!isHidden && mapState.instance) mapState.instance.invalidateSize();
+}
+
+document.getElementById('mapSidebarToggle').addEventListener('click', toggleMapSidebar);
+document.getElementById('mapClose').addEventListener('click', closeMapModal);
+document.getElementById('mapModal').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) closeMapModal();
+});
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.getElementById('mapModal').classList.contains('open')) {
+        closeMapModal();
+        e.stopPropagation();
+    }
+}, true); // capture phase so we run before the global Escape handler

@@ -248,6 +248,47 @@ def api_crossrefs():
     return jsonify({"refs": refs, "total": total})
 
 
+@bp.get("/api/places")
+def api_places():
+    """Places mentioned in a verse / verse range / chapter / chapter range.
+    Required: book. Optional: chapter, verse_start, chapter_end, verse_end.
+    If no chapter is given, returns places for the whole book."""
+    bible_data = _bible_data()
+    book = request.args.get("book", "").upper()
+    if not book:
+        return jsonify({"error": "Missing book"}), 400
+
+    def _maybe_int(name):
+        raw = request.args.get(name)
+        if raw is None or raw == "":
+            return None
+        try:
+            return int(raw)
+        except ValueError:
+            return None
+
+    chapter = _maybe_int("chapter")
+    chapter_end = _maybe_int("chapter_end")
+    verse_start = _maybe_int("verse_start")
+    verse_end = _maybe_int("verse_end")
+    version_id = _resolve_version_id(bible_data, request.args.get("version"))
+
+    if chapter is None:
+        # Whole book — gather min/max chapter from any version
+        max_ch = 0
+        for vbooks in bible_data.book_chapters.values():
+            max_ch = max(max_ch, vbooks.get(book, 0))
+        if max_ch == 0:
+            return jsonify({"places": []})
+        places = bible_data.get_places_for_range(book, 1, None, max_ch, None, translation_id=version_id)
+    else:
+        places = bible_data.get_places_for_range(
+            book, chapter, verse_start, chapter_end or chapter, verse_end,
+            translation_id=version_id,
+        )
+    return jsonify({"places": places})
+
+
 @bp.get("/api/heartbeat")
 def api_heartbeat():
     return jsonify({"ok": True})
