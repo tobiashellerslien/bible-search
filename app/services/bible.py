@@ -321,6 +321,37 @@ class BibleData:
             ):
                 self._versification_cache[(_tid, _sb, _sc)] = _mv
 
+        # Psalm verse-0 offset cache.
+        # KJV/TSK cross-refs count superscription titles as verse 0.
+        # Some translations (B2011, BGO, NB88) store the title as a separate verse 1,
+        # making every subsequent verse off-by-one vs KJV.
+        # Others (B1930, NASB) merge the title into verse 1 text — no offset needed.
+        # Detection: if a translation's max verse for a psalm exceeds the KJV-style
+        # reference max (computed from translations that have verse 0), it has a
+        # separate title row and needs +1 adjustment.
+        self._psalm_offset_per_tid: dict = {}  # tid → set of psalm chapters needing +1
+
+        # Reference max verse per psalm chapter from translations that have verse 0
+        _ref_max: dict = {}  # psalm_ch → max non-zero verse in KJV-style translations
+        for _ch, _mv in self.db.execute(
+            """SELECT chapter, MAX(verse) FROM verses
+               WHERE book_usfm='PSA' AND verse > 0
+               AND translation_id IN (
+                   SELECT DISTINCT translation_id FROM verses WHERE book_usfm='PSA' AND verse=0
+               )
+               GROUP BY chapter"""
+        ):
+            _ref_max[_ch] = _mv
+
+        # Flag translations whose max verse exceeds the reference (separate title row)
+        for _tid, _ch, _mv in self.db.execute(
+            """SELECT translation_id, chapter, MAX(verse) FROM verses
+               WHERE book_usfm='PSA' AND verse > 0
+               GROUP BY translation_id, chapter"""
+        ):
+            if _ch in _ref_max and _mv > _ref_max[_ch]:
+                self._psalm_offset_per_tid.setdefault(_tid, set()).add(_ch)
+
         names = ", ".join(t["name"] for t in self.translations.values())
         print(f"Loaded {len(self.translations)} Bible version(s): {names}")
 
@@ -344,17 +375,28 @@ class BibleData:
                 return (book_usfm, heb_ch, verse + offset)
         return None
 
+    def _psalm_verse0_offset(self, translation_id, chapter):
+        """Return 1 if this Psalm has a separate title verse 1 in this translation
+        (making verse numbering off-by-one vs KJV cross-refs). 0 otherwise."""
+        return 1 if chapter in self._psalm_offset_per_tid.get(translation_id, set()) else 0
+
     def normalize_verse(self, translation_id, book_usfm, chapter, verse):
         """Return (book, chapter, verse) for this translation, remapping if needed."""
         remapped = self._remap_verse(translation_id, book_usfm, chapter, verse)
         return remapped if remapped else (book_usfm, chapter, verse)
 
     def normalize_reference(self, translation_id, book_usfm, chapter, verse_start, verse_end=None):
-        """Remap English-versification coordinates to MT coordinates for this translation.
+        """Remap KJV/English-versification coordinates to this translation's coordinates.
         Returns (book, chapter, verse_start, verse_end).
         """
         r_start = self._remap_verse(translation_id, book_usfm, chapter, verse_start)
         if r_start is None:
+            # Psalm verse-0 adjustment: KJV titles are verse 0, MT translations use verse 1
+            if book_usfm == "PSA":
+                offset = self._psalm_verse0_offset(translation_id, chapter)
+                if offset:
+                    nv_e = (verse_end + offset) if verse_end is not None else None
+                    return (book_usfm, chapter, verse_start + offset, nv_e)
             return (book_usfm, chapter, verse_start, verse_end)
         rb, rc, rv = r_start
         if verse_end is not None:
@@ -363,6 +405,15 @@ class BibleData:
         else:
             rv_end = None
         return (rb, rc, rv, rv_end)
+
+    def verse_to_kjv(self, translation_id, book_usfm, chapter, verse):
+        """Convert a translation verse coordinate to KJV coordinate for cross-ref FROM lookup.
+        Inverse of normalize_reference for single verses."""
+        if book_usfm == "PSA":
+            offset = self._psalm_verse0_offset(translation_id, chapter)
+            if offset:
+                return (book_usfm, chapter, verse - offset)
+        return (book_usfm, chapter, verse)
 
     # ── Verse retrieval ───────────────────────────────────────────────────────
 

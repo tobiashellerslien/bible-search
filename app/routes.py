@@ -198,12 +198,16 @@ def api_crossrefs():
     except ValueError:
         limit = 5
 
+    # Remap translation verse → KJV verse before querying the cross-refs table,
+    # which uses KJV versification (e.g. Psalms with verse-0 superscriptions).
+    kjv_book, kjv_chapter, kjv_verse = bible_data.verse_to_kjv(version_id, book, chapter, verse)
+
     rows = bible_data.db.execute(
         """SELECT to_book, to_chapter, to_verse_start, to_verse_end, to_chapter_end, votes
            FROM cross_references
            WHERE from_book=? AND from_chapter=? AND from_verse=?
            ORDER BY votes DESC""",
-        [book, chapter, verse],
+        [kjv_book, kjv_chapter, kjv_verse],
     ).fetchall()
 
     total = len(rows)
@@ -228,11 +232,29 @@ def api_crossrefs():
             nav_book, nav_ch, nav_vs = nb, nc, nv_s
             nav_vs_end, nav_ch_end = None, None
 
-        preview_row = bible_data.db.execute(
-            "SELECT text FROM verses WHERE translation_id=? AND book_usfm=? AND chapter=? AND verse=?",
-            [version_id, nav_book, nav_ch, nav_vs],
-        ).fetchone()
-        preview = preview_row[0] if preview_row else ""
+        if nav_vs_end is not None and nav_ch_end is None:
+            # single-chapter range: fetch all verses in range
+            preview_rows = bible_data.db.execute(
+                "SELECT text FROM verses WHERE translation_id=? AND book_usfm=? AND chapter=? AND verse BETWEEN ? AND ? ORDER BY verse",
+                [version_id, nav_book, nav_ch, nav_vs, nav_vs_end],
+            ).fetchall()
+            preview = " ".join(r[0] for r in preview_rows) if preview_rows else ""
+        elif nav_vs_end is not None and nav_ch_end is not None:
+            # multi-chapter range: fetch from start chapter through end chapter
+            preview_rows = bible_data.db.execute(
+                """SELECT text FROM verses
+                   WHERE translation_id=? AND book_usfm=?
+                     AND ((chapter=? AND verse>=?) OR (chapter>? AND chapter<?) OR (chapter=? AND verse<=?))
+                   ORDER BY chapter, verse""",
+                [version_id, nav_book, nav_ch, nav_vs, nav_ch, nav_ch_end, nav_ch_end, nav_vs_end],
+            ).fetchall()
+            preview = " ".join(r[0] for r in preview_rows) if preview_rows else ""
+        else:
+            preview_row = bible_data.db.execute(
+                "SELECT text FROM verses WHERE translation_id=? AND book_usfm=? AND chapter=? AND verse=?",
+                [version_id, nav_book, nav_ch, nav_vs],
+            ).fetchone()
+            preview = preview_row[0] if preview_row else ""
 
         refs.append({
             "label": label,
