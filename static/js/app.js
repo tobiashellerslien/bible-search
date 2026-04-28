@@ -136,6 +136,8 @@ const I18N = {
         'card.copy.withRef': 'Copy text and reference',
         'card.compare': 'compare',
         'card.compare.title': 'Compare versions',
+        'card.alignVerses': 'align',
+        'card.alignVerses.title': 'Align verses side by side',
         'card.allVersionsOption': '— All versions —',
         'card.more': 'More',
         'card.more.interlinear': 'interlinear',
@@ -202,7 +204,7 @@ const I18N = {
         'quickSearch.hint': 'Type at least 3 characters',
         'quickSearch.none': 'No matches.',
         'quickSearch.truncated': 'Showing first {0} — keep typing to narrow.',
-        'map.disclaimer': 'Many locations are approximate (regions) and may contain errors. See <a href="https://openbible.info/geo/" target="_blank" rel="noopener">openbible.info/geo</a> for sources and alternative locations.',
+        'map.disclaimer': 'Many locations are approximate and may contain errors. See <a href="https://openbible.info/geo/" target="_blank" rel="noopener">openbible.info/geo</a> for sources and alternative locations.',
     },
     no: {
         'header.help': 'Hjelp & info — trykk ? når som helst',
@@ -340,6 +342,8 @@ const I18N = {
         'card.copy.withRef': 'Kopier tekst og referanse',
         'card.compare': 'sammenlign',
         'card.compare.title': 'Sammenlign oversettelser',
+        'card.alignVerses': 'juster',
+        'card.alignVerses.title': 'Juster vers side ved side',
         'card.allVersionsOption': '— Alle oversettelser —',
         'card.more': 'Mer',
         'card.more.interlinear': 'grunntekst',
@@ -406,7 +410,7 @@ const I18N = {
         'quickSearch.hint': 'Skriv minst 3 tegn',
         'quickSearch.none': 'Ingen treff.',
         'quickSearch.truncated': 'Viser første {0} — skriv mer for å smalne inn.',
-        'map.disclaimer': 'Mange av plasseringene er omtrentlige (regioner) og kan inneholde feil. Se <a href="https://openbible.info/geo/" target="_blank" rel="noopener">openbible.info/geo</a> for kilder og alternative plasseringer.',
+        'map.disclaimer': 'Mange av plasseringene er omtrentlige og kan inneholde feil. Se <a href="https://openbible.info/geo/" target="_blank" rel="noopener">openbible.info/geo</a> for kilder og alternative plasseringer.',
     },
 };
 
@@ -881,6 +885,7 @@ async function doSearch(pushHistory = true, resetAC = true) {
     currentView = 'normal';
     currentChapterInfo = null;
     Object.keys(cardCompare).forEach(k => delete cardCompare[k]);
+    if (typeof updateWideMode === 'function') updateWideMode();
     const version = versionSelect.value;
     if (pushHistory) pushState(query, version);
     updateSearchHighlight();
@@ -1000,6 +1005,7 @@ function renderAll() {
     Object.keys(cardCompare).forEach(idx => {
         if (cardCompare[idx] && cardCompare[idx].visible) renderCompareBody(idx);
     });
+    if (typeof updateWideMode === 'function') updateWideMode();
 }
 
 function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, ver) {
@@ -1048,27 +1054,80 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
         }
     }
 
-    let html = `<div class="verse-card" id="${cardId}"${swipeAttrs}>
+    // Build side-nav (PC: prev/next click; mobile: visible swipe affordance)
+    let sideNavHtml = '';
+    let cardNavData = null; // populated below if applicable
+    if (block.book && block.verses.length > 0) {
+        const _ch = block.verses[0].chapter;
+        const _bName = bookRefName(block.book);
+        const _maxCh = (booksData.find(b => b.code === block.book) || {}).chapters || 0;
+        const _isVerseView = !block.is_chapter;
+        const _allSameCh = block.verses.every(v => v.chapter === _ch);
+        if (_allSameCh && _maxCh > 0) {
+            const _firstV = block.verses[0].num, _lastV = block.verses[block.verses.length - 1].num;
+            let _hasPrev, _hasNext, _prevCall, _nextCall;
+            if (_isVerseView) {
+                const _maxV = maxVerseInChapter(block.book, _ch);
+                _hasPrev = _firstV > 1 || _ch > 1;
+                _hasNext = (_maxV && _lastV < _maxV) || _ch < _maxCh;
+                _prevCall = `goVerse('${escAttr(block.book)}', ${_ch}, ${_firstV}, '${escAttr(_bName)}', 'prev')`;
+                _nextCall = `goVerse('${escAttr(block.book)}', ${_ch}, ${_lastV}, '${escAttr(_bName)}', 'next')`;
+            } else {
+                _hasPrev = _ch > 1;
+                _hasNext = _ch < _maxCh;
+                _prevCall = `goChapter('${escAttr(block.book)}', ${_ch - 1}, '${escAttr(_bName)}', 'prev')`;
+                _nextCall = `goChapter('${escAttr(block.book)}', ${_ch + 1}, '${escAttr(_bName)}', 'next')`;
+            }
+            cardNavData = { hasPrev: _hasPrev, hasNext: _hasNext };
+            sideNavHtml = `<button class="side-nav side-nav-prev" data-disabled="${_hasPrev ? '0' : '1'}" ${_hasPrev ? `onclick="${_prevCall}"` : ''} title="${escAttr(t('chapterNav.prevCh'))}" aria-label="prev">&#8249;</button>
+                <button class="side-nav side-nav-next" data-disabled="${_hasNext ? '0' : '1'}" ${_hasNext ? `onclick="${_nextCall}"` : ''} title="${escAttr(t('chapterNav.nextCh'))}" aria-label="next">&#8250;</button>`;
+        }
+    }
+
+    const isAllMode = !!(cs && cs.mode === 'all');
+    const compareActive = compareVisible && !isAllMode;
+    const alignMode = !!(cs && cs.alignMode && compareActive);
+    const mainShowNewlines = alignMode || showNewlines;
+
+    let compareOptionsHtml = '';
+    allVersionsList.forEach(v => {
+        const vid = String(v.id);
+        compareOptionsHtml += `<option value="${escAttr(vid)}"${vid === compareVer && !isAllMode ? ' selected' : ''}>${escHtml(v.name)}</option>`;
+    });
+    compareOptionsHtml += `<option value="__all__"${isAllMode ? ' selected' : ''}>${escHtml(t('card.allVersionsOption'))}</option>`;
+
+    let html = `<div class="verse-card${compareActive ? ' compare-active' : ''}" id="${cardId}"${swipeAttrs}>
+        ${sideNavHtml}
         <div class="verse-card-header">
-            <div class="verse-card-header-left">
-                <span class="verse-card-label">${escHtml(displayLabel)}</span>
-                ${chipHtml}
-            </div>
-            <div class="verse-card-header-actions">
-                <div class="copy-menu-wrap">
-                    <button class="copy-btn copy-menu-btn" onclick="toggleCopyMenu(${idx})" title="${escAttr(t('card.copy.title'))}">${escHtml(t('card.copy'))}</button>
-                    <div class="copy-menu" id="copy-menu-${idx}">
-                        <button class="copy-menu-item" onclick="copyBlockText(${idx})">${escHtml(t('card.copy.textOnly'))}</button>
-                        <button class="copy-menu-item" onclick="copyBlockRef(${idx})">${escHtml(t('card.copy.withRef'))}</button>
-                    </div>
+            <div class="verse-card-header-main">
+                <div class="verse-card-header-left">
+                    <span class="verse-card-label">${escHtml(displayLabel)}</span>
+                    ${chipHtml}
                 </div>
-                <button class="copy-btn compare-header-btn${compareVisible ? ' active' : ''}" onclick="toggleCardCompare(${idx})" title="${escAttr(t('card.compare.title'))}">${escHtml(t('card.compare'))}</button>
+                <div class="verse-card-header-actions">
+                    <div class="copy-menu-wrap">
+                        <button class="copy-btn copy-menu-btn" onclick="toggleCopyMenu(${idx})" title="${escAttr(t('card.copy.title'))}">${escHtml(t('card.copy'))}</button>
+                        <div class="copy-menu" id="copy-menu-${idx}">
+                            <button class="copy-menu-item" onclick="copyBlockText(${idx})">${escHtml(t('card.copy.textOnly'))}</button>
+                            <button class="copy-menu-item" onclick="copyBlockRef(${idx})">${escHtml(t('card.copy.withRef'))}</button>
+                        </div>
+                    </div>
+                    <button class="copy-btn compare-header-btn${compareVisible ? ' active' : ''}" onclick="toggleCardCompare(${idx})" title="${escAttr(t('card.compare.title'))}">${escHtml(t('card.compare'))}</button>
+                </div>
+            </div>
+            <div class="header-compare-slot">
+                <select class="card-compare-select" id="compare-select-header-${idx}" onchange="changeCardCompareVersion(${idx}, 'header')">${compareOptionsHtml}</select>
+                <label class="toggle-group align-mode-toggle" title="${escAttr(t('card.alignVerses.title'))}">
+                    <span>${escHtml(t('card.alignVerses'))}</span>
+                    <div class="toggle"><input type="checkbox" id="align-toggle-${idx}"${alignMode ? ' checked' : ''} onchange="toggleAlignMode(${idx})"><span class="toggle-slider"></span></div>
+                </label>
             </div>
         </div>
-        <div class="verse-text">`;
+        <div class="verse-card-body">
+        <div class="verse-text" id="main-verse-text-${idx}">`;
 
     blockPlacesRegistry[idx] = block.places || [];
-    html += renderVerseTextHtml(block.verses, showNums, showNewlines, showHeadings, block.book, lang, ver, block.headings || [], block.footnotes || [], block.places || [], idx);
+    html += renderVerseTextHtml(block.verses, showNums, mainShowNewlines, showHeadings, block.book, lang, ver, block.headings || [], block.footnotes || [], block.places || [], idx, alignMode);
     html += '</div>';
 
     if (block.book && block.verses.length > 0) {
@@ -1079,18 +1138,15 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
         const ilUrl = interlinearUrl(block.book, ch, isSingleVerse ? block.verses[0].num : null);
         const allSameCh = block.verses.every(v => v.chapter === ch);
 
-        // Compare section sits between verse text and footer
-        const isAllMode = cs && cs.mode === 'all';
+        // Compare section sits between verse text and footer.
+        // Its own header (the select) is hidden via CSS when card is compare-active on PC,
+        // because the select is hoisted into .header-compare-slot for verse-baseline alignment.
         html += `<div class="card-compare-section${compareVisible ? ' visible' : ''}" id="compare-section-${idx}">
             <div class="card-compare-header">
-                <select class="card-compare-select" id="compare-select-${idx}" onchange="changeCardCompareVersion(${idx})">`;
-        allVersionsList.forEach(v => {
-            const vid = String(v.id);
-            html += `<option value="${escAttr(vid)}"${vid === compareVer && !isAllMode ? ' selected' : ''}>${escHtml(v.name)}</option>`;
-        });
-        html += `<option value="__all__"${isAllMode ? ' selected' : ''}>${escHtml(t('card.allVersionsOption'))}</option>`;
-        html += `</select></div>
+                <select class="card-compare-select" id="compare-select-${idx}" onchange="changeCardCompareVersion(${idx}, 'section')">${compareOptionsHtml}</select>
+            </div>
             <div class="card-compare-body" id="compare-body-${idx}"></div></div>`;
+        html += `</div>`; // close .verse-card-body (footer must be outside)
 
         const verseKeysStr = block.verses.map(v => `${v.chapter}:${v.num}`).join(',');
         const crUrl = biblerefUrl(block.book, ch, isSingleVerse ? block.verses[0].num : null);
@@ -1131,9 +1187,11 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
             html += `</div>`;
         }
         html += `</div>`;
+    } else {
+        html += `</div>`; // close .verse-card-body when no compare/footer was added
     }
 
-    html += '</div>';
+    html += '</div>'; // close .verse-card
     return html;
 }
 
@@ -1143,8 +1201,9 @@ function renderCompareBody(idx) {
     const body = document.getElementById(`compare-body-${idx}`);
     if (!body || !cs) return;
     const showNums = toggleVerseNums.checked;
-    const showNewlines = toggleNewlines.checked;
     const showHeadings = toggleHeadings.checked;
+    const alignMode = !!(cs.alignMode && cs.visible && cs.mode === 'single');
+    const showNewlines = alignMode || toggleNewlines.checked;
 
     if (cs.mode === 'all') {
         if (!cs.allData) { body.innerHTML = `<span class="compare-loading">${escHtml(t('card.compareLoading'))}</span>`; return; }
@@ -1160,7 +1219,7 @@ function renderCompareBody(idx) {
             if (!first) html += '<hr class="version-separator">';
             first = false;
             html += `<div><div class="version-label">${escHtml(versionLabel(vName))}</div>
-                <div class="verse-text">${renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bCode, vLang, vName, headings, blockFootnotes)}</div></div>`;
+                <div class="verse-text">${renderVerseTextHtml(verses, showNums, toggleNewlines.checked, showHeadings, bCode, vLang, vName, headings, blockFootnotes)}</div></div>`;
         }
         body.innerHTML = html;
         return;
@@ -1172,7 +1231,112 @@ function renderCompareBody(idx) {
         return;
     }
     const compLang = versionLang(cs.version);
-    body.innerHTML = `<div class="verse-text">${renderVerseTextHtml(cs.data.verses, showNums, showNewlines, showHeadings, cs.data.book, compLang, cs.version, cs.data.headings || [], cs.data.footnotes || [])}</div>`;
+    body.innerHTML = `<div class="verse-text">${renderVerseTextHtml(cs.data.verses, showNums, showNewlines, showHeadings, cs.data.book, compLang, cs.version, cs.data.headings || [], cs.data.footnotes || [], [], null, alignMode)}</div>`;
+    if (alignMode) equalizeVerseHeights(idx);
+}
+
+// Per-card .compare-active class drives the side-by-side widening + header split.
+// Only single-mode-visible cards get it; all-mode and inactive stay narrow.
+function updateWideMode() {
+    if (!resultsWrapper) return;
+    resultsWrapper.classList.remove('wide'); // legacy
+    Object.entries(cardCompare).forEach(([idx, cs]) => {
+        const card = document.getElementById(`card-${idx}`);
+        if (!card) return;
+        const active = !!(cs && cs.visible && cs.mode !== 'all');
+        card.classList.toggle('compare-active', active);
+    });
+}
+
+function _reRenderMainVerseText(idx) {
+    const block = mainData && mainData[idx];
+    const mainVerseText = document.getElementById(`main-verse-text-${idx}`);
+    if (!mainVerseText || !block) return;
+    const cs = cardCompare[idx];
+    const alignMode = !!(cs && cs.alignMode && cs.visible && cs.mode === 'single');
+    const showNums = toggleVerseNums.checked;
+    const showHeadings = toggleHeadings.checked;
+    const showNewlines = alignMode || toggleNewlines.checked;
+    const ver = versionSelect.value;
+    const lang = versionLang(ver);
+    mainVerseText.innerHTML = renderVerseTextHtml(block.verses, showNums, showNewlines, showHeadings, block.book, lang, ver, block.headings || [], block.footnotes || [], block.places || [], idx, alignMode);
+}
+
+function equalizeVerseHeights(idx) {
+    if (window.innerWidth < 701) return;
+    const cs = cardCompare[idx];
+    if (!cs || !cs.alignMode || !cs.visible || cs.mode !== 'single') return;
+    const card = document.getElementById(`card-${idx}`);
+    if (!card) return;
+
+    // Reset all before measuring
+    card.querySelectorAll('.verse-align-row, .verse-align-pre').forEach(el => { el.style.minHeight = ''; });
+
+    const mainVerseText = document.getElementById(`main-verse-text-${idx}`);
+    const compareBody = document.getElementById(`compare-body-${idx}`);
+
+    const collectRows = (container) => {
+        const rows = {}, pres = {};
+        if (!container) return { rows, pres };
+        container.querySelectorAll('.verse-align-row').forEach(el => {
+            rows[el.dataset.key] = el;
+            const pre = el.querySelector('.verse-align-pre');
+            if (pre) pres[el.dataset.key] = pre;
+        });
+        return { rows, pres };
+    };
+
+    const { rows: mainRows, pres: mainPres } = collectRows(mainVerseText);
+    const { rows: compareRows, pres: comparePres } = collectRows(compareBody);
+
+    const allKeys = new Set([...Object.keys(mainRows), ...Object.keys(compareRows)]);
+
+    // Pass 1: equalize pre-areas (headings) so verse text starts at the same position
+    allKeys.forEach(key => {
+        const mp = mainPres[key];
+        const cp = comparePres[key];
+        if (mp && cp) {
+            const maxH = Math.max(mp.offsetHeight, cp.offsetHeight);
+            if (maxH > 0) {
+                mp.style.minHeight = maxH + 'px';
+                cp.style.minHeight = maxH + 'px';
+            }
+        }
+    });
+
+    // Pass 2: equalize whole rows (handles verse text length differences)
+    allKeys.forEach(key => {
+        const m = mainRows[key];
+        const c = compareRows[key];
+        if (m && c) {
+            const maxH = Math.max(m.offsetHeight, c.offsetHeight);
+            m.style.minHeight = maxH + 'px';
+            c.style.minHeight = maxH + 'px';
+        }
+    });
+}
+
+window.toggleAlignMode = function(idx) {
+    const cs = cardCompare[idx];
+    if (!cs || cs.mode !== 'single' || !cs.visible) return;
+    cs.alignMode = !cs.alignMode;
+
+    const cb = document.getElementById(`align-toggle-${idx}`);
+    if (cb && cb.checked !== cs.alignMode) cb.checked = cs.alignMode;
+
+    _reRenderMainVerseText(idx);
+    renderCompareBody(idx);
+};
+
+// Keep both selects (header slot + section header) in sync with the active mode/version.
+function syncCardCompareSelects(idx) {
+    const cs = cardCompare[idx];
+    if (!cs) return;
+    const val = cs.mode === 'all' ? '__all__' : cs.version;
+    const a = document.getElementById(`compare-select-${idx}`);
+    const b = document.getElementById(`compare-select-header-${idx}`);
+    if (a && a.value !== val) a.value = val;
+    if (b && b.value !== val) b.value = val;
 }
 
 window.toggleCardCompare = async function(idx) {
@@ -1180,29 +1344,47 @@ window.toggleCardCompare = async function(idx) {
     const headerBtn = document.querySelector(`#card-${idx} .compare-header-btn`);
     if (!cardCompare[idx]) {
         const defaultVer = allVersionsList.find(v => String(v.id) !== versionSelect.value) || allVersionsList[0];
-        cardCompare[idx] = { version: String(defaultVer.id), data: null, visible: true, mode: 'single', allData: null };
+        cardCompare[idx] = { version: String(defaultVer.id), data: null, visible: true, mode: 'single', allData: null, alignMode: false };
         if (section) {
             section.classList.add('visible');
             if (headerBtn) headerBtn.classList.add('active');
             renderCompareBody(idx);
         }
+        updateWideMode();
+        syncCardCompareSelects(idx);
         await loadCardCompareData(idx);
         renderCompareBody(idx);
     } else {
-        cardCompare[idx].visible = !cardCompare[idx].visible;
-        if (section) {
-            section.classList.toggle('visible', cardCompare[idx].visible);
-            if (headerBtn) headerBtn.classList.toggle('active', cardCompare[idx].visible);
+        const wasAligned = cardCompare[idx].alignMode;
+        cardCompare[idx].alignMode = false;
+        const nowVisible = !cardCompare[idx].visible;
+        cardCompare[idx].visible = nowVisible;
+        if (wasAligned) {
+            _reRenderMainVerseText(idx);
+            const cb = document.getElementById(`align-toggle-${idx}`);
+            if (cb) cb.checked = false;
         }
+        if (nowVisible) renderCompareBody(idx);
+        if (section) {
+            section.classList.toggle('visible', nowVisible);
+            if (headerBtn) headerBtn.classList.toggle('active', nowVisible);
+        }
+        updateWideMode();
     }
 };
 
-window.changeCardCompareVersion = async function(idx) {
-    const sel = document.getElementById(`compare-select-${idx}`);
+window.changeCardCompareVersion = async function(idx, source) {
+    const sel = document.getElementById(source === 'header' ? `compare-select-header-${idx}` : `compare-select-${idx}`);
     if (!sel || !cardCompare[idx]) return;
     if (sel.value === '__all__') {
+        if (cardCompare[idx].alignMode) {
+            cardCompare[idx].alignMode = false;
+            _reRenderMainVerseText(idx);
+        }
         cardCompare[idx].mode = 'all';
         cardCompare[idx].allData = null;
+        syncCardCompareSelects(idx);
+        updateWideMode(); // remove .compare-active → card narrows, section animates to stacked
         renderCompareBody(idx);
         await loadCardCompareAllData(idx);
         renderCompareBody(idx);
@@ -1210,6 +1392,8 @@ window.changeCardCompareVersion = async function(idx) {
         cardCompare[idx].mode = 'single';
         cardCompare[idx].version = sel.value;
         cardCompare[idx].data = null;
+        syncCardCompareSelects(idx);
+        updateWideMode(); // add .compare-active → card widens, side-by-side
         renderCompareBody(idx);
         await loadCardCompareData(idx);
         renderCompareBody(idx);
@@ -1286,7 +1470,7 @@ function isVerseHighlighted(v) {
     return !!(currentHighlightVerses && currentHighlightVerses.keys.has(`${v.chapter}:${v.num}`));
 }
 
-function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookCode, lang, ver, headings = [], footnotes = [], places = [], cardIdx = null) {
+function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookCode, lang, ver, headings = [], footnotes = [], places = [], cardIdx = null, alignMode = false) {
     const headingMap = {};
     headings.forEach(h => {
         if (!headingMap[h.chapter]) headingMap[h.chapter] = {};
@@ -1315,8 +1499,10 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
     const enableOpen = verses.length > 1;
 
     verses.forEach((v, vi) => {
+        if (alignMode) html += `<div class="verse-align-row" data-key="${v.chapter}:${v.num}"><div class="verse-align-pre">`;
+
         if (isMultiChapter && v.chapter !== lastChapter) {
-            if (vi > 0 && showNewlines) html += '<br>';
+            if (vi > 0 && !alignMode && showNewlines) html += '<br>';
             html += `<div class="chapter-heading">${escHtml(t('verse.chapterHeading', v.chapter))}</div>`;
             lastChapter = v.chapter;
         } else if (lastChapter === null) {
@@ -1326,9 +1512,11 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
         const headingText = showHeadings ? (headingMap[v.chapter]?.[v.num] ?? null) : null;
         if (headingText) {
             html += `<div class="verse-heading">${escHtml(headingText)}</div>`;
-        } else if (showNewlines && vi > 0 && v.chapter === lastChapter) {
+        } else if (!alignMode && showNewlines && vi > 0 && v.chapter === lastChapter) {
             html += '<br>';
         }
+
+        if (alignMode) html += `</div>`; // close .verse-align-pre
 
         const bookCodeSafe = bookCode ? escAttr(bookCode) : '';
         const refName = bookCode ? escAttr(bookRefName(bookCode)) : '';
@@ -1380,6 +1568,8 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
         if (showXrefs && bookCodeSafe) {
             html += `<div class="verse-panel xr-panel" style="display:none;max-height:0;opacity:0"><div class="xr-panel-inner"></div></div>`;
         }
+
+        if (alignMode) html += `</div>`; // close .verse-align-row
 
         lastChapter = v.chapter;
     });
@@ -1675,6 +1865,11 @@ document.addEventListener('click', (ev) => {
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') _hideVersePopup(); });
 window.addEventListener('scroll', _hideVersePopup, true);
 window.addEventListener('resize', _hideVersePopup);
+window.addEventListener('resize', () => {
+    Object.entries(cardCompare).forEach(([idx, cs]) => {
+        if (cs && cs.alignMode && cs.visible && cs.mode === 'single') equalizeVerseHeights(parseInt(idx));
+    });
+});
 
 // ── Text search ──
 let textSearchBookTotals = {};
@@ -2059,23 +2254,22 @@ function renderAllVersions(allResults, label) {
     <div class="all-versions-block">
         <div class="verse-card-header" style="border-bottom:none;padding-bottom:0;margin-bottom:8px;">
             <span class="verse-card-label" style="font-size:1rem;">${escHtml(displayLabel)}</span>
-        </div>`;
-    let firstVersion = true;
+        </div>
+        <div class="all-versions-grid">`;
     for (const [versionName, blocks] of Object.entries(allResults)) {
         const verses = blocks.flatMap(b => b.verses || []);
         if (verses.length === 0) continue;
         const headings = blocks.flatMap(b => b.headings || []);
         const blockFootnotes = blocks.flatMap(b => b.footnotes || []);
         const vLang = versionLang(versionName);
-        if (!firstVersion) html += '<hr class="version-separator">';
-        firstVersion = false;
-        html += `<div>
+        html += `<div class="av-column">
             <div class="version-label">${escHtml(versionLabel(versionName))}</div>
             <div class="verse-text">${renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bCode, vLang, versionName, headings, blockFootnotes)}</div>
         </div>`;
     }
-    html += '</div>';
+    html += '</div></div>';
     resultsWrapper.innerHTML = html;
+    if (typeof updateWideMode === 'function') updateWideMode();
 }
 
 // ── Copy ──
@@ -2131,6 +2325,7 @@ window.goHome = function(pushHistory = true) {
     searchInput.value = '';
     updateSearchHighlight();
     resultsWrapper.innerHTML = emptyStateHtml;
+    if (typeof updateWideMode === 'function') updateWideMode();
     applyI18n();
     if (pushHistory) history.pushState({}, '', '/');
 };
@@ -2705,6 +2900,34 @@ function closeAutocomplete() {
 }
 
 // ── Hotkeys ──
+// Serialize arrow-key navigation so rapid presses don't read stale currentChapterInfo
+// (which is only updated after the in-flight slideTransition completes its render).
+let _arrowNavInFlight = false;
+let _arrowNavPending = null; // 'prev' | 'next' — only the most recent press is kept
+async function queueArrowNav(dir) {
+    _arrowNavPending = dir;
+    if (_arrowNavInFlight) return;
+    _arrowNavInFlight = true;
+    try {
+        while (_arrowNavPending) {
+            const d = _arrowNavPending;
+            _arrowNavPending = null;
+            if (!currentChapterInfo) break;
+            const { book, chapter, bookName: bName, isVerseView, firstVerse, lastVerse } = currentChapterInfo;
+            const maxCh = (booksData.find(b => b.code === book) || {}).chapters || 0;
+            if (isVerseView) {
+                if (d === 'prev') await goVerse(book, chapter, firstVerse, bName, 'prev');
+                else await goVerse(book, chapter, lastVerse, bName, 'next');
+            } else {
+                if (d === 'prev' && chapter > 1) await goChapter(book, chapter - 1, bName, 'prev');
+                else if (d === 'next' && chapter < maxCh) await goChapter(book, chapter + 1, bName, 'next');
+            }
+        }
+    } finally {
+        _arrowNavInFlight = false;
+    }
+}
+
 document.addEventListener('keydown', e => {
     const inInput = ['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName);
 
@@ -2724,15 +2947,7 @@ document.addEventListener('keydown', e => {
 
     if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && currentChapterInfo) {
         e.preventDefault();
-        const { book, chapter, bookName: bName, isVerseView, firstVerse, lastVerse } = currentChapterInfo;
-        const maxCh = (booksData.find(b => b.code === book) || {}).chapters || 0;
-        if (isVerseView) {
-            if (e.key === 'ArrowLeft') goVerse(book, chapter, firstVerse, bName, 'prev');
-            else goVerse(book, chapter, lastVerse, bName, 'next');
-        } else {
-            if (e.key === 'ArrowLeft' && chapter > 1) goChapter(book, chapter - 1, bName, 'prev');
-            else if (e.key === 'ArrowRight' && chapter < maxCh) goChapter(book, chapter + 1, bName, 'next');
-        }
+        queueArrowNav(e.key === 'ArrowLeft' ? 'prev' : 'next');
         return;
     }
 
@@ -3002,27 +3217,24 @@ function escAttr(s) {
     let indicatorLeft = null, indicatorRight = null;
     let isAnimating = false;
 
+    const REST_OPACITY = 0.32;
+    function resetArrow(el) {
+        if (!el) return;
+        el.style.opacity = '';
+        el.style.transform = '';
+        el.style.color = '';
+    }
+
     function cleanup() {
         if (activeCard) {
             activeCard.classList.remove('swiping');
             activeCard.classList.remove('snap-back');
             activeCard.style.transform = '';
         }
-        if (indicatorLeft) { indicatorLeft.style.opacity = '0'; indicatorLeft.style.transform = 'translateY(-50%) scale(0)'; }
-        if (indicatorRight) { indicatorRight.style.opacity = '0'; indicatorRight.style.transform = 'translateY(-50%) scale(0)'; }
+        resetArrow(indicatorLeft);
+        resetArrow(indicatorRight);
         activeCard = null;
         isDragging = false;
-    }
-
-    function getOrCreateIndicator(side) {
-        let el = document.querySelector(`.swipe-indicator.${side}`);
-        if (!el) {
-            el = document.createElement('div');
-            el.className = `swipe-indicator ${side}`;
-            el.textContent = side === 'left' ? '←' : '→';
-            document.body.appendChild(el);
-        }
-        return el;
     }
 
     resultsWrapper.addEventListener('touchstart', function(e) {
@@ -3034,20 +3246,9 @@ function escAttr(s) {
         startY = e.touches[0].clientY;
         startTime = Date.now();
         isDragging = false;
-        indicatorLeft = getOrCreateIndicator('left');
-        indicatorRight = getOrCreateIndicator('right');
-        const cardRect = card.getBoundingClientRect();
-        const cardCenterY = cardRect.top + cardRect.height / 2;
-        indicatorLeft.style.top = cardCenterY + 'px';
-        indicatorLeft.style.left = (cardRect.left + 14) + 'px';
-        indicatorRight.style.top = cardCenterY + 'px';
-        indicatorRight.style.left = (cardRect.right - 38) + 'px';
-        indicatorLeft.style.opacity = '0';
-        indicatorRight.style.opacity = '0';
-        indicatorLeft.style.transform = 'translateY(-50%) scale(0)';
-        indicatorRight.style.transform = 'translateY(-50%) scale(0)';
-        indicatorLeft.style.display = card.dataset.swipeHasPrev === '1' ? '' : 'none';
-        indicatorRight.style.display = card.dataset.swipeHasNext === '1' ? '' : 'none';
+        // Use the in-card side-nav arrows as the swipe indicator
+        indicatorLeft = card.querySelector('.side-nav-prev');
+        indicatorRight = card.querySelector('.side-nav-next');
     }, { passive: true });
 
     resultsWrapper.addEventListener('touchmove', function(e) {
@@ -3075,27 +3276,36 @@ function escAttr(s) {
         const cardW = activeCard.offsetWidth || 300;
         const threshold = Math.min(cardW * 0.28, 80);
         const progress = Math.min(Math.abs(clampedDx) / threshold, 1);
+        const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent') || '';
 
-        if (dx < 0 && hasNext) {
-            indicatorRight.style.opacity = String(progress);
-            indicatorRight.style.transform = `translateY(-50%) scale(${0.4 + progress * 0.6})`;
-        } else {
-            indicatorRight.style.opacity = '0';
-            indicatorRight.style.transform = 'translateY(-50%) scale(0)';
+        if (indicatorRight) {
+            if (dx < 0 && hasNext) {
+                indicatorRight.style.opacity = String(REST_OPACITY + (1 - REST_OPACITY) * progress);
+                indicatorRight.style.transform = `scale(${1 + progress * 0.5})`;
+                indicatorRight.style.color = accent;
+            } else {
+                indicatorRight.style.opacity = String(REST_OPACITY);
+                indicatorRight.style.transform = '';
+                indicatorRight.style.color = '';
+            }
         }
-        if (dx > 0 && hasPrev) {
-            indicatorLeft.style.opacity = String(progress);
-            indicatorLeft.style.transform = `translateY(-50%) scale(${0.4 + progress * 0.6})`;
-        } else {
-            indicatorLeft.style.opacity = '0';
-            indicatorLeft.style.transform = 'translateY(-50%) scale(0)';
+        if (indicatorLeft) {
+            if (dx > 0 && hasPrev) {
+                indicatorLeft.style.opacity = String(REST_OPACITY + (1 - REST_OPACITY) * progress);
+                indicatorLeft.style.transform = `scale(${1 + progress * 0.5})`;
+                indicatorLeft.style.color = accent;
+            } else {
+                indicatorLeft.style.opacity = String(REST_OPACITY);
+                indicatorLeft.style.transform = '';
+                indicatorLeft.style.color = '';
+            }
         }
     }, { passive: false });
 
     async function commitSwipe(card, direction) {
         isAnimating = true;
-        if (indicatorLeft) { indicatorLeft.style.opacity = '0'; indicatorLeft.style.transform = 'translateY(-50%) scale(0)'; }
-        if (indicatorRight) { indicatorRight.style.opacity = '0'; indicatorRight.style.transform = 'translateY(-50%) scale(0)'; }
+        resetArrow(indicatorLeft);
+        resetArrow(indicatorRight);
 
         const book = card.dataset.swipeBook;
         const ch = parseInt(card.dataset.swipeCh, 10);
@@ -3116,8 +3326,8 @@ function escAttr(s) {
         card.classList.remove('swiping');
         card.classList.add('snap-back');
         card.style.transform = '';
-        if (indicatorLeft) { indicatorLeft.style.opacity = '0'; indicatorLeft.style.transform = 'translateY(-50%) scale(0)'; }
-        if (indicatorRight) { indicatorRight.style.opacity = '0'; indicatorRight.style.transform = 'translateY(-50%) scale(0)'; }
+        resetArrow(indicatorLeft);
+        resetArrow(indicatorRight);
         setTimeout(() => { if (card) card.classList.remove('snap-back'); }, 220);
     }
 
