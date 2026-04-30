@@ -1163,7 +1163,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
             html += `<div class="card-more-wrap">
                 <button class="card-action-btn card-more-btn" onclick="toggleCardMore(${idx})" title="${escAttr(t('card.more'))}">&#8943;</button>
                 <div class="card-more-menu" id="card-more-${idx}">`;
-            // if (ilUrl) html += `<a class="card-more-item" href="${ilUrl}" target="_blank" rel="noopener"><img src="/static/images/biblehub.png" alt=""> ${escHtml(t('card.more.interlinear'))}</a>`;
+            if (ilUrl) html += `<a class="card-more-item" href="${ilUrl}" target="_blank" rel="noopener"><img src="/static/images/biblehub.png" alt=""> ${escHtml(t('card.more.interlinear'))}</a>`;
             if (crUrl) html += `<a class="card-more-item" href="${crUrl}" target="_blank" rel="noopener"><img src="/static/images/bibleref.png" alt=""> ${escHtml(t('card.more.commentary'))}</a>`;
             if (yvUrl) html += `<a class="card-more-item" href="${yvUrl}" target="_blank" rel="noopener">${escHtml(t('card.more.source'))}</a>`;
             html += `</div></div>`;
