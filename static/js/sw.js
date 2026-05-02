@@ -38,6 +38,13 @@ self.addEventListener('activate', event => {
   })());
 });
 
+// Allow the page to ask which cache version is active.
+self.addEventListener('message', event => {
+  if (event.data?.type === 'GET_VERSION') {
+    event.source?.postMessage({ type: 'VERSION', version: CACHE_VERSION });
+  }
+});
+
 self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);

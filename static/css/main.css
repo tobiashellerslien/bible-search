@@ -19,7 +19,7 @@
             --font-ui: var(--font-mono);
             --font-serif: 'Georgia', 'Times New Roman', 'Palatino Linotype', serif;
             --verse-font-size: 1.1rem;
-            --radius: 8px;
+            --radius: 10px;
         }
 
         [data-font="sans"] {
@@ -64,7 +64,7 @@
         /* ── Header ── */
         .header {
             background: var(--bg);
-            border-bottom: 1px solid var(--border);
+            border-bottom: 2px solid var(--accent-dim);
             padding: 12px 20px;
             padding-top: max(12px, env(safe-area-inset-top, 12px));
             position: sticky;
@@ -254,19 +254,23 @@
             right: 6px;
             top: 50%;
             transform: translateY(-50%);
-            background: none;
+            background: color-mix(in srgb, var(--card-bg) 80%, transparent);
+            backdrop-filter: blur(2px);
             border: none;
             cursor: pointer;
             color: var(--text-muted);
             font-size: 1.1rem;
             line-height: 1;
-            padding: 2px 5px;
+            padding: 2px 6px;
             border-radius: 4px;
             z-index: 2;
             display: none;
-            transition: color 0.15s;
+            transition: color 0.15s, background 0.15s;
         }
-        .search-clear-btn:hover { color: var(--text); }
+        .search-clear-btn:hover {
+            color: var(--text);
+            background: color-mix(in srgb, var(--card-bg) 95%, transparent);
+        }
         .search-wrap.has-value .search-clear-btn { display: block; }
         .search-wrap input::placeholder {
             color: var(--text-muted);
@@ -316,7 +320,8 @@
             font-family: var(--font-ui);
             transition: border-color 0.12s, background 0.12s;
         }
-        .quick-row:hover { border-color: var(--accent); background: var(--accent-dim); }
+        .quick-row:hover,
+        .quick-row.selected { border-color: var(--accent); background: var(--accent-dim); }
         .quick-row .qr-ref {
             flex-shrink: 0;
             color: var(--accent);
@@ -692,7 +697,8 @@
         .results-wrapper > .search-result-item,
         .results-wrapper > .book-group,
         .results-wrapper > .all-versions-block,
-        .results-wrapper > .empty-state {
+        .results-wrapper > .empty-state,
+        .results-wrapper > .quick-results {
             max-width: 880px;
             margin-left: auto;
             margin-right: auto;
@@ -935,7 +941,12 @@
         }
         .verse-num:hover { text-decoration: underline; }
         .verse-text-clickable { cursor: pointer; }
-        .verse-text-clickable:hover { background: var(--hover-bg, rgba(127,127,127,0.12)); border-radius: 3px; }
+        .verse-text-clickable:hover {
+            text-decoration: underline;
+            text-decoration-color: var(--accent);
+            text-decoration-thickness: 1px;
+            text-underline-offset: 3px;
+        }
         .verse-open-popup {
             position: absolute;
             z-index: 9999;
@@ -1700,6 +1711,8 @@
             border: 1px solid var(--text-muted);
             white-space: nowrap;
             min-width: 60px;
+            width: max-content;
+            flex-shrink: 0;
             text-align: center;
         }
 
@@ -1906,7 +1919,7 @@
 
         /* ── Responsive ── */
         @media (max-width: 700px) {
-            .controls { gap: 8px; margin-top: 8px; }
+            .controls { gap: 8px; margin-top: 14px; }
             .display-area { margin-top: 4px; }
             .results-wrapper { margin-top: 6px; }
             .header h1 { font-size: 1.05rem; }
@@ -1985,9 +1998,12 @@
             .card-more-menu { left: auto; right: 0; }
             .card-more-menu.menu-up { transform-origin: bottom right; }
 
-            /* Copy menu: actions row starts from left on mobile, so anchor left */
-            .copy-menu { right: auto; left: 0; }
+            /* Copy menu: anchor toward screen center based on button position
+               (set by JS via .anchor-right). Default opens to the right. */
+            .copy-menu { right: auto; left: 0; transform-origin: top left; }
             .copy-menu.menu-up { transform-origin: bottom left; }
+            .copy-menu.anchor-right { right: 0; left: auto; transform-origin: top right; }
+            .copy-menu.anchor-right.menu-up { transform-origin: bottom right; }
 
             /* Color picker stays comfortable on touch */
             .color-swatch { width: 24px; height: 24px; }

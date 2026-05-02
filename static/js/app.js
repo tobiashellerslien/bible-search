@@ -1,211 +1,5 @@
 // ── i18n ──
 const I18N = {
-    en: {
-        'header.help': 'Help & info — press ? anytime',
-        'header.settings': 'Settings',
-        'header.darkMode': 'Toggle dark mode',
-        'search.placeholder': 'Search the Bible...',
-        'search.clear': 'Clear search',
-        'search.button': 'Search',
-        'display.toggleLabel': 'browse & display',
-        'display.browse': 'Browse:',
-        'display.bookPlaceholder': '-- Book --',
-        'display.chapterPlaceholder': '-- Ch --',
-        'toggle.verseNums': 'Verse numbers',
-        'toggle.newlines': 'New line per verse',
-        'toggle.headings': 'Headings',
-        'toggle.annotations': 'Annotations †§',
-        'toggle.places': 'Places 📍',
-        'toggle.copyHint': 'Verse numbers & new line affect copy formatting',
-        'toggle.copyHintAria': 'Formatting info',
-        'modal.helpInfo': '// Help & info',
-        'modal.tab.help': 'Help',
-        'modal.tab.info': 'Info',
-        'help.section.features': 'Features',
-        'help.feature.search': 'Search: Search the entire bible, or look up references. Powerful search syntax with autocomplete and filters (e.g. search within a single book or testament). See search syntax section below.',
-        'help.feature.quickSearch': 'Quick search (⚡ toggle next to the search bar): live, forgiving search that updates as you type — best for finding a single half-remembered verse fast',
-        'help.feature.perVerse': 'Per verse: compare translations, copy text (with or without reference), link to original text / interlinear (biblehub.com)',
-        'help.feature.commentary': 'Per verse/chapter: link to Bible commentary (bibleref.com) — note: not all OT verses/chapters have commentary yet',
-        'help.feature.stats': 'Stats: stats panel with data overview and distribution of hits across the Bible',
-        'help.feature.shareUrl': 'Share the URL to share your current view (passage, search, version)',
-        'help.feature.places': 'Places: Bible places (cities, regions, rivers) appear as 📍 chips next to verses; click "🗺️ Map" on a passage to see them all on a satellite map. Toggle the chips on/off in browse & display.',
-        'help.feature.pwa': 'Install as app: add to home screen (iOS: Share → Add to Home Screen, Android: browser menu → Install) for a full-screen app experience',
-        'help.section.searchSyntax': 'Search & Syntax',
-        'help.section.refLookup': 'Reference lookup',
-        'help.row.singleVerse': 'Single verse',
-        'help.row.wholeChapter': 'Whole chapter',
-        'help.row.verseRange': 'Verse range',
-        'help.row.crossChapter': 'Cross-chapter range',
-        'help.row.multiPassages': 'Multiple passages (context carries)',
-        'help.row.abbrevs': 'Abbreviations & English names work',
-        'help.section.textSearch': 'Text search operators (can be combined)',
-        'help.row.allWords': 'All verses containing word (also within words, like "trofast")',
-        'help.row.exactWord': 'All verses containing exact word',
-        'help.row.exactPhrase': 'Exact phrase',
-        'help.row.exclude': 'Exclude word with -',
-        'help.row.either': 'Either word (OR must be uppercase)',
-        'help.row.bothWords': 'Both words (AND, implicit)',
-        'help.section.applyFilters': 'Apply filters',
-        'help.row.gt': 'Old Testament (also: GT:)',
-        'help.row.nt': 'New Testament',
-        'help.row.pentateuch': 'Genesis – Deuteronomy (also: pentateuch:, torah:)',
-        'help.row.historical': 'Joshua – Esther (also: historical:)',
-        'help.row.poetic': 'Job, Psalms, Prov, Eccl, Song (also: wisdom:, poetic:)',
-        'help.row.prophets': 'Isaiah – Malachi (also: prophets:)',
-        'help.row.majorProphets': 'Isa, Jer, Lam, Ezek, Dan (also: major prophets:)',
-        'help.row.minorProphets': 'Hosea – Malachi (also: minor prophets:)',
-        'help.row.gospels': 'Matt, Mark, Luke, John (also: gospels:)',
-        'help.row.synoptic': 'Matt, Mark, Luke (also: synoptic:)',
-        'help.row.epistles': 'All NT letters (also: epistles:, letters:)',
-        'help.row.pauline': 'Romans – Philemon (also: pauline:)',
-        'help.row.general': 'Hebrews – Jude (also: general epistles:)',
-        'help.row.johannine': 'John, 1–3 John, Rev (also: johannine:)',
-        'help.row.apocalyptic': 'Daniel, Revelation (also: apocalyptic:)',
-        'help.row.kingsChron': '1–2 Kings, 1–2 Chr (also: kings and chronicles:)',
-        'help.row.multiVolume': 'Every multi-volume book has its own group — books of samuel, books of kings, books of chronicles, corinthian letters, thessalonian letters, letters to timothy, letters of peter, letters of john',
-        'help.row.bookScope': 'BookName: text — search within a single book',
-        'help.section.shortcuts': 'Keyboard shortcuts',
-        'help.row.focusSearch': 'Focus search',
-        'help.row.blurSearch': 'Blur search / close modal',
-        'help.row.openHelp': 'Open/close help',
-        'help.row.prevNextChVs': 'Prev/next chapter (or verse when viewing a single verse)',
-        'help.row.swipeMobile': 'Swipe right/left to navigate chapters or verses (mobile)',
-        'help.row.prevNextVer': 'Prev/next Bible version',
-        'help.row.tabAccept': 'Accept first autocomplete suggestion',
-        'help.row.tabBookSearch': 'Search within completed book name',
-        'help.row.acNav': 'Navigate autocomplete suggestions',
-        'info.about.title': 'About website',
-        'info.about.text': "A fast and powerful Bible search tool, made to find passages fast and for personal Bible study. View help section for all features.",
-        'info.aboutMe.title': 'About me',
-        // Fill in your bio below. HTML is supported (e.g. <a href="..."> links).
-        'info.aboutMe.text': 'My name is Tobias, and I am a Christian student in Trondheim, Norway. I created this tool because I personally needed a way to search the Bible quickly, especially the Norwegian translations. I hope it can now be of use to others as well, whether it’s for finding the right verse at the right time, as a tool for Bible study, or as a way to get to know God and His word better.',
-        'info.aboutMe.favorites': 'My favorite verses',
-        'info.bibleText.title': 'Bible text',
-        'info.bibleText.text': 'Bible text is sourced from <a href="https://www.bible.com" target="_blank" rel="noopener">YouVersion / bible.com</a> and stored locally to enable fast lookups and advanced full-text search. All rights to the Bible translations belong to their respective copyright holders and publishers. This tool is intended for personal use and Bible study only — not for redistribution.',
-        'info.crossRefs.title': 'Cross-references',
-        'info.crossRefs.text': 'Cross-reference data (~345,000 references) comes from <a href="https://www.openbible.info/labs/cross-references/" target="_blank" rel="noopener">OpenBible.info\'s cross-reference project</a>, which is primarily sourced from the Treasury of Scripture Knowledge (TSK). Used under Creative Commons Attribution 4.0.',
-        'info.places.title': 'Place data & maps',
-        'info.places.text': 'Place identifications (~1,300 cities, regions, rivers and paths from the Bible) come from <a href="https://www.openbible.info/geo/" target="_blank" rel="noopener">OpenBible.info\'s Bible geocoding project</a>. The dataset as a whole is licensed under the Creative Commons Attribution license, meaning it can be used for any purpose as long as OpenBible.info is credited. <br><br><strong>Important caveat:</strong> only the single <em>most-likely</em> location for each place is shown here. Many biblical places have several plausible identifications proposed by different scholars, and as the author writes: <em>"There are almost certainly errors."</em> For alternative locations, sources behind each identification, and the full dataset, see <a href="https://www.openbible.info/geo/" target="_blank" rel="noopener">openbible.info/geo</a>. <br><br>Map tiles: satellite imagery © <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a>, Maxar, Earthstar Geographics; street tiles © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors. Map rendering by <a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>.',
-        'info.openSource.title': 'Open source',
-        'info.openSource.text': 'This project is open source under the MIT license — <a href="https://github.com/tobiashellerslien/bible-search" target="_blank" rel="noopener">github.com/tobiashellerslien/bible-search</a>.',
-        'info.openSource.competition': 'link to the competing service',
-        'info.feedback.title': 'Feedback',
-        'info.feedback.text': 'Questions, suggestions, or found a bug? Reach out at <a href="mailto:tobias@hellerslien.net">tobias@hellerslien.net</a>.',
-        'modal.stats': '// Stats',
-        'stats.totalHits': 'Total hits',
-        'stats.perChapter': 'Per chapter',
-        'stats.perVerse': 'Per verse',
-        'stats.booksHit': 'Books hit',
-        'stats.gtHits': 'OT hits',
-        'stats.ntHits': 'NT hits',
-        'stats.topGT': 'Top OT',
-        'stats.topNT': 'Top NT',
-        'stats.distribution': 'Distribution shown for entire Bible (search was filtered to: {0})',
-        'stats.modalTitle': '// Stats: "{0}"',
-        'stats.goToResults': 'Go to results',
-        'stats.unitHits': '{0} hits',
-        'stats.unitChapter': '{0} / ch',
-        'stats.unitVerse': '{0} / vs',
-        'modal.settings': '// Settings',
-        'settings.appearance': 'Appearance',
-        'settings.darkMode': 'Dark mode',
-        'settings.uiFont': 'UI font',
-        'settings.uiLang': 'UI language',
-        'settings.fontMono': 'Mono',
-        'settings.fontSans': 'Sans',
-        'settings.fontSerif': 'Serif',
-        'settings.accentColor': 'Accent color',
-        'settings.verseFontSize': 'Verse font size',
-        'settings.defaults': 'Default',
-        'settings.bibleVersion': 'Bible version',
-        'settings.savedDefault': 'Default version saved',
-        'empty.title': 'Search the Bible',
-        'empty.tagline': 'References, full-text search, cross-references, maps and more  — across multiple translations.',
-        'empty.verse.text': 'All Scripture is inspired by God and profitable for teaching, for reproof, for correction, for training in righteousness; so that the man of God may be adequate, equipped for every good work.',
-        'empty.verse.ref': '2 Timothy 3:16–17',
-        'empty.btn.help': '? Help',
-        'empty.btn.about': 'ⓘ About',
-        'empty.btn.settings': '⚙ Settings',
-        'card.copyTxt': 'copy txt',
-        'card.copyTxt.title': 'Copy text only',
-        'card.copyRef': 'copy w/ ref',
-        'card.copyRef.title': 'Copy with reference',
-        'card.copy': 'copy',
-        'card.copy.title': 'Copy',
-        'card.copy.textOnly': 'Copy text only',
-        'card.copy.withRef': 'Copy text and reference',
-        'card.compare': 'compare',
-        'card.compare.title': 'Compare versions',
-        'card.alignVerses': 'align',
-        'card.alignVerses.title': 'Align verses side by side',
-        'card.allVersionsOption': '— All versions —',
-        'card.more': 'More',
-        'card.more.interlinear': 'interlinear',
-        'card.more.commentary': 'bibleref.com',
-        'card.more.source': 'source',
-        'card.readChapter': '📖 Read chapter',
-        'card.mapBtn': '🗺️ Map ({0})',
-        'card.mapBtn.title': 'View {0} place(s) on map',
-        'card.compareLoading': 'Loading...',
-        'card.compareNotFound': 'Not found',
-        'card.compareFailed': 'Failed to load',
-        'card.dismissHighlight': 'Dismiss highlight',
-        'annot.fnTitle': 'Footnote',
-        'annot.xrTitle': 'Cross-references',
-        'annot.loadingRefs': 'Loading references…',
-        'annot.loadError': 'Error loading.',
-        'annot.noRefs': 'No cross-references found.',
-        'annot.showAll': 'Show all {0} ↓',
-        'annot.openAll': 'Open all in view →',
-        'annot.loading': 'Loading…',
-        'annot.error': 'Error',
-        'chip.verseSingle': 'verse {0}',
-        'chip.verseRange': 'verses {0}–{1}',
-        'chip.verseCrossCh': 'verses {0}:{1}–{2}:{3}',
-        'chapterNav.prevCh': 'Previous chapter',
-        'chapterNav.nextCh': 'Next chapter',
-        'chapterNav.prevVs': 'Previous verse',
-        'chapterNav.nextVs': 'Next verse',
-        'verseNum.titleFmt': '{0} {1}:{2}',
-        'toast.copied': 'Copied!',
-        'toast.copiedRef': 'Copied with reference!',
-        'toast.linkCopied': 'Link copied!',
-        'toast.copyFailed': 'Copy failed',
-        'toast.clipboardUnavailable': 'Clipboard unavailable',
-        'toast.statsError': 'Stats error: {0}',
-        'toast.statsFailed': 'Failed to load stats.',
-        'search.unknownPrefix': 'Unknown filter: "{0}". Use a valid group (e.g. GT:, NT:, gospels:) or a book name.',
-        'search.emptyQuery': 'Add a search term after the filter.',
-        'searchResults.text.noResults': 'No results',
-        'searchResults.text.noResultsBody': 'No verses found for "{0}" in {1}.',
-        'searchResults.searchAllVersions': 'Search in all versions',
-        'searchResults.allVersions.noResultsBody': 'No verses found for "{0}" in any version.',
-        'searchResults.count': '{0} result for "{1}"',
-        'searchResults.countPlural': '{0} results for "{1}"',
-        'searchResults.allVersionsCountSingular': '{0} result across {1} version for "{2}"',
-        'searchResults.allVersionsCountVPlural': '{0} result across {1} versions for "{2}"',
-        'searchResults.allVersionsCountRPlural': '{0} results across {1} version for "{2}"',
-        'searchResults.allVersionsCountAllPlural': '{0} results across {1} versions for "{2}"',
-        'searchResults.expandAll': 'expand all',
-        'searchResults.collapseAll': 'collapse all',
-        'searchResults.showAll': 'show all {0}',
-        'searchResults.loadingAll': 'loading…',
-        'searchResults.statsBtn': '📊 stats',
-        'loading.errorGeneric': 'Error',
-        'loading.errorBody': 'Failed to connect to server.',
-        'loading.searchingTitle': 'Searching...',
-        'loading.searchingBody': 'Searching all versions for "{0}"',
-        'allVersions.failed': 'Failed to fetch versions.',
-        'ac.filter': 'filter',
-        'ac.searchInBook': 'search in book',
-        'verse.chapterHeading': 'Chapter {0}',
-        'verse.openVerse': 'Open verse',
-        'quickSearch.toggle': 'Quick search — live results as you type',
-        'quickSearch.hint': 'Type at least 3 characters',
-        'quickSearch.none': 'No matches.',
-        'quickSearch.truncated': 'Showing first {0} — keep typing to narrow.',
-        'map.disclaimer': 'Many locations are approximate and may contain errors. See <a href="https://openbible.info/geo/" target="_blank" rel="noopener">openbible.info/geo</a> for sources and alternative locations.',
-    },
     no: {
         'header.help': 'Hjelp & info — trykk ? når som helst',
         'header.settings': 'Innstillinger',
@@ -242,6 +36,7 @@ const I18N = {
         'help.row.wholeChapter': 'Helt kapittel',
         'help.row.verseRange': 'Vers-område',
         'help.row.crossChapter': 'Område over flere kapitler',
+        'help.row.verseToEnd': 'Fra et vers til slutten av kapittelet',
         'help.row.multiPassages': 'Flere passasjer (kontekst videreføres)',
         'help.row.abbrevs': 'Forkortelser og engelske navn fungerer',
         'help.section.textSearch': 'Tekstsøk-operatorer (kan kombineres)',
@@ -316,7 +111,6 @@ const I18N = {
         'settings.appearance': 'Utseende',
         'settings.darkMode': 'Mørk modus',
         'settings.uiFont': 'UI-skrift',
-        'settings.uiLang': 'UI-språk',
         'settings.fontMono': 'Mono',
         'settings.fontSans': 'Sans',
         'settings.fontSerif': 'Serif',
@@ -432,18 +226,14 @@ const FAVORITE_VERSES = [
     'Jes 46:9-11'
 ];
 
-let uiLang = (localStorage.getItem('uiLang') === 'no' || localStorage.getItem('uiLang') === 'en')
-    ? localStorage.getItem('uiLang')
-    : 'no';
-
 function t(key, ...args) {
-    let s = (I18N[uiLang] && I18N[uiLang][key]) || (I18N.en && I18N.en[key]) || key;
+    let s = (I18N.no && I18N.no[key]) || key;
     args.forEach((a, i) => { s = s.split(`{${i}}`).join(String(a)); });
     return s;
 }
 
 function applyI18n() {
-    document.documentElement.lang = uiLang;
+    document.documentElement.lang = 'no';
     document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
     document.querySelectorAll('[data-i18n-html]').forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
     document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
@@ -857,10 +647,24 @@ window.addEventListener('popstate', async e => {
 // ── Search ──
 searchBtn.addEventListener('click', doSearch);
 searchInput.addEventListener('keydown', e => {
+    if (quickMode && acSelectedIndex < 0 && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        const rows = [...resultsWrapper.querySelectorAll('.quick-row')];
+        if (!rows.length) return;
+        e.preventDefault();
+        let idx = rows.findIndex(r => r.classList.contains('selected'));
+        idx = e.key === 'ArrowDown'
+            ? (idx < 0 ? 0 : Math.min(rows.length - 1, idx + 1))
+            : (idx <= 0 ? rows.length - 1 : idx - 1);
+        rows.forEach(r => r.classList.remove('selected'));
+        rows[idx].classList.add('selected');
+        rows[idx].scrollIntoView({ block: 'nearest' });
+        return;
+    }
     if (e.key === 'Enter' && acSelectedIndex < 0) {
         if (quickMode) {
-            const firstRow = resultsWrapper.querySelector('.quick-row');
-            if (firstRow) firstRow.click();
+            const selected = resultsWrapper.querySelector('.quick-row.selected');
+            const target = selected || resultsWrapper.querySelector('.quick-row');
+            if (target) target.click();
             return;
         }
         doSearch();
@@ -1456,6 +1260,9 @@ window.toggleCopyMenu = function(idx) {
         const wrap = menu.closest('.copy-menu-wrap') || menu.parentElement;
         const rect = wrap.getBoundingClientRect();
         menu.classList.toggle('menu-up', window.innerHeight - rect.bottom < 200);
+        // Anchor menu to the side facing the screen center, so it never clips off-screen.
+        const buttonCenter = rect.left + rect.width / 2;
+        menu.classList.toggle('anchor-right', buttonCenter > window.innerWidth / 2);
         menu.classList.add('open');
     }
 };
@@ -1496,7 +1303,6 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
     let html = '';
     let lastChapter = null;
     const isMultiChapter = verses.some(x => x.chapter !== verses[0]?.chapter);
-    const enableOpen = verses.length > 1;
 
     verses.forEach((v, vi) => {
         if (alignMode) html += `<div class="verse-align-row" data-key="${v.chapter}:${v.num}"><div class="verse-align-pre">`;
@@ -1532,17 +1338,24 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
         if (showNums) {
             html += `<span class="verse-num" onclick="openSingleVerse('${bookCodeSafe}',${v.chapter},${v.num},'${refName}')" title="${escAttr(bookRefName(bookCode))} ${v.chapter}:${v.num}">${v.num}</span>`;
         }
-        if (enableOpen && bookCodeSafe) {
-            html += `<span class="verse-text-clickable" data-book="${bookCodeSafe}" data-chapter="${v.chapter}" data-verse="${v.num}" data-ref="${refName}">${escHtml(v.text)}</span>`;
+        const fnText = footnoteMap[v.chapter]?.[v.num];
+        if (bookCodeSafe) {
+            const hasFn = !!fnText;
+            const hasXr = (v.has_xrefs === undefined) ? true : !!v.has_xrefs;
+            html += `<span class="verse-text-clickable" data-book="${bookCodeSafe}" data-chapter="${v.chapter}" data-verse="${v.num}" data-ref="${refName}" data-has-fn="${hasFn ? '1' : '0'}" data-has-xr="${hasXr ? '1' : '0'}">${escHtml(v.text)}</span>`;
         } else {
             html += escHtml(v.text);
         }
 
-        const fnText = footnoteMap[v.chapter]?.[v.num];
         if (showFootnotes && fnText) {
             html += `<button class="verse-btn fn-btn" onclick="toggleFootnotePanel(this)" title="${escAttr(t('annot.fnTitle'))}">†</button>`;
         }
-        if (showXrefs && bookCodeSafe) {
+        // has_xrefs is set by backend (resolve_block) — only render the § symbol
+        // when this verse actually has cross-references. Defaults to true if the
+        // field is missing (e.g. lazily-loaded blocks like compare/all_versions
+        // that don't go through resolve_block) so we don't silently hide all xrefs.
+        const hasXrefs = (v.has_xrefs === undefined) ? true : !!v.has_xrefs;
+        if (showXrefs && bookCodeSafe && hasXrefs) {
             html += `<button class="verse-btn xr-btn" data-book="${bookCodeSafe}" data-chapter="${v.chapter}" data-verse="${v.num}" onclick="toggleXrefPanel(this)" title="${escAttr(t('annot.xrTitle'))}">§</button>`;
         }
 
@@ -1565,7 +1378,7 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
         if (showFootnotes && fnText) {
             html += `<div class="verse-panel fn-panel" style="display:none;max-height:0;opacity:0"><div class="fn-panel-inner">${escHtml(fnText)}</div></div>`;
         }
-        if (showXrefs && bookCodeSafe) {
+        if (showXrefs && bookCodeSafe && hasXrefs) {
             html += `<div class="verse-panel xr-panel" style="display:none;max-height:0;opacity:0"><div class="xr-panel-inner"></div></div>`;
         }
 
@@ -1834,7 +1647,12 @@ document.addEventListener('click', (ev) => {
         }
         const popup = _ensureVersePopup();
         _versePopupKey = key;
-        popup.innerHTML = `<button type="button" class="verse-open-popup-btn">${escHtml(t('verse.openVerse'))}</button>`;
+        const hasFn = target.dataset.hasFn === '1';
+        const hasXr = target.dataset.hasXr === '1';
+        let buttons = `<button type="button" class="verse-open-popup-btn" data-action="open">📖 ${escHtml(t('verse.openVerse'))}</button>`;
+        if (hasFn) buttons += `<button type="button" class="verse-open-popup-btn" data-action="fn" title="${escAttr(t('annot.fnTitle'))}">†</button>`;
+        if (hasXr) buttons += `<button type="button" class="verse-open-popup-btn" data-action="xr" title="${escAttr(t('annot.xrTitle'))}">§</button>`;
+        popup.innerHTML = buttons;
         popup.style.display = 'block';
         // Position above the click point
         const px = ev.clientX;
@@ -1850,12 +1668,26 @@ document.addEventListener('click', (ev) => {
         popup.style.left = (left + window.scrollX) + 'px';
         popup.style.top = (top + window.scrollY) + 'px';
         popup.style.visibility = 'visible';
-        const btn = popup.querySelector('.verse-open-popup-btn');
-        btn.onclick = (e) => {
-            e.stopPropagation();
-            _hideVersePopup();
-            window.openSingleVerse(book, chapter, verse, ref);
-        };
+        popup.querySelectorAll('.verse-open-popup-btn').forEach(btn => {
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                const action = btn.dataset.action;
+                _hideVersePopup();
+                if (action === 'open') {
+                    window.openSingleVerse(book, chapter, verse, ref);
+                } else if (action === 'fn') {
+                    // Find the existing fn-btn next to this verse and click it
+                    const verseLine = target.closest('.verse-line');
+                    const fnBtn = verseLine?.querySelector('.fn-btn');
+                    fnBtn?.click();
+                } else if (action === 'xr') {
+                    const xrBtn = document.querySelector(
+                        `.xr-btn[data-book="${book}"][data-chapter="${chapter}"][data-verse="${verse}"]`
+                    );
+                    xrBtn?.click();
+                }
+            };
+        });
         return;
     }
     if (_versePopupEl && _versePopupEl.style.display === 'block' && !ev.target.closest('.verse-open-popup')) {
@@ -2305,7 +2137,7 @@ window.copyBlockRef = function(blockIdx) {
 
 // ── Empty state verse link ──
 window.goToEmptyVerse = function() {
-    const query = uiLang === 'no' ? '2. Timoteus 3:16-17' : '2 Timothy 3:16-17';
+    const query = '2. Timoteus 3:16-17';
     searchInput.value = query;
     updateSearchHighlight();
     doSearch();
@@ -3029,43 +2861,6 @@ document.getElementById('fontUICtrl').addEventListener('click', e => {
 });
 applyFontUI(localStorage.getItem('fontUI') || 'mono');
 
-// ── UI language ──
-function applyUILang(val) {
-    if (val !== 'en' && val !== 'no') val = 'en';
-    uiLang = val;
-    localStorage.setItem('uiLang', val);
-    document.querySelectorAll('#uiLangCtrl .font-ui-btn').forEach(b => b.classList.toggle('active', b.dataset.val === val));
-    applyI18n();
-    rerenderCurrentView();
-}
-document.getElementById('uiLangCtrl').addEventListener('click', e => {
-    const btn = e.target.closest('.font-ui-btn');
-    if (btn) applyUILang(btn.dataset.val);
-});
-function rerenderCurrentView() {
-    const openBooks = new Set(
-        [...resultsWrapper.querySelectorAll('.book-group-header.open')]
-            .map(h => h.closest('.book-group')?.dataset.book)
-            .filter(Boolean)
-    );
-    if (currentView === 'normal' && mainData) renderAll();
-    else if (currentView === 'all_versions' && allVersionsCache) renderAllVersions(allVersionsCache.results, allVersionsCache.label);
-    else if (currentView === 'text_search' && textSearchCache) renderTextSearch(textSearchCache.results, textSearchCache.query, textSearchCache.bookTotals || {});
-    else if (currentView === 'text_search_all' && allVersionsTextCache) renderAllVersionsTextSearch(allVersionsTextCache.results, allVersionsTextCache.query);
-    if (openBooks.size > 0) {
-        openBooks.forEach(book => {
-            const group = resultsWrapper.querySelector(`.book-group[data-book="${book}"]`);
-            if (group) {
-                group.querySelector('.book-group-header')?.classList.add('open');
-                group.querySelector('.book-group-items')?.classList.add('open');
-            }
-        });
-        fixOpenGroupHeights();
-    }
-    updateExpandCollapseBtn();
-}
-// Mark current language button as active on load
-document.querySelectorAll('#uiLangCtrl .font-ui-btn').forEach(b => b.classList.toggle('active', b.dataset.val === uiLang));
 applyI18n();
 
 // ── Favorite verses link ──
