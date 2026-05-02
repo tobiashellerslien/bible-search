@@ -124,16 +124,17 @@
 
 <div class="display-area">
 <div class="display-bar">
-    <button class="display-bar-btn" id="displayOptionsBtn" onclick="toggleDisplayOptions()"><span class="display-arrow">&#9658;</span> <span data-i18n="display.toggleLabel">browse &amp; display</span></button>
+    <button class="display-bar-btn" id="blaBtn" onclick="toggleBlaPanel()"><span class="display-arrow">&#9658;</span> <span>Bla</span></button>
+    <span class="display-bar-sep">·</span>
+    <button class="display-bar-btn" id="visningBtn" onclick="toggleVisningPanel()"><span class="display-arrow">&#9658;</span> <span>Visning</span></button>
 </div>
 
-<div class="display-panel" id="displayPanel">
-    <div class="browser-bar">
-        <label data-i18n="display.browse">Browse:</label>
-        <select id="bookSelect"><option value="" data-i18n="display.bookPlaceholder">-- Book --</option></select>
-        <select id="chapterSelect" disabled><option value="" data-i18n="display.chapterPlaceholder">-- Ch --</option></select>
-    </div>
-    <div class="toggles">
+<div class="display-panel bla-panel" id="blaPanel">
+    <div class="bla-stepper" id="blaStepper"></div>
+</div>
+
+<div class="display-panel visning-panel" id="visningPanel">
+    <div class="toggles-grid">
         <label class="toggle-group">
             <span data-i18n="toggle.verseNums">Verse numbers</span>
             <div class="toggle">
@@ -151,21 +152,21 @@
             </label>
             <button class="copy-hint-btn" id="copyHintBtn" data-i18n-aria="toggle.copyHintAria" data-i18n-tooltip="toggle.copyHint">i</button>
         </div>
-        <label class="toggle-group format-sep">
+        <label class="toggle-group">
             <span data-i18n="toggle.headings">Headings</span>
             <div class="toggle">
                 <input type="checkbox" id="toggleHeadings" checked>
                 <span class="toggle-slider"></span>
             </div>
         </label>
-        <label class="toggle-group format-sep">
+        <label class="toggle-group">
             <span data-i18n="toggle.annotations">Annotations †§</span>
             <div class="toggle">
                 <input type="checkbox" id="toggleAnnotations" checked>
                 <span class="toggle-slider"></span>
             </div>
         </label>
-        <label class="toggle-group format-sep">
+        <label class="toggle-group">
             <span data-i18n="toggle.places">Places 📍</span>
             <div class="toggle">
                 <input type="checkbox" id="togglePlaces">

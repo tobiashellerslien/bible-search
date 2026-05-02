@@ -418,8 +418,6 @@ const resultsWrapper = document.getElementById('resultsWrapper');
 const emptyState = document.getElementById('emptyState');
 const emptyStateHtml = emptyState.outerHTML;
 const toast = document.getElementById('toast');
-const bookSelect = document.getElementById('bookSelect');
-const chapterSelect = document.getElementById('chapterSelect');
 const autocompleteDropdown = document.getElementById('autocompleteDropdown');
 const chartTooltip = document.getElementById('chartTooltip');
 const searchWarningEl = document.getElementById('searchWarning');
@@ -534,15 +532,13 @@ async function loadBooks() {
 }
 
 function refreshBookDropdown() {
-    const lang = versionLang(versionSelect.value);
-    const prev = bookSelect.value;
-    bookSelect.innerHTML = '<option value="">-- Book --</option>';
-    booksData.forEach(b => {
-        bookSelect.add(new Option(bookName(b.code, lang), b.code));
-    });
-    bookSelect.value = prev;
-    chapterSelect.innerHTML = '<option value="">-- Ch --</option>';
-    chapterSelect.disabled = true;
+    // Re-render Bla panel if it's currently showing book/chapter list — book names
+    // and chapter counts can change with version. Validates blaBook still exists.
+    if (blaBook && !booksData.find(b => b.code === blaBook)) {
+        blaBook = null;
+        if (blaStep === 'chapter') blaStep = 'book';
+    }
+    if (document.getElementById('blaPanel')?.classList.contains('open')) renderBlaPanel();
 }
 
 versionSelect.addEventListener('change', () => {
@@ -559,25 +555,68 @@ versionSelect.addEventListener('change', () => {
     }
 });
 
-bookSelect.addEventListener('change', () => {
-    const code = bookSelect.value;
-    chapterSelect.innerHTML = '<option value="">-- Ch --</option>';
-    if (!code) { chapterSelect.disabled = true; return; }
-    const book = booksData.find(b => b.code === code);
-    if (!book) return;
-    for (let i = 1; i <= book.chapters; i++) chapterSelect.add(new Option(i, i));
-    chapterSelect.disabled = false;
-});
+// ── Bla (browse) panel state ──
+let blaStep = 'testament';   // 'testament' | 'book' | 'chapter'
+let blaTestament = null;     // 'OT' | 'NT'
+let blaBook = null;          // book code
 
-chapterSelect.addEventListener('change', () => {
-    const code = bookSelect.value;
-    const ch = chapterSelect.value;
-    if (!code || !ch) return;
-    const book = booksData.find(b => b.code === code);
-    if (!book) return;
-    searchInput.value = `${book.name} ${ch}`;
-    updateSearchHighlight();
-    doSearch();
+function renderBlaPanel() {
+    const inner = document.getElementById('blaStepper');
+    if (!inner) return;
+    if (blaStep === 'testament' || !blaTestament) {
+        blaStep = 'testament';
+        inner.innerHTML =
+            '<div class="bla-grid bla-grid-testaments">' +
+                '<button type="button" class="bla-tile bla-tile-testament" data-bla-testament="OT">Gamle Testamentet</button>' +
+                '<button type="button" class="bla-tile bla-tile-testament" data-bla-testament="NT">Nye Testamentet</button>' +
+            '</div>';
+    } else if (blaStep === 'book') {
+        const lang = versionLang(versionSelect.value);
+        const filtered = booksData.filter(b => b.testament === blaTestament);
+        const tiles = filtered.map(b =>
+            `<button type="button" class="bla-tile bla-tile-book" data-bla-book="${escAttr(b.code)}">${escHtml(bookName(b.code, lang))}</button>`
+        ).join('');
+        const label = blaTestament === 'OT' ? 'Gamle Testamentet' : 'Nye Testamentet';
+        inner.innerHTML =
+            `<div class="bla-breadcrumb"><button type="button" class="bla-back" data-bla-back="testament">← ${escHtml(label)}</button></div>` +
+            `<div class="bla-grid bla-grid-books">${tiles}</div>`;
+    } else if (blaStep === 'chapter') {
+        const lang = versionLang(versionSelect.value);
+        const book = booksData.find(b => b.code === blaBook);
+        if (!book) { blaStep = 'book'; renderBlaPanel(); return; }
+        let tiles = '';
+        for (let i = 1; i <= book.chapters; i++) {
+            tiles += `<button type="button" class="bla-tile bla-tile-chapter" data-bla-chapter="${i}">${i}</button>`;
+        }
+        inner.innerHTML =
+            `<div class="bla-breadcrumb"><button type="button" class="bla-back" data-bla-back="book">← ${escHtml(bookName(book.code, lang))}</button></div>` +
+            `<div class="bla-grid bla-grid-chapters">${tiles}</div>`;
+    }
+}
+
+document.getElementById('blaStepper')?.addEventListener('click', e => {
+    const t = e.target.closest('button');
+    if (!t) return;
+    if (t.dataset.blaTestament) {
+        blaTestament = t.dataset.blaTestament;
+        blaStep = 'book';
+        renderBlaPanel();
+    } else if (t.dataset.blaBook) {
+        blaBook = t.dataset.blaBook;
+        blaStep = 'chapter';
+        renderBlaPanel();
+    } else if (t.dataset.blaChapter) {
+        const book = booksData.find(b => b.code === blaBook);
+        if (!book) return;
+        searchInput.value = `${book.name} ${t.dataset.blaChapter}`;
+        updateSearchHighlight();
+        doSearch();
+        _setPanel('blaPanel', 'blaBtn', false);
+    } else if (t.dataset.blaBack) {
+        if (t.dataset.blaBack === 'testament') { blaTestament = null; blaStep = 'testament'; }
+        else if (t.dataset.blaBack === 'book') { blaStep = 'book'; }
+        renderBlaPanel();
+    }
 });
 
 setInterval(() => fetch('/api/heartbeat').catch(() => {}), 30000);
@@ -3156,13 +3195,32 @@ function escAttr(s) {
     }, { passive: true });
 })();
 
-function toggleDisplayOptions() {
-    const panel = document.getElementById('displayPanel');
-    const btn = document.getElementById('displayOptionsBtn');
-    const isOpen = panel.classList.toggle('open');
-    const arrow = btn.querySelector('.display-arrow');
-    if (arrow) arrow.innerHTML = isOpen ? '&#9660;' : '&#9658;';
+function _setPanel(panelId, btnId, open) {
+    const panel = document.getElementById(panelId);
+    const btn = document.getElementById(btnId);
+    if (!panel || !btn) return false;
+    panel.classList.toggle('open', open);
+    btn.classList.toggle('open', open);
+    return open;
 }
+
+function toggleBlaPanel() {
+    const panel = document.getElementById('blaPanel');
+    const willOpen = !panel.classList.contains('open');
+    _setPanel('visningPanel', 'visningBtn', false);
+    _setPanel('blaPanel', 'blaBtn', willOpen);
+    if (willOpen) renderBlaPanel();
+}
+
+function toggleVisningPanel() {
+    const panel = document.getElementById('visningPanel');
+    const willOpen = !panel.classList.contains('open');
+    _setPanel('blaPanel', 'blaBtn', false);
+    _setPanel('visningPanel', 'visningBtn', willOpen);
+}
+
+window.toggleBlaPanel = toggleBlaPanel;
+window.toggleVisningPanel = toggleVisningPanel;
 
 // ── Map: place visualization ─────────────────────────────────────────────────
 
