@@ -415,6 +415,18 @@ class BibleData:
                 return (book_usfm, chapter, verse - offset)
         return (book_usfm, chapter, verse)
 
+    def get_xref_source_verses(self, book_usfm, ch_start, ch_end=None):
+        """Return a set of (chapter, verse) in KJV versification that have at least
+        one cross-reference, within the given book and chapter range."""
+        if ch_end is None:
+            ch_end = ch_start
+        rows = self.db.execute(
+            "SELECT DISTINCT from_chapter, from_verse FROM cross_references "
+            "WHERE from_book=? AND from_chapter BETWEEN ? AND ?",
+            [book_usfm, ch_start, ch_end],
+        ).fetchall()
+        return {(r[0], r[1]) for r in rows}
+
     # ── Verse retrieval ───────────────────────────────────────────────────────
 
     def get_verses(self, version_id, book_code, chapter, verse_start=None, verse_end=None):
@@ -606,6 +618,9 @@ def parse_reference(ref_str):
     m = re.match(r'^(\d+):(\d+)\s*-\s*(\d+)$', ref_str)
     if m:
         return {"type": "verse_range", "chapter": int(m.group(1)), "vs_start": int(m.group(2)), "vs_end": int(m.group(3))}
+    m = re.match(r'^(\d+):(\d+)\s*-\s*end$', ref_str, re.IGNORECASE)
+    if m:
+        return {"type": "verse_range_to_end", "chapter": int(m.group(1)), "vs_start": int(m.group(2))}
     m = re.match(r'^(\d+):(\d+)$', ref_str)
     if m:
         return {"type": "single_verse", "chapter": int(m.group(1)), "verse": int(m.group(2))}
@@ -662,16 +677,30 @@ def parse_query(query):
             blocks.append({"book": book, "label": label, "type": "verse_range", "chapter": ref["chapter"], "vs_start": ref["vs_start"], "vs_end": ref["vs_end"]})
             ctx_chapter = ref["chapter"]
             ctx_had_verse = True
+        elif ref["type"] == "verse_range_to_end":
+            label = f"{book_name} {ref['chapter']}:{ref['vs_start']}-end"
+            blocks.append({"book": book, "label": label, "type": "verse_range_to_end", "chapter": ref["chapter"], "vs_start": ref["vs_start"]})
+            ctx_chapter = ref["chapter"]
+            ctx_had_verse = True
         elif ref["type"] == "single_verse":
             label = f"{book_name} {ref['chapter']}:{ref['verse']}"
             blocks.append({"book": book, "label": label, "type": "single_verse", "chapter": ref["chapter"], "verse": ref["verse"]})
             ctx_chapter = ref["chapter"]
             ctx_had_verse = True
         elif ref["type"] == "chapter_range":
-            label = f"{book_name} {ref['ch_start']}-{ref['ch_end']}"
-            blocks.append({"book": book, "label": label, "type": "chapter_range", "ch_start": ref["ch_start"], "ch_end": ref["ch_end"]})
-            ctx_chapter = ref["ch_end"]
-            ctx_had_verse = False
+            # If the previous block established verse-level context (e.g. "gen 1:1;2-5"),
+            # a bare numeric range like "2-5" should be read as a verse range in the
+            # current chapter, not a chapter range. The user can always escalate
+            # specificity (e.g. "gen 1;2:3"), but never silently de-escalate.
+            if ctx_had_verse and ctx_chapter is not None and not book_code:
+                label = f"{book_name} {ctx_chapter}:{ref['ch_start']}-{ref['ch_end']}"
+                blocks.append({"book": book, "label": label, "type": "verse_range", "chapter": ctx_chapter, "vs_start": ref["ch_start"], "vs_end": ref["ch_end"]})
+                # context unchanged: still in verse-level for ctx_chapter
+            else:
+                label = f"{book_name} {ref['ch_start']}-{ref['ch_end']}"
+                blocks.append({"book": book, "label": label, "type": "chapter_range", "ch_start": ref["ch_start"], "ch_end": ref["ch_end"]})
+                ctx_chapter = ref["ch_end"]
+                ctx_had_verse = False
         elif ref["type"] == "number":
             val = ref["value"]
             if ctx_had_verse and ctx_chapter is not None:
@@ -684,6 +713,18 @@ def parse_query(query):
                 ctx_had_verse = False
 
     return blocks
+
+
+def _annotate_xrefs(bible_data, version_id, book, verses):
+    """Mutates each verse dict in-place to add has_xrefs: bool by checking
+    whether the verse (mapped to KJV versification) has any cross-references."""
+    if not verses:
+        return
+    chapters = [v["chapter"] for v in verses]
+    xref_set = bible_data.get_xref_source_verses(book, min(chapters), max(chapters))
+    for v in verses:
+        kjv = bible_data.verse_to_kjv(version_id, book, v["chapter"], v["num"])
+        v["has_xrefs"] = (kjv[1], kjv[2]) in xref_set
 
 
 def resolve_block(bible_data, version_id, block):
@@ -701,7 +742,9 @@ def resolve_block(bible_data, version_id, block):
         headings = bible_data.get_headings(version_id, book, block["chapter"], block["chapter"], block["verse"], block["verse"])
         footnotes = bible_data.get_footnotes(version_id, book, block["chapter"], block["chapter"], block["verse"], block["verse"])
         places = bible_data.get_places_for_range(book, block["chapter"], block["verse"], block["chapter"], block["verse"], translation_id=version_id)
-        return {**base, "verses": [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses], "headings": headings, "footnotes": footnotes, "places": places}
+        result_verses = [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses]
+        _annotate_xrefs(bible_data, version_id, book, result_verses)
+        return {**base, "verses": result_verses, "headings": headings, "footnotes": footnotes, "places": places}
     elif btype == "verse_range":
         verses, err = bible_data.get_verses(version_id, book, block["chapter"], block["vs_start"], block["vs_end"])
         if err:
@@ -715,6 +758,25 @@ def resolve_block(bible_data, version_id, block):
         headings = bible_data.get_headings(version_id, book, block["chapter"], block["chapter"], block["vs_start"], block["vs_end"])
         footnotes = bible_data.get_footnotes(version_id, book, block["chapter"], block["chapter"], block["vs_start"], block["vs_end"])
         places = bible_data.get_places_for_range(book, block["chapter"], block["vs_start"], block["chapter"], block["vs_end"], translation_id=version_id)
+        _annotate_xrefs(bible_data, version_id, book, result_verses)
+        return {**base, "verses": result_verses, "headings": headings, "footnotes": footnotes, "places": places}
+    elif btype == "verse_range_to_end":
+        ch = block["chapter"]
+        max_v = bible_data.book_verse_counts.get(version_id, {}).get(book, {}).get(ch)
+        if not max_v:
+            return {**base, "error": f"Chapter {ch} not found in {USFM_TO_NAME.get(book, book)}", "verses": [], "headings": [], "places": []}
+        verses, err = bible_data.get_verses(version_id, book, ch, block["vs_start"], max_v)
+        if err:
+            return {**base, "error": err, "verses": [], "headings": [], "places": []}
+        result_verses = [{"num": v, "chapter": ch, "text": t} for v, t in verses]
+        if result_verses:
+            a, z = result_verses[0]["num"], result_verses[-1]["num"]
+            book_name = USFM_TO_NAME.get(book, book)
+            base = {**base, "label": f"{book_name} {ch}:{a}" if a == z else f"{book_name} {ch}:{a}-{z}"}
+        headings = bible_data.get_headings(version_id, book, ch, ch, block["vs_start"], max_v)
+        footnotes = bible_data.get_footnotes(version_id, book, ch, ch, block["vs_start"], max_v)
+        places = bible_data.get_places_for_range(book, ch, block["vs_start"], ch, max_v, translation_id=version_id)
+        _annotate_xrefs(bible_data, version_id, book, result_verses)
         return {**base, "verses": result_verses, "headings": headings, "footnotes": footnotes, "places": places}
     elif btype == "whole_chapter":
         verses, err = bible_data.get_verses(version_id, book, block["chapter"])
@@ -723,7 +785,9 @@ def resolve_block(bible_data, version_id, block):
         headings = bible_data.get_headings(version_id, book, block["chapter"], block["chapter"])
         footnotes = bible_data.get_footnotes(version_id, book, block["chapter"])
         places = bible_data.get_places_for_range(book, block["chapter"], translation_id=version_id)
-        return {**base, "verses": [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses], "headings": headings, "footnotes": footnotes, "places": places}
+        result_verses = [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses]
+        _annotate_xrefs(bible_data, version_id, book, result_verses)
+        return {**base, "verses": result_verses, "headings": headings, "footnotes": footnotes, "places": places}
     elif btype == "chapter_range":
         verses, err = bible_data.get_chapter_range(version_id, book, block["ch_start"], block["ch_end"])
         if err:
@@ -731,7 +795,9 @@ def resolve_block(bible_data, version_id, block):
         headings = bible_data.get_headings(version_id, book, block["ch_start"], block["ch_end"])
         footnotes = bible_data.get_footnotes(version_id, book, block["ch_start"], block["ch_end"])
         places = bible_data.get_places_for_range(book, block["ch_start"], None, block["ch_end"], None, translation_id=version_id)
-        return {**base, "verses": [{"num": v, "chapter": ch, "text": t} for v, t, ch in verses], "headings": headings, "footnotes": footnotes, "places": places}
+        result_verses = [{"num": v, "chapter": ch, "text": t} for v, t, ch in verses]
+        _annotate_xrefs(bible_data, version_id, book, result_verses)
+        return {**base, "verses": result_verses, "headings": headings, "footnotes": footnotes, "places": places}
     elif btype == "cross_chapter":
         verses, err = bible_data.get_verses_cross_chapter(version_id, book, block["ch_start"], block["vs_start"], block["ch_end"], block["vs_end"])
         if err:
@@ -750,6 +816,7 @@ def resolve_block(bible_data, version_id, block):
         headings = bible_data.get_headings(version_id, book, block["ch_start"], block["ch_end"], block["vs_start"], block["vs_end"])
         footnotes = bible_data.get_footnotes(version_id, book, block["ch_start"], block["ch_end"])
         places = bible_data.get_places_for_range(book, block["ch_start"], block["vs_start"], block["ch_end"], block["vs_end"], translation_id=version_id)
+        _annotate_xrefs(bible_data, version_id, book, result_verses)
         return {**base, "verses": result_verses, "headings": headings, "footnotes": footnotes, "places": places}
 
     return {"label": block.get("label", "?"), "error": "Unknown block type", "verses": [], "headings": [], "footnotes": [], "xrefs": [], "places": []}

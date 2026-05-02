@@ -225,6 +225,7 @@
                 <div class="help-row"><span class="help-key">Salme 23</span><span class="help-desc" data-i18n="help.row.wholeChapter">Whole chapter</span></div>
                 <div class="help-row"><span class="help-key">1. Mos 1:1-3</span><span class="help-desc" data-i18n="help.row.verseRange">Verse range</span></div>
                 <div class="help-row"><span class="help-key">Joh 3:1-4:6</span><span class="help-desc" data-i18n="help.row.crossChapter">Cross-chapter range</span></div>
+                <div class="help-row"><span class="help-key">1. Kor 6:9-end</span><span class="help-desc" data-i18n="help.row.verseToEnd">Fra et vers til slutten av kapittelet</span></div>
                 <div class="help-row"><span class="help-key">Joh 3:16;17</span><span class="help-desc" data-i18n="help.row.multiPassages">Multiple passages (context carries)</span></div>
                 <div class="help-row"><span class="help-key">joh, john, jhn</span><span class="help-desc" data-i18n="help.row.abbrevs">Abbreviations &amp; English names work</span></div>
             </div>
@@ -341,13 +342,6 @@
                     <button class="header-btn" id="darkToggle" data-i18n-title="header.darkMode">&#9790;</button>
                 </div>
                 <div class="settings-row">
-                    <span class="settings-label" data-i18n="settings.uiLang">UI language</span>
-                    <div class="font-ui-ctrl" id="uiLangCtrl">
-                        <button class="font-ui-btn" data-val="en">English</button>
-                        <button class="font-ui-btn" data-val="no">Norsk</button>
-                    </div>
-                </div>
-                <div class="settings-row">
                     <span class="settings-label" data-i18n="settings.uiFont">UI font</span>
                     <div class="font-ui-ctrl" id="fontUICtrl">
                         <button class="font-ui-btn" data-val="mono" data-i18n="settings.fontMono">Mono</button>
@@ -410,15 +404,33 @@ if ('serviceWorker' in navigator) {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches
         || window.navigator.standalone === true;
 
-    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
-
-    navigator.serviceWorker.addEventListener('message', event => {
-        if (event.data?.type !== 'SW_UPDATED') return;
-        if (!hadController) return;
+    function showUpdateBanner() {
         if (!isStandalone) return;
         const banner = document.getElementById('swUpdateBanner');
         if (banner) banner.classList.add('show');
+    }
+
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+
+    // Live updates while page is open.
+    navigator.serviceWorker.addEventListener('message', event => {
+        const d = event.data;
+        if (!d) return;
+        if (d.type === 'SW_UPDATED' && hadController) showUpdateBanner();
+        if (d.type === 'VERSION') {
+            const last = localStorage.getItem('swVersion');
+            if (last && last !== d.version) showUpdateBanner();
+            localStorage.setItem('swVersion', d.version);
+        }
     });
+
+    // Catch-up check: if the SW updated while the PWA was closed, the
+    // SW_UPDATED message fired without a listener. On every load we ask the
+    // active SW for its version and compare with the one we last saw.
+    navigator.serviceWorker.ready.then(reg => {
+        const active = reg.active || navigator.serviceWorker.controller;
+        active?.postMessage({ type: 'GET_VERSION' });
+    }).catch(() => {});
 }
 </script>
 </body>

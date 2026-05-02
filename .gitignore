@@ -1,8 +1,9 @@
 __pycache__/
 *.pyc
 *.pyd
-todo.md
+# todo.md
 *.db-*
 migrate_to_db.py
 migrate_places.py
 bible.db
+temp_resources/

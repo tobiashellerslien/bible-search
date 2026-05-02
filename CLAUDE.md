@@ -42,7 +42,8 @@ Tables: `translations(id,name,full_name,language)`, `books(usfm,order_num,name_n
 State: `currentView` (`normal`|`text_search`|`all_versions`|`quick_search`), `mainData`, caches, `showFootnotes`, `showXrefs`, `xrefCache`, `quickMode` (persisted in localStorage).
 - Quick mode: ⚡ toggle next to search input; debounced fetch (150ms, min 3 chars) with AbortController; results in `.quick-row` (ref + verse-serif text); click → standard reference lookup.
 - Compare mode: two `/api/search` calls. All-versions: one `/api/all_versions` call.
-- `translateLabel(label, bookCode)` swaps Norwegian book name per UI language.
+- UI is Norwegian-only. `I18N.no` (in `app.js`) holds all UI strings, looked up via `t(key)` and applied to `[data-i18n*]` attributes by `applyI18n()`.
+- `translateLabel(label, bookCode)` swaps Norwegian book name to English when the *selected Bible version* is English (e.g. KJV) — not a UI-language toggle.
 - Dark mode via `data-theme="dark"`; accent via `applyAccent()` / CSS vars.
 - Footnote/xref panels: `†`/`§` buttons → collapsible `<div class="verse-panel">`; xrefs lazy-fetched and cached.
 - Places (Leaflet 1.9.4 via CDN): inline `📍` chips per verse (gated by `showPlaces`, default off, `togglePlaces` in *bla & vis*) + per-block `🗺️ Map` button always visible when `block.places.length > 0`. `blockPlacesRegistry[idx]` keyed by card index; `openMap(places, focusId)` opens `#mapModal`. Esri World Imagery + OSM as base layers. Custom panes `regionsPane`(400) / `linesPane`(410) / `pointsPane`(420) ensure points always render above polygons. Sidebar (`#mapSidebar`) lists all places; clicking flies/opens popup. Clicking a region runs `pointInRing` against every other polygon's geometry to populate "Also here:" links in the popup.
