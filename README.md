@@ -1,4 +1,4 @@
-# Bible Search
+# Bibelsøk
 
 En rask og kraftig bibelsøkeapp. Slå opp vers etter referanse, søk i hele teksten med avanserte operatorer, og sammenlign oversettelser side om side. Bruker lokale kopier av bibler. Inspirert av [biblegateway.com](https://biblegateway.com).
 
