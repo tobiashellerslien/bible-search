@@ -18,10 +18,14 @@ Flask dev server at `http://127.0.0.1:8421`. Deps: `requirements.txt`.
 ## Database (`bible.db`, SQLite, WAL mode)
 Tables: `translations(id,name,full_name,language)`, `books(usfm,order_num,name_no,name_en,testament)`, `verses(translation_id,book_usfm,chapter,verse,text)`, `headings`, `footnotes`, `cross_references(from_book,from_chapter,from_verse,to_book,to_chapter,to_verse_start,to_verse_end,to_chapter_end,votes)` (~345k rows, OpenBible TSK), `verses_fts` (FTS5 virtual table), `places(id,name,aliases,placemark,kind,geometry)` (~1336 rows, GeoJSON in `geometry`), `place_verses(place_id,book_usfm,chapter,verse)` (~8.7k rows, OpenBible "most-likely" KMZ).
 
-`migrate_to_db.py` and `migrate_places.py` = one-time migrations, do not re-run.
+Stage 4 study tables: `commentaries(id,code,name,short_name,granularity,format)`, `commentary_entries(commentary_id,book_usfm,chapter,verse_start,verse_end,body)` (scofield ~3.2k verse-level + mhenry ~1.2k chapter-level markdown; scofield xrefs inlined as `[ref:USFM.CH.VS]` markup at end of body), `topics(id,parent_id,name,source,sort_order)` + `topic_verses(topic_id,book_usfm,chapter,verse_start,verse_end,sort_order)` (~53k topics / ~117k verses from BSB topical index; hierarchy auto-built from `: `-prefix in topic names, `source` is catalog Top/Nav/TTT only on leaf), `outlines(book_usfm,source,tree_json)` (66 BSB book outlines, refs pre-parsed into JSON nodes `{label, level, refs:[{book,ch_start,vs_start,ch_end,vs_end}], children}`).
+
+BLB (Berean Literal Bible) is a local-only translation (id=9001), not on bible.com.
+
+`migrate_to_db.py`, `migrate_places.py`, and `migrations/*.py` = one-time migrations, do not re-run.
 
 ## bible.py service
-- `BibleData` opens db once, loads metadata: `translations`, `version_books[tid]`, `book_chapters[tid][usfm]`
+- `BibleData` opens db once, loads metadata: `translations`, `version_books[tid]`, `book_chapters[tid][usfm]`, `commentaries[id]`
 - Book aliases: `BOOKS` list → `ALIAS_MAP` (case-insensitive) → `SORTED_ALIASES` (longest-first). `USFM_TO_ENG`/`USFM_TO_NAME` for display.
 - `parse_query()` splits on `;`, carries context. `is_reference_query()` → True if first block is a book alias.
 - `search_text()` → FTS5; AND/OR/exclusion/phrases/book-group scope. Concordance use case.
@@ -36,6 +40,11 @@ Tables: `translations(id,name,full_name,language)`, `books(usfm,order_num,name_n
 - `GET /api/all_versions?q=` → reference across all versions
 - `GET /api/crossrefs?book=&chapter=&verse=&version=&limit=` → `{refs,total}`
 - `GET /api/places?book=&chapter=&verse_start=&verse_end=&chapter_end=` → `{places:[{id,name,aliases,placemark,kind,geometry,refs}]}` (lazy lookup; reference responses already include `places` per block)
+- `GET /api/commentaries` → `{commentaries:[{id,code,name,short_name,granularity,format}]}`
+- `GET /api/commentary?commentary=<code|id>&book=&chapter=&verse_start=&verse_end=&chapter_end=` → `{commentary, entries:[{chapter,verse_start,verse_end,body}]}`
+- `GET /api/topics?book=&chapter=&verse=` → `{topics:[{id,name,source,path:[...]}]}` (path is parent chain from root to leaf)
+- `GET /api/topic/<id>` → `{id,name,source,path,verses:[{book_usfm,chapter,verse_start,verse_end,ref_label}],children:[{id,name}]}`
+- `GET /api/outline?book=<usfm>` → `{book,source,tree:[...]}`
 - `GET /api/heartbeat` → `{ok:true}`
 
 ## Frontend (app.js)

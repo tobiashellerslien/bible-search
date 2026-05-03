@@ -355,6 +355,22 @@ class BibleData:
         names = ", ".join(t["name"] for t in self.translations.values())
         print(f"Loaded {len(self.translations)} Bible version(s): {names}")
 
+        # Commentaries metadata (Stage 4). Entries themselves are loaded lazily.
+        self.commentaries = {}
+        try:
+            for cid, code, name, short, gran, fmt in self.db.execute(
+                "SELECT id, code, name, short_name, granularity, format FROM commentaries ORDER BY id"
+            ):
+                self.commentaries[cid] = {
+                    "id": cid, "code": code, "name": name,
+                    "short_name": short, "granularity": gran, "format": fmt,
+                }
+        except sqlite3.OperationalError:
+            pass  # Stage 4 schema not yet applied
+        if self.commentaries:
+            print(f"Loaded {len(self.commentaries)} commentary source(s): "
+                  + ", ".join(c["code"] for c in self.commentaries.values()))
+
     # ── Versification helpers ─────────────────────────────────────────────────
 
     def _uses_mt_versification(self, translation_id, book_usfm):
@@ -577,6 +593,120 @@ class BibleData:
         for entry in by_id.values():
             entry["refs"].sort(key=lambda r: (r["chapter"], r["verse"]))
         return [by_id[pid] for pid in order]
+
+    # ── Stage 4: commentaries / topics / outlines ────────────────────────────
+    def get_commentary_entries(self, commentary_id, book_usfm, ch_start, vs_start=None,
+                               ch_end=None, vs_end=None):
+        """Return commentary entries overlapping the given verse range.
+
+        For chapter-level commentaries (verse_start IS NULL), match by chapter only.
+        For verse-level entries, include any whose [verse_start, verse_end] overlaps
+        the queried [vs_start, vs_end] within each chapter in [ch_start, ch_end].
+        """
+        if ch_end is None:
+            ch_end = ch_start
+        rows = self.db.execute(
+            """SELECT chapter, verse_start, verse_end, body
+               FROM commentary_entries
+               WHERE commentary_id=? AND book_usfm=? AND chapter BETWEEN ? AND ?
+               ORDER BY chapter, verse_start""",
+            [commentary_id, book_usfm, ch_start, ch_end],
+        ).fetchall()
+        out = []
+        for ch, v_s, v_e, body in rows:
+            if v_s is None:  # chapter-level — always include if chapter in range
+                out.append({"chapter": ch, "verse_start": None, "verse_end": None, "body": body})
+                continue
+            ev_e = v_e if v_e is not None else v_s
+            # Restrict by verse window only on first/last chapter
+            if ch == ch_start and vs_start is not None and ev_e < vs_start:
+                continue
+            if ch == ch_end and vs_end is not None and v_s > vs_end:
+                continue
+            out.append({"chapter": ch, "verse_start": v_s, "verse_end": v_e, "body": body})
+        return out
+
+    def list_commentary_codes_for_verse(self, book_usfm, chapter, verse):
+        """Codes of commentaries that have at least one entry covering this verse —
+        used by the frontend to know which buttons to render. Cheap single query."""
+        rows = self.db.execute(
+            """SELECT DISTINCT c.code
+               FROM commentary_entries e JOIN commentaries c ON c.id = e.commentary_id
+               WHERE e.book_usfm=? AND e.chapter=?
+                 AND (e.verse_start IS NULL
+                      OR (e.verse_start <= ? AND COALESCE(e.verse_end, e.verse_start) >= ?))""",
+            [book_usfm, chapter, verse, verse],
+        ).fetchall()
+        return [r[0] for r in rows]
+
+    def get_topics_for_verse(self, book_usfm, chapter, verse):
+        """Topics whose verse range covers the given verse. Returns each leaf with
+        its full path (parent chain) so the frontend can group/display naturally."""
+        rows = self.db.execute(
+            """SELECT DISTINCT t.id, t.name, t.parent_id, t.source
+               FROM topic_verses tv JOIN topics t ON t.id = tv.topic_id
+               WHERE tv.book_usfm=? AND tv.chapter=?
+                 AND tv.verse_start <= ? AND COALESCE(tv.verse_end, tv.verse_start) >= ?""",
+            [book_usfm, chapter, verse, verse],
+        ).fetchall()
+        out = []
+        for tid, name, parent_id, source in rows:
+            path = self._topic_path(tid)
+            out.append({"id": tid, "name": name, "source": source, "path": path})
+        return out
+
+    def _topic_path(self, topic_id):
+        """Walk parent chain → list of names from root to leaf."""
+        names = []
+        cur = topic_id
+        while cur is not None:
+            row = self.db.execute(
+                "SELECT name, parent_id FROM topics WHERE id=?", [cur]
+            ).fetchone()
+            if not row:
+                break
+            names.append(row[0])
+            cur = row[1]
+        return list(reversed(names))
+
+    def get_topic(self, topic_id):
+        row = self.db.execute(
+            "SELECT id, name, parent_id, source FROM topics WHERE id=?", [topic_id]
+        ).fetchone()
+        if not row:
+            return None
+        tid, name, _parent, source = row
+        path = self._topic_path(tid)
+        verses = []
+        for book, ch, vs_s, vs_e in self.db.execute(
+            """SELECT book_usfm, chapter, verse_start, verse_end FROM topic_verses
+               WHERE topic_id=? ORDER BY sort_order""",
+            [tid],
+        ):
+            if vs_e and vs_e != vs_s:
+                label = f"{USFM_TO_NAME.get(book, book)} {ch}:{vs_s}-{vs_e}"
+            else:
+                label = f"{USFM_TO_NAME.get(book, book)} {ch}:{vs_s}"
+            verses.append({
+                "book_usfm": book, "chapter": ch,
+                "verse_start": vs_s, "verse_end": vs_e, "ref_label": label,
+            })
+        children = [
+            {"id": cid, "name": cname}
+            for cid, cname in self.db.execute(
+                "SELECT id, name FROM topics WHERE parent_id=? ORDER BY name", [tid]
+            )
+        ]
+        return {"id": tid, "name": name, "source": source, "path": path,
+                "verses": verses, "children": children}
+
+    def get_outline(self, book_usfm):
+        row = self.db.execute(
+            "SELECT source, tree_json FROM outlines WHERE book_usfm=?", [book_usfm]
+        ).fetchone()
+        if not row:
+            return None
+        return {"book": book_usfm, "source": row[0], "tree": json.loads(row[1])}
 
     def get_chapter_range(self, version_id, book_code, ch_start, ch_end):
         if version_id not in self.translations:

@@ -311,6 +311,95 @@ def api_places():
     return jsonify({"places": places})
 
 
+@bp.get("/api/commentaries")
+def api_commentaries():
+    bible_data = _bible_data()
+    return jsonify({"commentaries": list(bible_data.commentaries.values())})
+
+
+def _commentary_id_from_arg(bible_data, raw):
+    """Accepts either numeric id or commentary code (e.g. 'scofield')."""
+    if raw is None:
+        return None
+    try:
+        cid = int(raw)
+        if cid in bible_data.commentaries:
+            return cid
+    except (TypeError, ValueError):
+        pass
+    for c in bible_data.commentaries.values():
+        if c["code"] == raw:
+            return c["id"]
+    return None
+
+
+@bp.get("/api/commentary")
+def api_commentary():
+    bible_data = _bible_data()
+    cid = _commentary_id_from_arg(bible_data, request.args.get("commentary"))
+    if cid is None:
+        return jsonify({"error": "Unknown commentary"}), 400
+    book = request.args.get("book", "").upper()
+    if not book:
+        return jsonify({"error": "Missing book"}), 400
+
+    def _maybe_int(name):
+        v = request.args.get(name)
+        if v in (None, ""):
+            return None
+        try:
+            return int(v)
+        except ValueError:
+            return None
+
+    chapter = _maybe_int("chapter")
+    if chapter is None:
+        return jsonify({"error": "Missing chapter"}), 400
+    chapter_end = _maybe_int("chapter_end")
+    verse_start = _maybe_int("verse_start")
+    verse_end = _maybe_int("verse_end")
+    entries = bible_data.get_commentary_entries(
+        cid, book, chapter, verse_start, chapter_end, verse_end
+    )
+    return jsonify({"commentary": bible_data.commentaries[cid], "entries": entries})
+
+
+@bp.get("/api/topics")
+def api_topics():
+    bible_data = _bible_data()
+    book = request.args.get("book", "").upper()
+    try:
+        chapter = int(request.args.get("chapter", 0))
+        verse = int(request.args.get("verse", 0))
+    except ValueError:
+        return jsonify({"error": "Invalid chapter/verse"}), 400
+    if not book or not chapter or not verse:
+        return jsonify({"error": "Missing book, chapter, or verse"}), 400
+    topics = bible_data.get_topics_for_verse(book, chapter, verse)
+    return jsonify({"topics": topics})
+
+
+@bp.get("/api/topic/<int:topic_id>")
+def api_topic_detail(topic_id):
+    bible_data = _bible_data()
+    topic = bible_data.get_topic(topic_id)
+    if not topic:
+        return jsonify({"error": "Topic not found"}), 404
+    return jsonify(topic)
+
+
+@bp.get("/api/outline")
+def api_outline():
+    bible_data = _bible_data()
+    book = request.args.get("book", "").upper()
+    if not book:
+        return jsonify({"error": "Missing book"}), 400
+    outline = bible_data.get_outline(book)
+    if not outline:
+        return jsonify({"error": "No outline available"}), 404
+    return jsonify(outline)
+
+
 @bp.get("/api/heartbeat")
 def api_heartbeat():
     return jsonify({"ok": True})
