@@ -16,7 +16,7 @@ const I18N = {
         'toggle.headings': 'Overskrifter',
         'toggle.annotations': 'Annotasjoner †§',
         'toggle.places': 'Steder 📍',
-        'toggle.copyHint': 'Versnummer og linjeskift påvirker kopiering',
+        'toggle.copyHint': 'påvirker kopiering',
         'toggle.copyHintAria': 'Formateringsinfo',
         'modal.helpInfo': '// Hjelp & info',
         'modal.tab.help': 'Hjelp',
@@ -819,15 +819,23 @@ if (togglePlaces) {
     });
 }
 
-document.getElementById('copyHintBtn').addEventListener('click', function() {
-    this.classList.toggle('open');
-    document.addEventListener('click', function hide(e) {
-        if (e.target !== document.getElementById('copyHintBtn')) {
-            document.getElementById('copyHintBtn').classList.remove('open');
-            document.removeEventListener('click', hide);
+const copyHintButtons = document.querySelectorAll('.copy-hint-btn');
+if (copyHintButtons.length) {
+    copyHintButtons.forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.stopPropagation();
+            const shouldOpen = !button.classList.contains('open');
+            copyHintButtons.forEach((otherButton) => otherButton.classList.remove('open'));
+            if (shouldOpen) button.classList.add('open');
+        });
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!event.target.closest('.copy-hint-btn')) {
+            copyHintButtons.forEach((button) => button.classList.remove('open'));
         }
     });
-});
+}
 
 // ── Render reference results ──
 function renderAll() {

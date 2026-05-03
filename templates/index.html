@@ -135,44 +135,57 @@
 
 <div class="display-panel visning-panel" id="visningPanel">
     <div class="toggles-grid">
-        <label class="toggle-group">
-            <span data-i18n="toggle.verseNums">Verse numbers</span>
-            <div class="toggle">
+        <div class="toggle-item">
+            <div class="toggle-label-row">
+                <span data-i18n="toggle.verseNums">Verse numbers</span>
+                <button class="copy-hint-btn" data-i18n-aria="toggle.copyHintAria" data-i18n-tooltip="toggle.copyHint">i</button>
+            </div>
+            <label class="toggle-switch">
                 <input type="checkbox" id="toggleVerseNums" checked>
                 <span class="toggle-slider"></span>
-            </div>
-        </label>
-        <div class="toggle-with-hint">
-            <label class="toggle-group">
-                <span data-i18n="toggle.newlines">New line per verse</span>
-                <div class="toggle">
-                    <input type="checkbox" id="toggleNewlines">
-                    <span class="toggle-slider"></span>
-                </div>
             </label>
-            <button class="copy-hint-btn" id="copyHintBtn" data-i18n-aria="toggle.copyHintAria" data-i18n-tooltip="toggle.copyHint">i</button>
         </div>
-        <label class="toggle-group">
-            <span data-i18n="toggle.headings">Headings</span>
-            <div class="toggle">
+
+        <div class="toggle-item">
+            <div class="toggle-label-row">
+                <span data-i18n="toggle.newlines">New line per verse</span>
+                <button class="copy-hint-btn" data-i18n-aria="toggle.copyHintAria" data-i18n-tooltip="toggle.copyHint">i</button>
+            </div>
+            <label class="toggle-switch">
+                <input type="checkbox" id="toggleNewlines">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+
+        <div class="toggle-item">
+            <div class="toggle-label-row">
+                <span data-i18n="toggle.headings">Headings</span>
+            </div>
+            <label class="toggle-switch">
                 <input type="checkbox" id="toggleHeadings" checked>
                 <span class="toggle-slider"></span>
+            </label>
+        </div>
+
+        <div class="toggle-item">
+            <div class="toggle-label-row">
+                <span data-i18n="toggle.annotations">Annotations †§</span>
             </div>
-        </label>
-        <label class="toggle-group">
-            <span data-i18n="toggle.annotations">Annotations †§</span>
-            <div class="toggle">
+            <label class="toggle-switch">
                 <input type="checkbox" id="toggleAnnotations" checked>
                 <span class="toggle-slider"></span>
+            </label>
+        </div>
+
+        <div class="toggle-item">
+            <div class="toggle-label-row">
+                <span data-i18n="toggle.places">Places 📍</span>
             </div>
-        </label>
-        <label class="toggle-group">
-            <span data-i18n="toggle.places">Places 📍</span>
-            <div class="toggle">
+            <label class="toggle-switch">
                 <input type="checkbox" id="togglePlaces">
                 <span class="toggle-slider"></span>
-            </div>
-        </label>
+            </label>
+        </div>
     </div>
 </div>
 </div>
