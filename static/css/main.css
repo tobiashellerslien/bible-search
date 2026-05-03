@@ -194,6 +194,11 @@
         }
         .search-group:focus-within { border-color: var(--accent); }
 
+        .search-group #searchBtn {
+            font-size: 1rem;
+            padding: 12px 14px;
+        }
+
         .search-warning {
             width: 100%;
             padding: 8px 14px;
@@ -215,8 +220,8 @@
         .search-highlight-overlay {
             position: absolute;
             inset: 0;
-            padding: 10px 30px 10px 14px;
-            font-size: 0.9rem;
+            padding: 14px 30px 14px 14px;
+            font-size: 1rem;
             font-family: var(--font-ui);
             line-height: normal;
             color: var(--text);
@@ -236,8 +241,8 @@
 
         .search-wrap input {
             width: 100%;
-            padding: 10px 30px 10px 14px;
-            font-size: 0.9rem;
+            padding: 14px 30px 14px 14px;
+            font-size: 1rem;
             font-family: var(--font-ui);
             line-height: normal;
             border: none;
@@ -305,7 +310,7 @@
             background: var(--accent-dim);
             color: var(--accent);
         }
-        .search-mode-icon { width: 14px; height: 14px; flex-shrink: 0; }
+        .search-mode-icon { width: 16px; height: 16px; flex-shrink: 0; }
 
         /* ── Quick search results panel ── */
         .quick-results { display: flex; flex-direction: column; gap: 2px; }
@@ -818,6 +823,7 @@
             padding: 0 20px 120px;
         }
         .results-wrapper > .verse-card,
+        .results-wrapper > .card-swipe-wrap,
         .results-wrapper > .search-controls,
         .results-wrapper > .search-result-item,
         .results-wrapper > .book-group,
@@ -844,7 +850,8 @@
             transition: max-width 0.32s cubic-bezier(0.2, 0.8, 0.3, 1);
         }
         @media (min-width: 701px) {
-            .results-wrapper > .verse-card.compare-active {
+            .results-wrapper > .verse-card.compare-active,
+            .results-wrapper > .card-swipe-wrap:has(.verse-card.compare-active) {
                 max-width: 1240px;
             }
         }
@@ -863,9 +870,15 @@
             transition: opacity 0.06s linear, transform 0.06s linear;
         }
 
+        /* ── Card swipe wrapper — positions arrows behind the card on mobile ── */
+        .card-swipe-wrap {
+            position: relative;
+            transition: max-width 0.32s cubic-bezier(0.2, 0.8, 0.3, 1);
+        }
+
         /* ── Side navigation arrows (per-card prev/next, positioned OUTSIDE the card) ──
            PC: large invisible hover area on each side; arrow appears on hover.
-           Mobile: thin vertical strip persistently visible as a swipe affordance. */
+           Mobile: revealed behind card as user swipes — arrows sit in wrapper with lower z-index. */
         .side-nav {
             position: absolute;
             display: flex;
@@ -888,26 +901,37 @@
                 bottom: 0;
                 width: 56px;
                 font-size: 1.8rem;
-                opacity: 0.35;
-                transition: opacity 0.18s, color 0.18s;
+                opacity: 0.55;
+                transition: opacity 0.18s ease, color 0.18s ease, background 0.18s ease, transform 0.08s ease;
+                border-radius: 14px;
             }
-            .side-nav-prev { left: -56px; }
-            .side-nav-next { right: -56px; }
-            .side-nav:hover { opacity: 1; color: var(--accent); }
+            .side-nav-prev { left: -68px; }
+            .side-nav-next { right: -68px; }
+            .side-nav:hover {
+                opacity: 1;
+                color: var(--accent);
+                background: var(--accent-dim);
+            }
+            .side-nav:active { transform: scale(0.94); }
         }
         @media (max-width: 700px) {
+            /* Mobile: arrows sit in .card-swipe-wrap behind the card (z-index 0 vs card z-index 1).
+               They are revealed as the card slides — opacity is JS-controlled during swipe. */
             .side-nav {
-                top: 18px;
-                bottom: 18px;
-                width: 14px;
-                font-size: 0.95rem;
-                opacity: 0.32;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 40px;
+                height: 40px;
+                font-size: 1.6rem;
+                opacity: 0;
                 pointer-events: none;
-                transition: opacity 0.06s linear, transform 0.06s linear, color 0.06s linear;
+                transition: opacity 0.1s linear;
+                color: var(--accent);
+                z-index: 0;
             }
-            .side-nav-prev { left: -14px; }
-            .side-nav-next { right: -14px; }
-            .verse-card.swiping .side-nav { transition: none; }
+            .side-nav-prev { left: 12px; }
+            .side-nav-next { right: 12px; }
+            .verse-card { position: relative; z-index: 1; }
         }
 
         /* Card body wrapper enables side-by-side compare layout on PC (only when compare-active) */
@@ -1035,8 +1059,7 @@
             transform: scale(0.9);
         }
 
-        /* Compare button in card header — separated from copy buttons */
-        .compare-header-btn { margin-left: 6px; }
+        /* Compare toggle button */
         .compare-header-btn.active {
             background: var(--accent-dim) !important;
             color: var(--accent) !important;
@@ -1282,6 +1305,182 @@
         .compare-loading { color: var(--text-muted); font-size: 0.85rem; font-style: italic; }
         .card-more-menu.menu-up { top: auto; bottom: calc(100% + 4px); transform-origin: bottom left; }
 
+        /* ── Stage 5: Study tray ── */
+        .verse-card-footer {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            align-items: stretch;
+            padding-top: 6px;
+            margin-top: 8px;
+            border-top: 1px solid var(--border);
+        }
+        .study-toggle {
+            /* inherits .copy-btn base; override only for chevron alignment */
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            align-self: flex-start;
+        }
+        .study-toggle .study-chevron {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            transform-origin: 50% 50%;
+            transition: transform 0.2s ease;
+            flex-shrink: 0;
+        }
+        .study-toggle.open {
+            background: var(--accent-dim);
+            color: var(--accent);
+            border-color: var(--accent);
+        }
+        .study-toggle.open .study-chevron { transform: rotate(180deg); }
+        .study-tray {
+            max-height: 0;
+            overflow: hidden;
+            opacity: 0;
+            margin-top: 0;
+            transition: max-height 0.25s ease, opacity 0.18s ease, margin-top 0.2s ease;
+        }
+        .study-tray[data-open="true"] {
+            max-height: 200px;
+            opacity: 1;
+            margin-top: 8px;
+        }
+        .study-tray-inner {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+            padding: 4px 0 2px;
+        }
+        .tray-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 11px;
+            font-size: 0.78rem;
+            font-family: var(--font-ui);
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            color: var(--text-muted);
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+        .tray-btn:hover:not([disabled]) { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+        .tray-btn:active:not([disabled]) { transform: scale(0.96); }
+        .tray-btn[disabled],
+        .tray-btn[aria-disabled="true"] {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .tray-btn.external .ext-icon {
+            font-size: 0.7rem;
+            opacity: 0.7;
+        }
+        .tray-btn-logo {
+            height: 13px;
+            width: auto;
+            opacity: 0.85;
+            flex-shrink: 0;
+        }
+        .tray-divider {
+            display: inline-block;
+            width: 1px;
+            height: 18px;
+            background: var(--border);
+            margin: 0 2px;
+        }
+
+        /* ── Stage 5: V-arrow chapter expand/collapse — sits OUTSIDE the card, below it ── */
+        .chapter-expand-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            max-width: 880px;
+            margin: -8px auto 14px;
+            min-height: 22px;
+            padding: 4px 0;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            color: var(--text-muted);
+            opacity: 0.55;
+            transition: background 0.16s ease, color 0.15s ease, opacity 0.16s ease, transform 0.08s ease;
+        }
+        .chapter-expand-bar:hover {
+            background: var(--accent-dim);
+            color: var(--accent);
+            opacity: 1;
+        }
+        .chapter-expand-bar:active { transform: scale(0.97); }
+        .chapter-expand-arrow {
+            display: block;
+            width: 22px;
+            height: 11px;
+            transition: transform 0.22s ease;
+        }
+        .chapter-expand-bar[data-expanded="true"] .chapter-expand-arrow {
+            transform: rotate(180deg);
+        }
+        /* When expand-bar follows a compare-active card, it should also span full wrapper width */
+        @media (min-width: 701px) {
+            .verse-card.compare-active + .chapter-expand-bar,
+            .card-swipe-wrap:has(.verse-card.compare-active) + .chapter-expand-bar { max-width: 1240px; }
+        }
+
+        /* ── Stage 5: Mobile swipe-hint (one-time, non-blocking pill at card bottom) ── */
+        .swipe-hint-overlay {
+            position: absolute;
+            left: 50%;
+            bottom: 8px;
+            transform: translate(-50%, 6px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px 14px;
+            background: rgba(0, 0, 0, 0.72);
+            color: #fff;
+            border-radius: 999px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            z-index: 30;
+            white-space: nowrap;
+            backdrop-filter: blur(4px);
+        }
+        .swipe-hint-overlay.visible {
+            opacity: 1;
+            transform: translate(-50%, 0);
+        }
+        .swipe-hint-inner {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: var(--font-ui);
+            font-size: 0.82rem;
+            font-weight: 500;
+        }
+        .swipe-hint-arrow {
+            font-size: 1.6rem;
+            display: inline-block;
+            animation: swipeHintBounce 1.2s ease-in-out infinite;
+        }
+        .swipe-hint-arrow-left { animation-delay: 0s; }
+        .swipe-hint-arrow-right { animation-delay: 0.6s; }
+        @keyframes swipeHintBounce {
+            0%, 100% { transform: translateX(0); opacity: 0.6; }
+            50% { transform: translateX(var(--swipe-shift, 6px)); opacity: 1; }
+        }
+        .swipe-hint-arrow-left { --swipe-shift: -6px; }
+        .swipe-hint-arrow-right { --swipe-shift: 6px; }
+
         /* ── Copy dropdown menu ── */
         .copy-menu-wrap { position: relative; display: inline-block; }
         .copy-menu {
@@ -1404,7 +1603,7 @@
         }
 
         /* ── Verse align toggle (PC compare mode only) ── */
-        .align-mode-toggle { display: none; }
+        .align-mode-toggle { display: none; gap: 8px; }
         @media (min-width: 701px) {
             .verse-card.compare-active .align-mode-toggle { display: flex; margin-left: auto; }
         }
@@ -2064,6 +2263,11 @@
             .search-highlight-overlay,
             select {
                 font-size: 16px;
+            }
+            .search-wrap input,
+            .search-highlight-overlay {
+                padding-top: 14px;
+                padding-bottom: 14px;
             }
             .search-highlight-overlay { padding-right: 30px; }
 
