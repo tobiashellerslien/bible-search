@@ -132,7 +132,7 @@ const I18N = {
         'card.copy.title': 'Kopier',
         'card.copy.textOnly': 'Kopier kun tekst',
         'card.copy.withRef': 'Kopier tekst og referanse',
-        'card.compare': 'sammenlign',
+        'card.compare': 'Sammenlign',
         'card.compare.title': 'Sammenlign oversettelser',
         'card.alignVerses': 'juster',
         'card.alignVerses.title': 'Juster vers side ved side',
@@ -144,6 +144,18 @@ const I18N = {
         'card.readChapter': '📖 Les kapittel',
         'card.mapBtn': '🗺️ Kart ({0})',
         'card.mapBtn.title': 'Se {0} sted(er) på kart',
+        'card.study': '🎓Studie',
+        'card.study.title': 'Vis/skjul studie-verktøy',
+        'card.study.map': '🗺️ Kart',
+        'card.study.map.empty': 'Ingen steder i denne teksten',
+        'card.study.interlinear': 'Grunntekst',
+        'card.study.bibleref': 'BibleRef',
+        'card.study.source': 'Kilde',
+        'card.expandChapter': 'Vis hele kapittelet',
+        'card.collapseChapter': 'Tilbake til vers',
+        'card.navPrev': 'Forrige',
+        'card.navNext': 'Neste',
+        'swipeHint.text': 'Sveip for å bla',
         'card.compareLoading': 'Laster...',
         'card.compareNotFound': 'Ikke funnet',
         'card.compareFailed': 'Lasting feilet',
@@ -379,6 +391,9 @@ const COLOR_PRESETS = [
 // ── State ──
 let lastQuery = '';
 let mainData = null;
+// Per-card UI state (keyed by card index in mainData) — runtime only, not persisted
+let cardTrayOpen = {};         // idx -> bool (study tray open/closed)
+let cardExpandedState = {};    // idx -> { originalBlock } when expanded from verse to chapter
 let currentView = 'normal';
 let booksData = [];
 let allVersionsCache = null;
@@ -755,6 +770,9 @@ async function doSearch(pushHistory = true, resetAC = true) {
         }
 
         mainData = data.results;
+        // Reset per-card UI state on a fresh search (stale indices would point at wrong blocks)
+        cardTrayOpen = {};
+        cardExpandedState = {};
         detectChapterInfo(mainData);
         renderAll();
         window.scrollTo(0, 0);
@@ -855,6 +873,7 @@ function renderAll() {
         if (cardCompare[idx] && cardCompare[idx].visible) renderCompareBody(idx);
     });
     if (typeof updateWideMode === 'function') updateWideMode();
+    maybeShowSwipeHint();
 }
 
 function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, ver) {
@@ -919,13 +938,13 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
                 const _maxV = maxVerseInChapter(block.book, _ch);
                 _hasPrev = _firstV > 1 || _ch > 1;
                 _hasNext = (_maxV && _lastV < _maxV) || _ch < _maxCh;
-                _prevCall = `goVerse('${escAttr(block.book)}', ${_ch}, ${_firstV}, '${escAttr(_bName)}', 'prev')`;
-                _nextCall = `goVerse('${escAttr(block.book)}', ${_ch}, ${_lastV}, '${escAttr(_bName)}', 'next')`;
+                _prevCall = `goVerse('${escAttr(block.book)}', ${_ch}, ${_firstV}, '${escAttr(_bName)}', 'prev', ${idx})`;
+                _nextCall = `goVerse('${escAttr(block.book)}', ${_ch}, ${_lastV}, '${escAttr(_bName)}', 'next', ${idx})`;
             } else {
                 _hasPrev = _ch > 1;
                 _hasNext = _ch < _maxCh;
-                _prevCall = `goChapter('${escAttr(block.book)}', ${_ch - 1}, '${escAttr(_bName)}', 'prev')`;
-                _nextCall = `goChapter('${escAttr(block.book)}', ${_ch + 1}, '${escAttr(_bName)}', 'next')`;
+                _prevCall = `goChapter('${escAttr(block.book)}', ${_ch - 1}, '${escAttr(_bName)}', 'prev', ${idx})`;
+                _nextCall = `goChapter('${escAttr(block.book)}', ${_ch + 1}, '${escAttr(_bName)}', 'next', ${idx})`;
             }
             cardNavData = { hasPrev: _hasPrev, hasNext: _hasNext };
             sideNavHtml = `<button class="side-nav side-nav-prev" data-disabled="${_hasPrev ? '0' : '1'}" ${_hasPrev ? `onclick="${_prevCall}"` : ''} title="${escAttr(t('chapterNav.prevCh'))}" aria-label="prev">&#8249;</button>
@@ -945,8 +964,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
     });
     compareOptionsHtml += `<option value="__all__"${isAllMode ? ' selected' : ''}>${escHtml(t('card.allVersionsOption'))}</option>`;
 
-    let html = `<div class="verse-card${compareActive ? ' compare-active' : ''}" id="${cardId}"${swipeAttrs}>
-        ${sideNavHtml}
+    let html = `<div class="card-swipe-wrap">${sideNavHtml}<div class="verse-card${compareActive ? ' compare-active' : ''}" id="${cardId}"${swipeAttrs}>
         <div class="verse-card-header">
             <div class="verse-card-header-main">
                 <div class="verse-card-header-left">
@@ -961,14 +979,13 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
                             <button class="copy-menu-item" onclick="copyBlockRef(${idx})">${escHtml(t('card.copy.withRef'))}</button>
                         </div>
                     </div>
-                    <button class="copy-btn compare-header-btn${compareVisible ? ' active' : ''}" onclick="toggleCardCompare(${idx})" title="${escAttr(t('card.compare.title'))}">${escHtml(t('card.compare'))}</button>
                 </div>
             </div>
             <div class="header-compare-slot">
                 <select class="card-compare-select" id="compare-select-header-${idx}" onchange="changeCardCompareVersion(${idx}, 'header')">${compareOptionsHtml}</select>
                 <label class="toggle-group align-mode-toggle" title="${escAttr(t('card.alignVerses.title'))}">
                     <span>${escHtml(t('card.alignVerses'))}</span>
-                    <div class="toggle"><input type="checkbox" id="align-toggle-${idx}"${alignMode ? ' checked' : ''} onchange="toggleAlignMode(${idx})"><span class="toggle-slider"></span></div>
+                    <span class="toggle-switch"><input type="checkbox" id="align-toggle-${idx}"${alignMode ? ' checked' : ''} onchange="toggleAlignMode(${idx})"><span class="toggle-slider"></span></span>
                 </label>
             </div>
         </div>
@@ -997,50 +1014,51 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
             <div class="card-compare-body" id="compare-body-${idx}"></div></div>`;
         html += `</div>`; // close .verse-card-body (footer must be outside)
 
-        const verseKeysStr = block.verses.map(v => `${v.chapter}:${v.num}`).join(',');
         const crUrl = biblerefUrl(block.book, ch, isSingleVerse ? block.verses[0].num : null);
         const yvUrl = youversionUrl(block.book, ch, block.verses, ver, !!block.is_chapter);
-        html += `<div class="verse-card-footer">`;
-        if (!block.is_chapter) {
-            html += `<button class="card-action-btn" onclick="readChapter('${escAttr(block.book)}', ${ch}, '${escAttr(bName)}', '${verseKeysStr}')">${escHtml(t('card.readChapter'))}</button>`;
-        }
+
+        // Study tray (compact square toggle, expands to show study/external links)
+        const trayOpen = !!cardTrayOpen[idx];
         const placeCount = (block.places || []).length;
-        if (placeCount > 0) {
-            html += `<button class="block-map-btn" onclick="openMapForBlock(${idx},null)" title="${escAttr(t('card.mapBtn.title', placeCount))}">${escHtml(t('card.mapBtn', placeCount))}</button>`;
-        }
-        if (ilUrl || crUrl || yvUrl) {
-            html += `<div class="card-more-wrap">
-                <button class="card-action-btn card-more-btn" onclick="toggleCardMore(${idx})" title="${escAttr(t('card.more'))}">&#8943;</button>
-                <div class="card-more-menu" id="card-more-${idx}">`;
-            if (ilUrl) html += `<a class="card-more-item" href="${ilUrl}" target="_blank" rel="noopener"><img src="/static/images/biblehub.png" alt=""> ${escHtml(t('card.more.interlinear'))}</a>`;
-            if (crUrl) html += `<a class="card-more-item" href="${crUrl}" target="_blank" rel="noopener"><img src="/static/images/bibleref.png" alt=""> ${escHtml(t('card.more.commentary'))}</a>`;
-            if (yvUrl) html += `<a class="card-more-item" href="${yvUrl}" target="_blank" rel="noopener">${escHtml(t('card.more.source'))}</a>`;
-            html += `</div></div>`;
-        }
-        if (allSameCh && maxCh > 0) {
-            html += `<div class="chapter-nav">`;
-            if (!block.is_chapter) {
-                const firstV = block.verses[0].num;
-                const lastV = block.verses[block.verses.length - 1].num;
-                const maxV = maxVerseInChapter(block.book, ch);
-                const hasPrev = firstV > 1 || ch > 1;
-                const hasNext = (maxV && lastV < maxV) || ch < maxCh;
-                const prevLabel = firstV > 1 ? `${ch}:${firstV - 1}` : (ch > 1 ? `${ch - 1}:${maxVerseInChapter(block.book, ch - 1) || '?'}` : null);
-                const nextLabel = (maxV && lastV < maxV) ? `${ch}:${lastV + 1}` : (ch < maxCh ? `${ch + 1}:1` : null);
-                if (hasPrev && prevLabel !== null) html += `<button class="card-action-btn" onclick="goVerse('${escAttr(block.book)}', ${ch}, ${firstV}, '${escAttr(bName)}', 'prev')" title="${escAttr(t('chapterNav.prevVs'))}">&#8592; ${prevLabel}</button>`;
-                if (hasNext && nextLabel !== null) html += `<button class="card-action-btn" onclick="goVerse('${escAttr(block.book)}', ${ch}, ${lastV}, '${escAttr(bName)}', 'next')" title="${escAttr(t('chapterNav.nextVs'))}">${nextLabel} &#8594;</button>`;
-            } else {
-                if (ch > 1) html += `<button class="card-action-btn" onclick="goChapter('${escAttr(block.book)}', ${ch - 1}, '${escAttr(bName)}', 'prev')" title="${escAttr(t('chapterNav.prevCh'))}">&#8592; ${ch - 1}</button>`;
-                if (ch < maxCh) html += `<button class="card-action-btn" onclick="goChapter('${escAttr(block.book)}', ${ch + 1}, '${escAttr(bName)}', 'next')" title="${escAttr(t('chapterNav.nextCh'))}">${ch + 1} &#8594;</button>`;
-            }
-            html += `</div>`;
-        }
-        html += `</div>`;
+        const mapDisabled = placeCount === 0;
+        const mapLabel = placeCount > 0 ? `🗺️ Kart (${placeCount})` : `🗺️ Kart`;
+        const mapTitle = mapDisabled ? escAttr(t('card.study.map.empty')) : escAttr(t('card.mapBtn.title', placeCount));
+
+        html += `<div class="verse-card-footer">
+            <button class="copy-btn study-toggle${trayOpen ? ' open' : ''}" onclick="toggleStudyTray(${idx})" aria-expanded="${trayOpen ? 'true' : 'false'}" title="${escAttr(t('card.study.title'))}">
+                <span class="study-label">${escHtml(t('card.study'))}</span>
+                <svg class="study-chevron" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4 L6 8 L10 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="study-tray" data-open="${trayOpen ? 'true' : 'false'}" id="study-tray-${idx}">
+                <div class="study-tray-inner">
+                    <button class="tray-btn compare-header-btn${compareVisible ? ' active' : ''}" onclick="toggleCardCompare(${idx})" title="${escAttr(t('card.compare.title'))}">${escHtml(t('card.compare'))}</button>
+                    <button class="tray-btn map-tray-btn"${mapDisabled ? ' disabled aria-disabled="true"' : ` onclick="openMapForBlock(${idx},null)"`} title="${mapTitle}">${mapLabel}</button>
+                    ${(ilUrl || crUrl || yvUrl) ? `<span class="tray-divider" aria-hidden="true"></span>` : ''}
+                    ${ilUrl ? `<a class="tray-btn external" href="${ilUrl}" target="_blank" rel="noopener" title="${escAttr(t('card.study.interlinear'))}"><img class="tray-btn-logo" src="/static/images/biblehub.png" alt=""><span>${escHtml(t('card.study.interlinear'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
+                    ${crUrl ? `<a class="tray-btn external" href="${crUrl}" target="_blank" rel="noopener" title="bibleref.com"><img class="tray-btn-logo" src="/static/images/bibleref.png" alt=""><span>${escHtml(t('card.study.bibleref'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
+                    ${yvUrl ? `<a class="tray-btn external" href="${yvUrl}" target="_blank" rel="noopener" title="${escAttr(t('card.study.source'))}"><span>${escHtml(t('card.study.source'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
+                </div>
+            </div>
+        </div>`;
+
     } else {
         html += `</div>`; // close .verse-card-body when no compare/footer was added
     }
 
-    html += '</div>'; // close .verse-card
+    html += '</div></div>'; // close .verse-card and .card-swipe-wrap
+
+    // V-arrow chapter expand/collapse — OUTSIDE the card box, below it.
+    // Visible when in verse view, or when chapter view that originated from a verse-expand.
+    if (block.book && block.verses.length > 0) {
+        const expandState = cardExpandedState[idx];
+        const showExpand = !block.is_chapter || (expandState && expandState.originalBlock);
+        if (showExpand) {
+            const isExpanded = !!(expandState && expandState.originalBlock);
+            html += `<button class="chapter-expand-bar" data-card-idx="${idx}" data-expanded="${isExpanded ? 'true' : 'false'}" onclick="toggleChapterExpand(${idx})" title="${escAttr(t(isExpanded ? 'card.collapseChapter' : 'card.expandChapter'))}" aria-label="${escAttr(t(isExpanded ? 'card.collapseChapter' : 'card.expandChapter'))}">
+                <svg class="chapter-expand-arrow" viewBox="0 0 24 12" aria-hidden="true"><path d="M2 2 L12 10 L22 2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>`;
+        }
+    }
     return html;
 }
 
@@ -1194,12 +1212,15 @@ window.toggleCardCompare = async function(idx) {
     if (!cardCompare[idx]) {
         const defaultVer = allVersionsList.find(v => String(v.id) !== versionSelect.value) || allVersionsList[0];
         cardCompare[idx] = { version: String(defaultVer.id), data: null, visible: true, mode: 'single', allData: null, alignMode: false };
+        // Add .compare-active to the card BEFORE making the section visible so the
+        // section's transition uses the PC side-by-side layout from the start instead
+        // of briefly applying the mobile (full-width below) layout.
+        updateWideMode();
         if (section) {
             section.classList.add('visible');
             if (headerBtn) headerBtn.classList.add('active');
             renderCompareBody(idx);
         }
-        updateWideMode();
         syncCardCompareSelects(idx);
         await loadCardCompareData(idx);
         renderCompareBody(idx);
@@ -1644,7 +1665,12 @@ async function slideTransition(direction, work) {
     }
 }
 
-window.goChapter = async function(bookCode, chapter, bName, direction) {
+window.goChapter = async function(bookCode, chapter, bName, direction, cardIdx) {
+    if (typeof cardIdx === 'number' && mainData && mainData[cardIdx]) {
+        // Per-card navigation: replace only this card's block
+        await navigateCardToRef(cardIdx, `${bName} ${chapter}`, direction, /*highlightKeys*/ null);
+        return;
+    }
     currentHighlightVerses = null;
     await slideTransition(direction, async () => {
         searchInput.value = `${bName} ${chapter}`;
@@ -2058,7 +2084,212 @@ window.goToVerseInVersion = function(ref, version) {
     doSearch();
 };
 
-// ── Read chapter ──
+// ── Swipe hint (one-time, mobile only) ──
+function maybeShowSwipeHint() {
+    try {
+        if (window.innerWidth >= 701) return;
+        if (localStorage.getItem('swipeHintShown') === '1') return;
+        // Need at least one card with swipe data to make the hint useful
+        const card = resultsWrapper.querySelector('.verse-card[data-swipe-book]');
+        if (!card) return;
+        const overlay = document.createElement('div');
+        overlay.className = 'swipe-hint-overlay';
+        overlay.innerHTML = `
+            <div class="swipe-hint-inner">
+                <span class="swipe-hint-arrow swipe-hint-arrow-left">&#8592;</span>
+                <span class="swipe-hint-text">${escHtml(t('swipeHint.text'))}</span>
+                <span class="swipe-hint-arrow swipe-hint-arrow-right">&#8594;</span>
+            </div>`;
+        card.appendChild(overlay);
+        requestAnimationFrame(() => overlay.classList.add('visible'));
+        let dismissed = false;
+        const dismiss = () => {
+            if (dismissed) return;
+            dismissed = true;
+            overlay.classList.remove('visible');
+            setTimeout(() => overlay.remove(), 280);
+            try { localStorage.setItem('swipeHintShown', '1'); } catch {}
+            document.removeEventListener('touchstart', dismiss, true);
+            document.removeEventListener('click', dismiss, true);
+        };
+        setTimeout(dismiss, 2600);
+        // Dismiss on any user interaction so the hint never blocks clicks/taps.
+        document.addEventListener('touchstart', dismiss, true);
+        document.addEventListener('click', dismiss, true);
+    } catch {}
+}
+
+// ── Study tray (per-card) ──
+window.toggleStudyTray = function(idx) {
+    const next = !cardTrayOpen[idx];
+    cardTrayOpen[idx] = next;
+    const tray = document.getElementById(`study-tray-${idx}`);
+    const card = document.getElementById(`card-${idx}`);
+    const toggle = card && card.querySelector('.study-toggle');
+    if (tray) tray.dataset.open = next ? 'true' : 'false';
+    if (toggle) {
+        toggle.setAttribute('aria-expanded', next ? 'true' : 'false');
+        toggle.classList.toggle('open', next);
+    }
+};
+
+// ── Re-render a single card in place (without re-running search) ──
+function rerenderCard(idx) {
+    if (!mainData || !mainData[idx]) return;
+    const card = document.getElementById(`card-${idx}`);
+    if (!card) { renderAll(); return; }
+    const wrap = card.closest('.card-swipe-wrap');
+    const topEl = wrap || card;
+    const showNums = toggleVerseNums.checked;
+    const showNewlines = toggleNewlines.checked;
+    const showHeadings = toggleHeadings.checked;
+    const mainLang = (typeof versionLang === 'function') ? versionLang(versionSelect.value) : '';
+    const tmp = document.createElement('div');
+    tmp.innerHTML = buildCardHtml(mainData[idx], idx, showNums, showNewlines, showHeadings, mainLang, versionSelect.value);
+    const newTop = tmp.querySelector('.card-swipe-wrap') || tmp.querySelector('.verse-card');
+    const newExpand = tmp.querySelector(`.chapter-expand-bar[data-card-idx="${idx}"]`);
+    if (!newTop) return;
+    const oldExpand = (topEl.nextElementSibling && topEl.nextElementSibling.classList &&
+        topEl.nextElementSibling.classList.contains('chapter-expand-bar') &&
+        topEl.nextElementSibling.dataset.cardIdx === String(idx))
+        ? topEl.nextElementSibling : null;
+    topEl.replaceWith(newTop);
+    if (newExpand) {
+        if (oldExpand) oldExpand.replaceWith(newExpand);
+        else newTop.parentElement.insertBefore(newExpand, newTop.nextSibling);
+    } else if (oldExpand) {
+        oldExpand.remove();
+    }
+    // Restore compare body if this card had compare visible
+    if (cardCompare[idx] && cardCompare[idx].visible) {
+        try { renderCompareBody(idx); } catch {}
+    }
+    if (typeof updateWideMode === 'function') updateWideMode();
+}
+
+// ── Chapter expand/collapse (per-card V-arrow) ──
+window.toggleChapterExpand = async function(idx) {
+    if (!mainData || !mainData[idx]) return;
+    const block = mainData[idx];
+    const expandState = cardExpandedState[idx];
+
+    if (expandState && expandState.originalBlock) {
+        // Collapse back to original verses — clear chapter-highlight first, animate out, then re-render.
+        currentHighlightVerses = null;
+        mainData[idx] = expandState.originalBlock;
+        delete cardExpandedState[idx];
+        if (cardCompare[idx]) { cardCompare[idx].data = null; cardCompare[idx].allData = null; }
+        await animateCardCollapse(idx);
+        try { updateUrlFromCards(); } catch {}
+        const _csc = cardCompare[idx];
+        if (_csc && _csc.visible) {
+            if (_csc.mode === 'all') await loadCardCompareAllData(idx);
+            else await loadCardCompareData(idx);
+            renderCompareBody(idx);
+        }
+        return;
+    }
+
+    // Expand: fetch full chapter for this block and replace
+    if (!block.book || !block.verses || block.verses.length === 0) return;
+    const ch = block.verses[0].chapter;
+    const bName = bookRefName(block.book);
+    const ver = versionSelect.value;
+    const ref = `${bName} ${ch}`;
+    try {
+        const resp = await fetch(`/api/search?q=${encodeURIComponent(ref)}&version=${encodeURIComponent(ver)}`);
+        const data = await resp.json();
+        const newBlock = (data && data.results && data.results[0]) || null;
+        if (!newBlock) return;
+        cardExpandedState[idx] = { originalBlock: block };
+        // Mark which verses to highlight inside the chapter (the verses originally shown)
+        const keys = new Set(block.verses.map(v => `${v.chapter}:${v.num}`));
+        currentHighlightVerses = { keys };
+        mainData[idx] = newBlock;
+        if (cardCompare[idx]) { cardCompare[idx].data = null; cardCompare[idx].allData = null; }
+        await animateCardExpand(idx);
+        // After height-animation has fully settled, scroll the highlighted verses into view.
+        const card = document.getElementById(`card-${idx}`);
+        const el = card && card.querySelector('.verse-highlight-wrap');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        try { updateUrlFromCards(); } catch {}
+        const _cse = cardCompare[idx];
+        if (_cse && _cse.visible) {
+            if (_cse.mode === 'all') await loadCardCompareAllData(idx);
+            else await loadCardCompareData(idx);
+            renderCompareBody(idx);
+        }
+    } catch {}
+};
+
+// Height-based expand/collapse animation used by chapter expand/collapse.
+// Captures the old body height, re-renders, then animates max-height from old → new.
+// Returns a Promise that resolves when the height animation has fully settled.
+function animateCardHeightChange(idx) {
+    return new Promise(resolve => {
+        const card = document.getElementById(`card-${idx}`);
+        if (!card) { rerenderCard(idx); resolve(); return; }
+        const oldBody = card.querySelector('.verse-card-body');
+        const oldHeight = oldBody ? oldBody.scrollHeight : card.scrollHeight;
+
+        rerenderCard(idx);
+
+        const newCard = document.getElementById(`card-${idx}`);
+        const newBody = newCard && newCard.querySelector('.verse-card-body');
+        if (!newBody) { resolve(); return; }
+
+        // Measure target height with content fully laid out.
+        newBody.style.maxHeight = '';
+        newBody.style.overflow = '';
+        const targetHeight = newBody.scrollHeight;
+
+        // Animate height change.
+        // EXPAND (small→large): constrain with maxHeight at old size, animate up.
+        // COLLAPSE (large→small): new content is already small, so maxHeight alone doesn't
+        //   create a visual starting state. Force the body to hold the old (large) height
+        //   using minHeight, then animate both minHeight and maxHeight down to targetHeight.
+        const isCollapse = oldHeight > targetHeight;
+        const animProp = isCollapse ? 'min-height' : 'max-height';
+
+        newBody.style.transition = 'none';
+        newBody.style.overflow = 'hidden';
+        newBody.style.maxHeight = oldHeight + 'px';
+        if (isCollapse) newBody.style.minHeight = oldHeight + 'px';
+        void newBody.offsetHeight; // force initial layout
+
+        let done = false;
+        const cleanup = () => {
+            if (done) return;
+            done = true;
+            if (newBody) {
+                newBody.style.transition = '';
+                newBody.style.maxHeight = '';
+                newBody.style.minHeight = '';
+                newBody.style.overflow = '';
+                newBody.removeEventListener('transitionend', onEnd);
+            }
+            resolve();
+        };
+        const onEnd = (e) => { if (e.propertyName === animProp) cleanup(); };
+        newBody.addEventListener('transitionend', onEnd);
+        setTimeout(cleanup, 450); // safety
+
+        requestAnimationFrame(() => {
+            const easing = 'cubic-bezier(0.2, 0.8, 0.3, 1)';
+            if (isCollapse) {
+                newBody.style.transition = `min-height 0.32s ${easing}, max-height 0.32s ${easing}`;
+                newBody.style.minHeight = targetHeight + 'px';
+            } else {
+                newBody.style.transition = `max-height 0.32s ${easing}`;
+            }
+            newBody.style.maxHeight = targetHeight + 'px';
+        });
+    });
+}
+const animateCardExpand = animateCardHeightChange;
+const animateCardCollapse = animateCardHeightChange;
+
+// ── Read chapter (legacy, kept for any callers) ──
 window.readChapter = async function(bookCode, chapter, bName, highlightKeys) {
     if (highlightKeys) {
         currentHighlightVerses = { keys: new Set(highlightKeys.split(',')) };
@@ -2967,7 +3198,7 @@ function maxVerseInChapter(bookCode, chapter) {
     return b && b.verse_counts ? (b.verse_counts[chapter] || 0) : 0;
 }
 
-window.goVerse = async function(bookCode, chapter, verse, bName, direction) {
+window.goVerse = async function(bookCode, chapter, verse, bName, direction, cardIdx) {
     const maxCh = (booksData.find(b => b.code === bookCode) || {}).chapters || 0;
     let targetCh = chapter, targetVerse = verse;
     if (direction === 'prev') {
@@ -2990,12 +3221,105 @@ window.goVerse = async function(bookCode, chapter, verse, bName, direction) {
             return; // at very end
         }
     }
+    const targetRef = `${bName} ${targetCh}:${targetVerse}`;
+    if (typeof cardIdx === 'number' && mainData && mainData[cardIdx]) {
+        await navigateCardToRef(cardIdx, targetRef, direction, null);
+        return;
+    }
     await slideTransition(direction, async () => {
-        searchInput.value = `${bName} ${targetCh}:${targetVerse}`;
+        searchInput.value = targetRef;
         updateSearchHighlight();
         await doSearch();
     });
 };
+
+// Navigate a single card to a new reference without disturbing other cards.
+// Updates URL via history.pushState so back-button + share-link still work.
+async function navigateCardToRef(cardIdx, ref, direction, highlightKeys) {
+    if (!mainData || !mainData[cardIdx]) return;
+    const ver = versionSelect.value;
+    try {
+        const resp = await fetch(`/api/search?q=${encodeURIComponent(ref)}&version=${encodeURIComponent(ver)}`);
+        const data = await resp.json();
+        const newBlock = (data && data.results && data.results[0]) || null;
+        if (!newBlock) return;
+        // If this card had an "expanded chapter" state, drop it (we're navigating elsewhere)
+        if (cardExpandedState[cardIdx]) delete cardExpandedState[cardIdx];
+        if (highlightKeys) currentHighlightVerses = { keys: new Set(highlightKeys) };
+        else currentHighlightVerses = null;
+        const card = document.getElementById(`card-${cardIdx}`);
+        // If the card is mid-swipe (touch gesture), continue the motion off-screen
+        // instead of snapping back to a small 28px slide (no visual springback).
+        const fromSwipe = !!(card && card.classList.contains('swiping'));
+        if (card && direction) {
+            // Disable .swiping (which has transition:none) so our inline transition takes effect
+            card.classList.remove('swiping');
+            const dxOut = fromSwipe
+                ? (direction === 'next' ? -(card.offsetWidth + 40) : (card.offsetWidth + 40))
+                : (direction === 'next' ? -28 : 28);
+            const dur = fromSwipe ? 0.18 : 0.14;
+            card.style.transition = `opacity ${dur}s ease, transform ${dur}s ease`;
+            card.style.opacity = '0';
+            card.style.transform = `translateX(${dxOut}px)`;
+            await new Promise(r => setTimeout(r, fromSwipe ? 190 : 150));
+        }
+        mainData[cardIdx] = newBlock;
+        // Reset stale compare data so the new block's reference is fetched after render
+        if (cardCompare[cardIdx]) {
+            cardCompare[cardIdx].data = null;
+            cardCompare[cardIdx].allData = null;
+        }
+        rerenderCard(cardIdx);
+        const newCard = document.getElementById(`card-${cardIdx}`);
+        if (newCard && direction) {
+            const dxIn = direction === 'next' ? 28 : -28;
+            newCard.style.transition = 'none';
+            newCard.style.opacity = '0';
+            newCard.style.transform = `translateX(${dxIn}px)`;
+            void newCard.offsetHeight;
+            newCard.style.transition = 'opacity 0.14s ease, transform 0.14s ease';
+            newCard.style.opacity = '';
+            newCard.style.transform = '';
+            setTimeout(() => {
+                if (newCard) { newCard.style.transition = ''; }
+            }, 200);
+        }
+        // Update URL — use composite query of all card refs so back/share works
+        try { updateUrlFromCards(); } catch {}
+        // Reload compare data for the new block if compare was visible
+        const _cs = cardCompare[cardIdx];
+        if (_cs && _cs.visible) {
+            if (_cs.mode === 'all') await loadCardCompareAllData(cardIdx);
+            else await loadCardCompareData(cardIdx);
+            renderCompareBody(cardIdx);
+        }
+    } catch {}
+}
+
+function updateUrlFromCards() {
+    if (!mainData || mainData.length === 0) return;
+    const refs = mainData.map(b => {
+        if (!b || !b.book || !b.verses || b.verses.length === 0) return null;
+        const bName = bookRefName(b.book);
+        const ch = b.verses[0].chapter;
+        if (b.is_chapter) return `${bName} ${ch}`;
+        const first = b.verses[0].num;
+        const last = b.verses[b.verses.length - 1].num;
+        const allSameCh = b.verses.every(v => v.chapter === ch);
+        if (!allSameCh) {
+            const lastCh = b.verses[b.verses.length - 1].chapter;
+            return `${bName} ${ch}:${first}-${lastCh}:${last}`;
+        }
+        return first === last ? `${bName} ${ch}:${first}` : `${bName} ${ch}:${first}-${last}`;
+    }).filter(Boolean);
+    if (refs.length === 0) return;
+    const composite = refs.join('; ');
+    const ver = versionSelect.value;
+    try {
+        const url = buildURL(composite, ver);
+        history.replaceState({ q: composite, version: ver, mode: 'normal' }, '', url);
+    } catch {}
+}
 
 function interlinearUrl(bookCode, chapter, verseNum) {
     const slug = BIBLEHUB_SLUGS[bookCode];
@@ -3057,11 +3381,9 @@ function escAttr(s) {
     let indicatorLeft = null, indicatorRight = null;
     let isAnimating = false;
 
-    const REST_OPACITY = 0.32;
     function resetArrow(el) {
         if (!el) return;
         el.style.opacity = '';
-        el.style.transform = '';
         el.style.color = '';
     }
 
@@ -3086,9 +3408,10 @@ function escAttr(s) {
         startY = e.touches[0].clientY;
         startTime = Date.now();
         isDragging = false;
-        // Use the in-card side-nav arrows as the swipe indicator
-        indicatorLeft = card.querySelector('.side-nav-prev');
-        indicatorRight = card.querySelector('.side-nav-next');
+        // Side-nav arrows live in the .card-swipe-wrap wrapper, not inside the card
+        const swipeWrap = card.closest('.card-swipe-wrap') || card;
+        indicatorLeft = swipeWrap.querySelector('.side-nav-prev');
+        indicatorRight = swipeWrap.querySelector('.side-nav-next');
     }, { passive: true });
 
     resultsWrapper.addEventListener('touchmove', function(e) {
@@ -3120,23 +3443,19 @@ function escAttr(s) {
 
         if (indicatorRight) {
             if (dx < 0 && hasNext) {
-                indicatorRight.style.opacity = String(REST_OPACITY + (1 - REST_OPACITY) * progress);
-                indicatorRight.style.transform = `scale(${1 + progress * 0.5})`;
+                indicatorRight.style.opacity = String(progress);
                 indicatorRight.style.color = accent;
             } else {
-                indicatorRight.style.opacity = String(REST_OPACITY);
-                indicatorRight.style.transform = '';
+                indicatorRight.style.opacity = '0';
                 indicatorRight.style.color = '';
             }
         }
         if (indicatorLeft) {
             if (dx > 0 && hasPrev) {
-                indicatorLeft.style.opacity = String(REST_OPACITY + (1 - REST_OPACITY) * progress);
-                indicatorLeft.style.transform = `scale(${1 + progress * 0.5})`;
+                indicatorLeft.style.opacity = String(progress);
                 indicatorLeft.style.color = accent;
             } else {
-                indicatorLeft.style.opacity = String(REST_OPACITY);
-                indicatorLeft.style.transform = '';
+                indicatorLeft.style.opacity = '0';
                 indicatorLeft.style.color = '';
             }
         }
@@ -3154,10 +3473,13 @@ function escAttr(s) {
         const bName = card.dataset.swipeBname;
         const isVerse = card.dataset.swipeIsVerse === '1';
 
+        // Per-card swipe: keep other cards intact
+        const m = (card.id || '').match(/^card-(\d+)$/);
+        const cardIdx = m ? parseInt(m[1], 10) : undefined;
         if (isVerse) {
-            await goVerse(book, ch, direction === 'next' ? lastV : firstV, bName, direction);
+            await goVerse(book, ch, direction === 'next' ? lastV : firstV, bName, direction, cardIdx);
         } else {
-            await goChapter(book, direction === 'next' ? ch + 1 : ch - 1, bName, direction);
+            await goChapter(book, direction === 'next' ? ch + 1 : ch - 1, bName, direction, cardIdx);
         }
         isAnimating = false;
     }
