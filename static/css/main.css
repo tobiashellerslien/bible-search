@@ -1,4 +1,4 @@
-        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Lora:wght@700&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Lora:wght@700&family=Inter:wght@400;500;600;700&display=swap');
 
         :root {
             --bg: #f5f2ee;
@@ -679,34 +679,87 @@
         /* ── Toggles (Visning panel) ── */
         .toggles-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-            gap: 10px 18px;
-            align-items: center;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            align-items: start;
         }
-        /* The hint button must sit clearly to the right of the toggle: position
-           it absolutely against the cell so flex shrinking can never push it
-           on top of the slider. The cell reserves padding-right for it. */
-        .toggle-with-hint {
-            position: relative;
-            display: flex;
+
+        .toggle-item {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
             align-items: center;
-            padding-right: 22px;
+            column-gap: 14px;
+            row-gap: 4px;
+            width: 100%;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border);
         }
-        .toggle-with-hint .copy-hint-btn {
-            position: absolute;
-            right: 2px;
-            top: 50%;
-            transform: translateY(-50%);
+
+        .toggle-item:last-child {
+            padding-bottom: 0;
+            border-bottom: none;
         }
-        .toggle-group {
-            display: flex;
+
+        .toggle-label-row {
+            display: inline-flex;
             align-items: center;
-            gap: 7px;
-            font-size: 0.82rem;
+            gap: 8px;
+            min-width: 0;
             color: var(--text-muted);
+            font-size: 0.82rem;
         }
+
+        .toggle-label-row > span {
+            min-width: 0;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 36px;
+            height: 20px;
+            flex-shrink: 0;
+            justify-self: end;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            background: var(--border);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .toggle-slider::before {
+            content: '';
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            left: 3px;
+            bottom: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.15s;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background: var(--accent);
+        }
+
+        .toggle-switch input:checked + .toggle-slider::before {
+            transform: translateX(16px);
+        }
+
         .copy-hint-btn {
-            width: 15px; height: 15px;
+            width: 15px;
+            height: 15px;
             border-radius: 50%;
             border: 1px solid var(--border);
             background: none;
@@ -717,15 +770,17 @@
             cursor: pointer;
             padding: 0;
             line-height: 1;
-            position: relative;
             flex-shrink: 0;
             transition: border-color 0.15s, color 0.15s;
+            position: relative;
         }
+
         .copy-hint-btn:hover,
         .copy-hint-btn.open {
             border-color: var(--text-muted);
             color: var(--text);
         }
+
         .copy-hint-btn::after {
             content: attr(data-tooltip);
             position: absolute;
@@ -747,31 +802,12 @@
             z-index: 10;
             box-shadow: var(--shadow);
         }
+
         .copy-hint-btn:hover::after,
         .copy-hint-btn.open::after {
             visibility: visible;
             opacity: 1;
         }
-        .toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
-        .toggle input { opacity: 0; width: 0; height: 0; }
-        .toggle-slider {
-            position: absolute; inset: 0;
-            background: var(--border);
-            border-radius: 20px;
-            cursor: pointer;
-            transition: background 0.15s;
-        }
-        .toggle-slider::before {
-            content: '';
-            position: absolute;
-            width: 14px; height: 14px;
-            left: 3px; bottom: 3px;
-            background: white;
-            border-radius: 50%;
-            transition: transform 0.15s;
-        }
-        .toggle input:checked + .toggle-slider { background: var(--accent); }
-        .toggle input:checked + .toggle-slider::before { transform: translateX(16px); }
 
         /* ── Results ──
            Wrapper is wide (1240px); content children default-clamp to 880px so reading width is preserved.
@@ -2011,33 +2047,19 @@
             .controls { gap: 8px; margin-top: 14px; }
             .display-area { margin-top: 4px; }
             .results-wrapper { margin-top: 6px; }
-            .header h1 { font-size: 1.5rem; }
+            .header h1 { font-size: 1.45rem; }
             .chapter-nav { margin-left: auto; }
             .modal-panel { max-height: 92vh; }
             .stats-card-value { font-size: 1.1rem; }
             .header-right { gap: 5px; }
             .header-btn { padding: 4px 7px; font-size: 0.75rem; }
 
-            /* On mobile: hide custom picker, show native select */
-            /* .version-picker { display: none; } */
-            /* .search-group #versionSelect {
-                display: block;
-                border: none;
-                border-left: 1.5px solid var(--border);
-                border-radius: 0;
-                padding: 9px 5px;
-                background: transparent;
-                font-size: 0.75rem;
-                max-width: 75px;
-            } */
             .search-group #searchBtn { padding: 9px 10px; font-size: 0.8rem; }
 
-            /* Quick mode: icon-only on mobile to save horizontal space */
             .search-mode-btn { padding: 0 8px; min-width: 36px; justify-content: center; }
             .search-mode-label { display: none; }
             .search-mode-icon { width: 16px; height: 16px; }
 
-            /* Prevent iOS zoom on input focus — font-size must be ≥16px */
             .search-wrap input,
             .search-highlight-overlay,
             select {
@@ -2045,52 +2067,19 @@
             }
             .search-highlight-overlay { padding-right: 30px; }
 
-            /* Copy hint tooltip: button is now on the right, so tooltip extends leftward */
             .copy-hint-btn::after { right: 0; left: auto; }
 
-            /* Bla grids on mobile: tighter chapter tiles */
-            .bla-grid-books { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
-            .bla-grid-chapters { grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); }
-            .bla-tile { font-size: 0.82rem; padding: 7px 8px; }
-            .bla-tile-testament { padding: 14px 10px; font-size: 0.9rem; }
-            .bla-tile-chapter { padding: 7px 0; font-size: 0.84rem; }
-
-            /* Toggles on mobile: single column when narrow, otherwise auto-fit */
             .toggles-grid {
-                grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-                gap: 12px 14px;
+                gap: 12px;
             }
 
-            /* Card header: title on own line, actions below */
-            .verse-card-header { flex-wrap: wrap; }
-            .verse-card-header-left { flex: 1 1 100%; }
-            .verse-card-header-actions { gap: 4px; }
-            .copy-btn { padding: 3px 8px; font-size: 0.72rem; }
+            .toggle-item {
+                column-gap: 12px;
+            }
 
-            /* Modal tabs wrap nicely */
-            .modal-header { flex-wrap: wrap; row-gap: 8px; }
-            .modal-tabs { margin-left: 8px; }
-            .modal-tab { padding: 3px 10px; font-size: 0.74rem; }
-
-            /* More menu: align to right edge so it doesn't overflow */
-            .card-more-menu { left: auto; right: 0; }
-            .card-more-menu.menu-up { transform-origin: bottom right; }
-
-            /* Copy menu: anchor toward screen center based on button position
-               (set by JS via .anchor-right). Default opens to the right. */
-            .copy-menu { right: auto; left: 0; transform-origin: top left; }
-            .copy-menu.menu-up { transform-origin: bottom left; }
-            .copy-menu.anchor-right { right: 0; left: auto; transform-origin: top right; }
-            .copy-menu.anchor-right.menu-up { transform-origin: bottom right; }
-
-            /* Color picker stays comfortable on touch */
-            .color-swatch { width: 24px; height: 24px; }
-
-            /* Search controls: count on its own row, action buttons + share below */
-            .search-controls { gap: 5px 8px; margin-bottom: 8px; }
-            .search-result-count { flex: 1 1 100%; }
-            .search-controls .card-action-btn,
-            .search-controls .stats-btn { padding: 3px 8px; font-size: 0.72rem; }
+            .toggle-label-row {
+                font-size: 0.8rem;
+            }
         }
 
         @media (max-width: 420px) {
