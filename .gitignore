@@ -1,7 +1,7 @@
 __pycache__/
 *.pyc
 *.pyd
-# todo.md
+todo.md
 *.db-*
 migrations/
 bible.db
