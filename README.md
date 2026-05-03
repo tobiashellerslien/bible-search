@@ -1,32 +1,32 @@
 # Bible Search
 
-A fast and powerful Bible search app. Look up verses by reference, search the full text with advanced operators, and compare translations side by side. Uses local copies of Bibles. Inspired by [biblegateway.com](https://biblegateway.com).
+En rask og kraftig bibelsøkeapp. Slå opp vers etter referanse, søk i hele teksten med avanserte operatorer, og sammenlign oversettelser side om side. Bruker lokale kopier av bibler. Inspirert av [biblegateway.com](https://biblegateway.com).
 
-## Search syntax
+## Søk-syntaks
 
-| Example | What it does |
+| Eksempel | Hva den gjør |
 |---|---|
-| `Johannes 3:16` | Single verse |
-| `Salme 23` | Whole chapter |
-| `1. Mos 1:1-3` | Verse range |
-| `Joh 3:16;17` | Multiple passages (context carries) |
-| `nåde` | Full-text search (substring) |
-| `"tro"` | Exact word only (not "troende") |
-| `"evig liv"` | Exact phrase |
-| `nåde OR frelse` | Either word |
-| `nåde -dom` | Exclude word |
-| `GT: frelser` | Scope to OT / NT / book group |
-| `Johannes: lys` | Scope to single book |
+| `Johannes 3:16` | Enkeltvers |
+| `Salme 23` | Helt kapittel |
+| `1. Mos 1:1-3` | Versintervall |
+| `Joh 3:16;17` | Flere passasjer (kontekst videreføres) |
+| `nåde` | Fritekstsøk (delstreng) |
+| `"tro"` | Kun eksakt ord (ikke "troende") |
+| `"evig liv"` | Eksakt frase |
+| `nåde OR frelse` | Ett av ordene |
+| `nåde -dom` | Ekskluder ord |
+| `GT: frelser` | Avgrens til GT / NT / bokgruppe |
+| `Johannes: lys` | Avgrens til én bok |
 
-Abbreviations and English names work: `joh`, `gen`, `1. mos`, `romans`.
+Forkortelser og engelske navn fungerer: `joh`, `gen`, `1. mos`, `romans`.
 
-## Features
+## Funksjoner
 
-- **Search** - search across the entire bible, with search syntax, autofill and filters
-- **Quick search** — find a verse quickly
-- **Map** — view all places mentioned in an interactive map
-- **Cross references** - ~340,000 cross references, based mainly on TSK
-- **Compare** — view two translations simultaneously
-- **Stats** — word frequency chart across all books
-- **Resource links** — BibleHub for Hebrew/Greek, and BibleRef for commentary
-- **Appearance** — options in settings
+- **Søk** - søk i hele bibelen med søkesyntaks, autofyll og filtre
+- **Hurtigsøk** — finn et vers raskt
+- **Kart** — vis alle steder som er nevnt i et interaktivt kart
+- **Kryssreferanser** - ~340 000 kryssreferanser, hovedsakelig basert på TSK
+- **Sammenlign** — vis to oversettelser samtidig
+- **Statistikk** — ordfrekvensdiagram på tvers av alle bøker
+- **Studieverktøy** — flere ulike verktøy for bibelstudie (kommentar, temaer, innholdsfortegnelse, ekstern link til interlineær...)
+- **Utseende** — innstillinger for visning
