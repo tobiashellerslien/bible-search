@@ -3,7 +3,6 @@ __pycache__/
 *.pyd
 # todo.md
 *.db-*
-migrate_to_db.py
-migrate_places.py
+migrations/
 bible.db
 temp_resources/
