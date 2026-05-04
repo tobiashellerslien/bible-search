@@ -989,6 +989,9 @@ def _tokenize_query(text):
                 i = j + 1
                 if phrase.strip():
                     yield ('phrase', phrase.strip())
+        elif c in ('|', '+'):
+            i += 1
+            yield ('OR',)
         elif c == '-':
             if i + 1 < len(text) and text[i + 1] == '"':
                 j = text.find('"', i + 2)
@@ -1009,14 +1012,12 @@ def _tokenize_query(text):
                     yield ('exclude', word)
         else:
             j = i
-            while j < len(text) and text[j] not in (' ', '"'):
+            while j < len(text) and text[j] not in (' ', '"', '|', '+'):
                 j += 1
             word = text[i:j]
             i = j
             if not word:
                 continue
-            elif word == 'OR':
-                yield ('OR',)
             else:
                 yield ('word', word)
 

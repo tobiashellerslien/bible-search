@@ -44,7 +44,7 @@ const I18N = {
         'help.row.exactWord': 'Alle vers med eksakt ord',
         'help.row.exactPhrase': 'Eksakt frase',
         'help.row.exclude': 'Ekskluder ord med -',
-        'help.row.either': 'Enten/eller-ord (OR må være store bokstaver)',
+        'help.row.either': 'Enten/eller-ord',
         'help.row.bothWords': 'Begge ord (AND, implisitt)',
         'help.section.applyFilters': 'Bruk filter',
         'help.row.gt': 'Gamle Testamentet (også: OT:)',
@@ -2037,9 +2037,9 @@ function highlightWords(htmlText, query) {
     }
     // Plain words → substring match (mirrors backend behavior)
     // Strip -"phrase" exclusions, complete quoted pairs, then lone quotes.
-    const q2 = query.replace(/-"[^"]*"/g, '').replace(/"[^"]+"/g, '').replace(/"/g, '');
+    const q2 = query.replace(/-"[^"]*"/g, '').replace(/"[^"]+"/g, '').replace(/"/g, '').replace(/[|+]/g, ' ');
     for (const w of q2.split(/\s+/)) {
-        if (!w || w.toUpperCase() === 'OR' || w.startsWith('-')) continue;
+        if (!w || w.startsWith('-')) continue;
         const esc = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         try {
             htmlText = htmlText.replace(new RegExp('(' + esc + ')', 'gi'), '<b style="color:var(--highlight)">$1</b>');
@@ -2550,18 +2550,16 @@ function highlightSegment(text) {
             // Exclusion dash — only highlight when followed by a letter, not a digit (verse ranges like 3:16-17)
             result += `<span class="qs">-</span>`;
             i++;
-        } else if (text.slice(i, i + 2) === 'OR' && (i + 2 >= text.length || /[\s;]/.test(text[i + 2]))) {
-            // Standalone OR operator
-            result += `<span class="qs">OR</span>`;
-            i += 2;
+        } else if (ch === '|' || ch === '+') {
+            result += `<span class="qs">${escHtmlFast(ch)}</span>`;
+            i++;
         } else {
             // Collect a run of plain characters to minimize span count
             let j = i + 1;
             while (j < text.length) {
                 const c = text[j];
-                if (c === '"' || c === ';') break;
+                if (c === '"' || c === ';' || c === '|' || c === '+') break;
                 if (c === '-' && j + 1 < text.length && text[j + 1] !== ' ') break;
-                if (text.slice(j, j + 2) === 'OR' && (j + 2 >= text.length || /[\s;]/.test(text[j + 2]))) break;
                 j++;
             }
             result += escHtmlFast(text.slice(i, j));
