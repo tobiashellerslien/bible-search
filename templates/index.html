@@ -205,6 +205,12 @@
     </div>
 </div>
 
+<aside id="appSidebar" class="app-sidebar" aria-label="Festede elementer">
+    <div class="sidebar-resize-handle" id="sidebarResizeHandle" aria-hidden="true"></div>
+    <button class="sidebar-close" id="sidebarCloseBtn" title="Lukk sidebar" aria-label="Lukk sidebar">&times;</button>
+    <div class="sidebar-modules" id="sidebarModules"></div>
+</aside>
+
 <!-- Help & Info modal -->
 <div class="modal-overlay" id="helpModal">
     <div class="modal-panel">
@@ -404,6 +410,8 @@
     <button onclick="window.location.reload()">Last på nytt</button>
 </div>
 
+<script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modules/pinnedVerses.js') }}"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 <script>
 if ('serviceWorker' in navigator) {
