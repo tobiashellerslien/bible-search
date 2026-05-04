@@ -137,10 +137,6 @@ const I18N = {
         'card.alignVerses': 'juster',
         'card.alignVerses.title': 'Juster vers side ved side',
         'card.allVersionsOption': '— Alle oversettelser —',
-        'card.more': 'Mer',
-        'card.more.interlinear': 'grunntekst',
-        'card.more.commentary': 'bibleref.com',
-        'card.more.source': 'kilde',
         'card.readChapter': '📖 Les kapittel',
         'card.mapBtn': '🗺️ Kart ({0})',
         'card.mapBtn.title': 'Se {0} sted(er) på kart',
@@ -680,7 +676,7 @@ function restoreOpenXrefPanel(openXref) {
 
 window.addEventListener('popstate', async e => {
     if (e.state) {
-        const { q, version, mode, openXref } = e.state;
+        const { q, version, mode, openXref, savedTextSearch } = e.state;
         if (version && allVersionsList.some(x => String(x.id) === version)) versionSelect.value = version;
         if (q) {
             searchInput.value = q;
@@ -688,6 +684,21 @@ window.addEventListener('popstate', async e => {
             if (mode === 'allversions') await executeAllVersions(q);
             else await doSearch(false, false);
             restoreOpenXrefPanel(openXref);
+            if (savedTextSearch && currentView === 'text_search') {
+                const { openBooks, scrollY: savedScrollY } = savedTextSearch;
+                if (openBooks && openBooks.length > 0) {
+                    openBooks.forEach(book => {
+                        const group = resultsWrapper.querySelector(`.book-group[data-book="${book}"]`);
+                        if (group) {
+                            group.querySelector('.book-group-header')?.classList.add('open');
+                            group.querySelector('.book-group-items')?.classList.add('open');
+                        }
+                    });
+                    updateExpandCollapseBtn();
+                    fixOpenGroupHeights();
+                }
+                if (savedScrollY != null) setTimeout(() => window.scrollTo({ top: savedScrollY, behavior: 'instant' }), 300);
+            }
         } else {
             goHome(false);
         }
@@ -1033,10 +1044,11 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
                 <div class="study-tray-inner">
                     <button class="tray-btn compare-header-btn${compareVisible ? ' active' : ''}" onclick="toggleCardCompare(${idx})" title="${escAttr(t('card.compare.title'))}">${escHtml(t('card.compare'))}</button>
                     <button class="tray-btn map-tray-btn"${mapDisabled ? ' disabled aria-disabled="true"' : ` onclick="openMapForBlock(${idx},null)"`} title="${mapTitle}">${mapLabel}</button>
+                    <button class="tray-btn pin-tray-btn${isBlockPinned(idx) ? ' pinned' : ''}" onclick="togglePinForBlock(${idx})" title="Fest dette avsnittet i sidebar">📌 <span class="pin-label">${isBlockPinned(idx) ? 'Festet' : 'Fest'}</span></button>
                     ${(ilUrl || crUrl || yvUrl) ? `<span class="tray-divider" aria-hidden="true"></span>` : ''}
-                    ${ilUrl ? `<a class="tray-btn external" href="${ilUrl}" target="_blank" rel="noopener" title="${escAttr(t('card.study.interlinear'))}"><img class="tray-btn-logo" src="/static/images/biblehub.png" alt=""><span>${escHtml(t('card.study.interlinear'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
+                    ${ilUrl ? `<a class="tray-btn external" href="${ilUrl}" target="_blank" rel="noopener" title="biblehub.com"><img class="tray-btn-logo" src="/static/images/biblehub.png" alt=""><span>${escHtml(t('card.study.interlinear'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
                     ${crUrl ? `<a class="tray-btn external" href="${crUrl}" target="_blank" rel="noopener" title="bibleref.com"><img class="tray-btn-logo" src="/static/images/bibleref.png" alt=""><span>${escHtml(t('card.study.bibleref'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
-                    ${yvUrl ? `<a class="tray-btn external" href="${yvUrl}" target="_blank" rel="noopener" title="${escAttr(t('card.study.source'))}"><span>${escHtml(t('card.study.source'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
+                    ${yvUrl ? `<a class="tray-btn external" href="${yvUrl}" target="_blank" rel="noopener" title="bible.com"><span>${escHtml(t('card.study.source'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
                 </div>
             </div>
         </div>`;
@@ -1487,6 +1499,20 @@ function findSiblingPanel(verseLine, cls) {
         if (children[i].classList.contains('verse-line')) break; // stop at next verse
         if (children[i].classList.contains(cls)) return children[i];
     }
+    // If parent is a verse-highlight-wrap (last verse in a highlighted run),
+    // the panel was emitted outside the wrap — look among the wrap's siblings.
+    if (parent.classList.contains('verse-highlight-wrap')) {
+        const grandParent = parent.parentElement;
+        if (!grandParent) return null;
+        const gpChildren = grandParent.children;
+        let foundWrap = false;
+        for (let i = 0; i < gpChildren.length; i++) {
+            if (gpChildren[i] === parent) { foundWrap = true; continue; }
+            if (!foundWrap) continue;
+            if (gpChildren[i].classList.contains('verse-line') || gpChildren[i].classList.contains('verse-highlight-wrap')) break;
+            if (gpChildren[i].classList.contains(cls)) return gpChildren[i];
+        }
+    }
     return null;
 }
 
@@ -1679,10 +1705,21 @@ window.goChapter = async function(bookCode, chapter, bName, direction, cardIdx) 
     });
 };
 
-window.openSingleVerse = function(bookCode, chapter, verse, bName) {
+window.openSingleVerse = async function(bookCode, chapter, verse, bName) {
+    if (currentView === 'text_search') {
+        const openBooks = [...resultsWrapper.querySelectorAll('.book-group-header.open')]
+            .map(h => h.closest('.book-group')?.dataset.book)
+            .filter(Boolean);
+        const cur = history.state || {};
+        try { history.replaceState({ ...cur, savedTextSearch: { openBooks, scrollY: window.scrollY } }, '', window.location.href); } catch {}
+    }
+    const savedTray0 = !!cardTrayOpen[0];
     searchInput.value = `${bName} ${chapter}:${verse}`;
     updateSearchHighlight();
-    doSearch();
+    await doSearch();
+    if (savedTray0 && mainData && mainData.length === 1 && !cardTrayOpen[0]) {
+        toggleStudyTray(0);
+    }
 };
 
 // ── Verse-text click popup ───────────────────────────────────────────────────
@@ -2012,6 +2049,13 @@ function highlightWords(htmlText, query) {
 }
 
 window.goToVerse = function(ref) {
+    if (currentView === 'text_search') {
+        const openBooks = [...resultsWrapper.querySelectorAll('.book-group-header.open')]
+            .map(h => h.closest('.book-group')?.dataset.book)
+            .filter(Boolean);
+        const cur = history.state || {};
+        try { history.replaceState({ ...cur, savedTextSearch: { openBooks, scrollY: window.scrollY } }, '', window.location.href); } catch {}
+    }
     searchInput.value = ref;
     updateSearchHighlight();
     doSearch();
@@ -3910,3 +3954,111 @@ document.addEventListener('keydown', (e) => {
         e.stopPropagation();
     }
 }, true); // capture phase so we run before the global Escape handler
+
+// ── Stage 6: Sidebar integration ──
+Object.defineProperty(window, 'mainData', { get: () => mainData, configurable: true });
+Object.defineProperty(window, 'allVersionsList', { get: () => allVersionsList, configurable: true });
+
+window.bookRefName = bookRefName;
+
+window.scrollToBlockIdx = function(target) {
+    // target may be a pinned-verse spec {book, ch_start, vs_start, ch_end, vs_end, version, label} or a numeric idx
+    if (typeof target === 'object' && target && target.book) {
+        const ref = target.label || (() => {
+            const bName = bookRefName(target.book);
+            if (target.ch_start === target.ch_end && target.vs_start === target.vs_end) {
+                return `${bName} ${target.ch_start}:${target.vs_start}`;
+            }
+            if (target.ch_start === target.ch_end) {
+                return `${bName} ${target.ch_start}:${target.vs_start}-${target.vs_end}`;
+            }
+            return `${bName} ${target.ch_start}:${target.vs_start}-${target.ch_end}:${target.vs_end}`;
+        })();
+        if (target.version && versionSelect && String(versionSelect.value) !== String(target.version)) {
+            versionSelect.value = String(target.version);
+        }
+        searchInput.value = ref;
+        if (typeof updateSearchHighlight === 'function') updateSearchHighlight();
+        doSearch();
+        return;
+    }
+    const idx = Number(target);
+    if (!Number.isFinite(idx)) return;
+    const el = document.getElementById(`card-${idx}`);
+    if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+};
+
+window.openPinnedVerse = function(p) {
+    if (!p) return;
+    window.scrollToBlockIdx(p);
+};
+
+function getBlockPinSpec(idx) {
+    if (!mainData || !mainData[idx]) return null;
+    const block = mainData[idx];
+    if (!block.book || !block.verses || !block.verses.length) return null;
+    const first = block.verses[0];
+    const last = block.verses[block.verses.length - 1];
+    const allText = block.verses.map(v => (v.text || '').replace(/<[^>]+>/g, '')).join(' ').replace(/\s+/g, ' ').trim();
+    const lang = (typeof versionLang === 'function') ? versionLang(versionSelect.value) : 'no';
+    const label = (typeof translateLabel === 'function')
+        ? translateLabel(block.label || '', block.book, lang)
+        : (block.label || '');
+    return {
+        book: block.book,
+        ch_start: first.chapter,
+        vs_start: first.num,
+        ch_end: last.chapter,
+        vs_end: last.num,
+        version: String(versionSelect ? versionSelect.value : ''),
+        label,
+        text: allText.slice(0, 400),
+    };
+}
+
+window.isBlockPinned = function(idx) {
+    if (!window.PinnedVerses) return false;
+    const spec = getBlockPinSpec(idx);
+    if (!spec) return false;
+    return window.PinnedVerses.isPinned(spec);
+};
+
+window.togglePinForBlock = function(idx) {
+    if (!window.PinnedVerses) return;
+    const spec = getBlockPinSpec(idx);
+    if (!spec) return;
+    window.PinnedVerses.toggle(spec);
+    if (typeof window.refreshPinButtons === 'function') window.refreshPinButtons();
+};
+
+window.refreshPinButtons = function() {
+    if (!mainData) return;
+    mainData.forEach((_, idx) => {
+        const card = document.getElementById(`card-${idx}`);
+        if (!card) return;
+        const btn = card.querySelector('.pin-tray-btn');
+        if (!btn) return;
+        const pinned = window.isBlockPinned(idx);
+        btn.classList.toggle('pinned', pinned);
+        const label = btn.querySelector('.pin-label');
+        if (label) label.textContent = pinned ? 'Festet' : 'Fest';
+    });
+};
+
+// Re-observe cards whenever results re-render (covers all render paths: renderAll,
+// renderTextSearch, renderAllVersions, etc.) and refresh pin button state.
+(function () {
+    if (!window.AppSidebar) return;
+    const wrapper = document.getElementById('resultsWrapper');
+    if (!wrapper) return;
+    let pending = 0;
+    const mo = new MutationObserver(() => {
+        if (pending) cancelAnimationFrame(pending);
+        pending = requestAnimationFrame(() => {
+            pending = 0;
+            try { window.AppSidebar.refreshObserver(); } catch {}
+            try { window.refreshPinButtons && window.refreshPinButtons(); } catch {}
+        });
+    });
+    mo.observe(wrapper, { childList: true, subtree: false });
+})();
