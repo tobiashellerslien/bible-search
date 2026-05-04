@@ -478,13 +478,13 @@
             transition: opacity 0.12s ease, transform 0.14s cubic-bezier(0.2, 0.8, 0.3, 1), visibility 0s 0s;
         }
         .ac-item {
-            padding: 8px 14px;
+            padding: 8px 15px;
             cursor: pointer;
             display: flex;
             align-items: center;
             gap: 10px;
             font-family: var(--font-ui);
-            font-size: 0.85rem;
+            font-size: 1rem;
             transition: background 0.1s;
         }
         .ac-item:hover, .ac-item.selected {
@@ -1637,7 +1637,7 @@
             background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            padding: 12px 16px;
+            padding: 14px 16px;
             margin-bottom: 0;
             cursor: pointer;
             transition: border-color 0.15s, background 0.12s, transform 0.08s;
@@ -1661,13 +1661,13 @@
         .search-result-ref {
             font-weight: 700;
             color: var(--accent);
-            font-size: 0.82rem;
+            font-size: 1rem;
             margin-bottom: 4px;
             font-family: 'Lora', Georgia, serif;
         }
         .search-result-text {
             font-family: var(--font-serif);
-            font-size: 0.95rem;
+            font-size: var(--verse-font-size);
             line-height: 1.6;
             color: var(--text);
         }
@@ -1687,7 +1687,7 @@
             background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            padding: 10px 16px;
+            padding: 13px 16px;
             cursor: pointer;
             display: flex;
             justify-content: space-between;
@@ -1695,7 +1695,7 @@
             font-weight: 600;
             color: var(--accent);
             font-family: var(--font-ui);
-            font-size: 0.85rem;
+            font-size: 0.95rem;
             transition: border-color 0.15s;
             user-select: none;
         }

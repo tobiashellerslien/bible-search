@@ -144,7 +144,7 @@ const I18N = {
         'card.readChapter': '📖 Les kapittel',
         'card.mapBtn': '🗺️ Kart ({0})',
         'card.mapBtn.title': 'Se {0} sted(er) på kart',
-        'card.study': '🎓Studie',
+        'card.study': '🎓 Studie',
         'card.study.title': 'Vis/skjul studie-verktøy',
         'card.study.map': '🗺️ Kart',
         'card.study.map.empty': 'Ingen steder i denne teksten',
