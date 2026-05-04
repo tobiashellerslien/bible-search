@@ -1132,7 +1132,7 @@
             cursor: pointer;
             white-space: nowrap;
         }
-        .verse-open-popup-btn:hover { background: var(--accent, #4a90e2); color: #fff; }
+        .verse-open-popup-btn:hover { background: var(--accent-dim, #4a90e2); color: var(--text); }
         .chapter-heading {
             font-weight: 700;
             font-size: 0.85rem;
