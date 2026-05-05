@@ -1265,58 +1265,7 @@
         .card-action-btn:active { transform: scale(0.96); }
         .chapter-nav { margin-left: auto; display: flex; gap: 5px; }
 
-        /* ── More menu (interlinear, commentary, source, share) ── */
-        .card-more-wrap { position: relative; display: inline-block; }
-        .card-more-btn { padding: 4px 8px; font-weight: 700; letter-spacing: 1px; }
-        .card-more-menu {
-            position: absolute;
-            top: calc(100% + 4px);
-            left: 0;
-            min-width: 160px;
-            background: var(--card-bg);
-            border: 1.5px solid var(--accent);
-            border-radius: var(--radius);
-            box-shadow: var(--shadow-lg);
-            z-index: 50;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            transform-origin: top left;
-            transform: translateY(-4px) scale(0.96);
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-            transition: transform 0.14s cubic-bezier(0.2, 0.8, 0.3, 1), opacity 0.12s ease, visibility 0s 0.14s;
-        }
-        .card-more-menu.open {
-            transform: translateY(0) scale(1);
-            opacity: 1;
-            visibility: visible;
-            pointer-events: auto;
-            transition: transform 0.14s cubic-bezier(0.2, 0.8, 0.3, 1), opacity 0.12s ease, visibility 0s 0s;
-        }
-        .card-more-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 12px;
-            font-family: var(--font-ui);
-            font-size: 0.8rem;
-            color: var(--text);
-            background: none;
-            border: none;
-            border-bottom: 1px solid var(--border);
-            cursor: pointer;
-            text-decoration: none;
-            text-align: left;
-            transition: background 0.12s;
-        }
-        .card-more-item:last-child { border-bottom: none; }
-        .card-more-item:hover { background: var(--accent-dim); color: var(--accent); }
-        .card-more-item img { height: 12px; opacity: 0.8; }
-        .compare-loading { color: var(--text-muted); font-size: 0.85rem; font-style: italic; }
-        .card-more-menu.menu-up { top: auto; bottom: calc(100% + 4px); transform-origin: bottom left; }
-
+        
         /* ── Stage 5: Study tray ── */
         .verse-card-footer {
             display: flex;
@@ -1373,6 +1322,7 @@
             gap: 5px;
             padding: 5px 11px;
             font-size: 0.78rem;
+            line-height: 1;
             font-family: var(--font-ui);
             background: transparent;
             border: 1px solid var(--border);
@@ -2329,24 +2279,7 @@
         }
         .place-chip:hover { background: var(--accent); color: var(--card-bg); }
         .place-chip-icon { font-size: 0.85em; line-height: 1; }
-        .block-map-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            background: none;
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-            padding: 3px 9px;
-            border-radius: 5px;
-            font-family: var(--font-ui);
-            font-size: 0.78rem;
-            cursor: pointer;
-            transition: border-color 0.15s, color 0.15s, background 0.15s;
-        }
-        .block-map-btn:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
-        .block-map-btn:active { transform: scale(0.96); }
-        .block-map-btn[disabled] { opacity: 0.4; cursor: default; }
-        .block-map-btn[disabled]:hover { color: var(--text-muted); border-color: var(--border); background: none; }
+
 
         .map-modal-panel {
             max-width: min(1100px, 92vw);
