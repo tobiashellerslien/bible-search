@@ -2127,7 +2127,10 @@ function renderAllVersionsTextSearch(results, query) {
 }
 
 window.goToVerseInVersion = function(ref, version) {
-    if (allVersionsList.some(v => String(v.id) === version)) versionSelect.value = version;
+    if (allVersionsList.some(v => String(v.id) === version)) {
+        versionSelect.value = version;
+        updateVersionPickerDisplay();
+    }
     searchInput.value = ref;
     updateSearchHighlight();
     doSearch();
