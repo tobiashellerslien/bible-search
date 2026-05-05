@@ -1725,6 +1725,7 @@ window.openSingleVerse = async function(bookCode, chapter, verse, bName) {
 // ── Verse-text click popup ───────────────────────────────────────────────────
 let _versePopupEl = null;
 let _versePopupKey = null;
+let _activeVerseEl = null;
 function _ensureVersePopup() {
     if (_versePopupEl) return _versePopupEl;
     const el = document.createElement('div');
@@ -1737,6 +1738,7 @@ function _ensureVersePopup() {
 function _hideVersePopup() {
     if (_versePopupEl) _versePopupEl.style.display = 'none';
     _versePopupKey = null;
+    if (_activeVerseEl) { _activeVerseEl.classList.remove('verse-popup-active'); _activeVerseEl = null; }
 }
 document.addEventListener('click', (ev) => {
     const target = ev.target.closest('.verse-text-clickable');
@@ -1753,8 +1755,11 @@ document.addEventListener('click', (ev) => {
             _hideVersePopup();
             return;
         }
+        if (_activeVerseEl) _activeVerseEl.classList.remove('verse-popup-active');
         const popup = _ensureVersePopup();
         _versePopupKey = key;
+        _activeVerseEl = target;
+        target.classList.add('verse-popup-active');
         const hasFn = target.dataset.hasFn === '1';
         const hasXr = target.dataset.hasXr === '1';
         let buttons = `<button type="button" class="verse-open-popup-btn" data-action="open">📖 ${escHtml(t('verse.openVerse'))}</button>`;

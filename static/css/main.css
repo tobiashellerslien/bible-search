@@ -1100,7 +1100,8 @@
         }
         .verse-num:hover { text-decoration: underline; }
         .verse-text-clickable { cursor: pointer; }
-        .verse-text-clickable:hover {
+        .verse-text-clickable:hover,
+        .verse-text-clickable.verse-popup-active {
             text-decoration: underline;
             text-decoration-color: var(--accent);
             text-decoration-thickness: 1px;
