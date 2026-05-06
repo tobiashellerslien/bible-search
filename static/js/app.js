@@ -384,6 +384,12 @@ const COLOR_PRESETS = [
     { name: 'Teal',   l: '#0d9488', lh: '#0f766e', ld: 'rgba(13,148,136,0.12)',  d: '#2dd4bf', dh: '#14b8a6', dd: 'rgba(45,212,191,0.12)' },
 ];
 
+// ── Page title ──
+const DEFAULT_TITLE = document.title;
+function setPageTitle(text) {
+    document.title = text ? `${text} — Bibelsøk` : DEFAULT_TITLE;
+}
+
 // ── State ──
 let lastQuery = '';
 let mainData = null;
@@ -867,6 +873,7 @@ if (copyHintButtons.length) {
 // ── Render reference results ──
 function renderAll() {
     if (!mainData || mainData.length === 0) { resultsWrapper.innerHTML = emptyStateHtml; applyI18n(); return; }
+    setPageTitle(mainData.map(b => b.label).join('; '));
     const showNums = toggleVerseNums.checked;
     const showNewlines = toggleNewlines.checked;
     const showHeadings = toggleHeadings.checked;
@@ -1874,6 +1881,7 @@ window.loadAllForBook = async function(bookCode, btnEl) {
 };
 
 function renderTextSearch(results, query, bookTotals) {
+    setPageTitle(`"${query}"`);
     textSearchCache = { results, query, bookTotals: bookTotals || {} };
     textSearchGroupData = {};
     textSearchBookTotals = bookTotals || {};
@@ -2082,6 +2090,7 @@ window.searchAllVersionsText = async function(query) {
 };
 
 function renderAllVersionsTextSearch(results, query) {
+    setPageTitle(`"${query}"`);
     const versionNames = Object.keys(results);
     if (versionNames.length === 0) {
         resultsWrapper.innerHTML = `<div class="empty-state"><h2>${escHtml(t('searchResults.text.noResults'))}</h2><p>${escHtml(t('searchResults.allVersions.noResultsBody', query))}</p></div>`;
@@ -2399,6 +2408,7 @@ async function executeAllVersions(label) {
 }
 
 function renderAllVersions(allResults, label) {
+    setPageTitle(label);
     allVersionsCache = { results: allResults, label };
     const showNums = toggleVerseNums.checked;
     const showNewlines = toggleNewlines.checked;
@@ -2484,6 +2494,7 @@ window.goHome = function(pushHistory = true) {
     Object.keys(cardCompare).forEach(k => delete cardCompare[k]);
     searchInput.value = '';
     updateSearchHighlight();
+    setPageTitle(null);
     resultsWrapper.innerHTML = emptyStateHtml;
     if (typeof updateWideMode === 'function') updateWideMode();
     applyI18n();
