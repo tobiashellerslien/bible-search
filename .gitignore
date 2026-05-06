@@ -1,8 +1,10 @@
 __pycache__/
 *.pyc
 *.pyd
-todo.md
-*.db-*
-migrations/
+.venv/
+
 bible.db
+*.db-*
+todo.md
+migrations/
 temp_resources/

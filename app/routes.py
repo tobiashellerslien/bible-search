@@ -358,8 +358,22 @@ def api_commentary():
     chapter_end = _maybe_int("chapter_end")
     verse_start = _maybe_int("verse_start")
     verse_end = _maybe_int("verse_end")
+
+    # Translate user-vsf (translation) -> commentary's vsf before querying.
+    version_id = _resolve_version_id(bible_data, request.args.get("version"))
+    src_vsf = bible_data.vsf.translation_vsf(version_id) if version_id is not None else "eng"
+    dst_vsf = bible_data.vsf.commentary_vsf(cid)
+    q_book, q_ch, q_vs, q_ch_end, q_vs_end = book, chapter, verse_start, chapter_end, verse_end
+    if src_vsf != dst_vsf:
+        if verse_start is not None:
+            q_book, q_ch, q_vs = bible_data.vsf.convert(src_vsf, dst_vsf, book, chapter, verse_start)
+        if (chapter_end is not None) or (verse_end is not None):
+            ce = chapter_end if chapter_end is not None else chapter
+            ve = verse_end if verse_end is not None else (verse_start if verse_start is not None else 1)
+            _, q_ch_end, q_vs_end = bible_data.vsf.convert(src_vsf, dst_vsf, book, ce, ve)
+
     entries = bible_data.get_commentary_entries(
-        cid, book, chapter, verse_start, chapter_end, verse_end
+        cid, q_book, q_ch, q_vs, q_ch_end, q_vs_end
     )
     return jsonify({"commentary": bible_data.commentaries[cid], "entries": entries})
 
@@ -375,7 +389,15 @@ def api_topics():
         return jsonify({"error": "Invalid chapter/verse"}), 400
     if not book or not chapter or not verse:
         return jsonify({"error": "Missing book, chapter, or verse"}), 400
-    topics = bible_data.get_topics_for_verse(book, chapter, verse)
+    # All known topic sources currently use eng vsf, so we translate user input
+    # to eng before lookup. (Per-source translation can be added if a future
+    # topic source uses a different versification.)
+    version_id = _resolve_version_id(bible_data, request.args.get("version"))
+    if version_id is not None:
+        eb, ec, ev = bible_data.vsf.translation_to_eng(version_id, book, chapter, verse)
+        topics = bible_data.get_topics_for_verse(eb, ec, ev)
+    else:
+        topics = bible_data.get_topics_for_verse(book, chapter, verse)
     return jsonify({"topics": topics})
 
 
@@ -397,6 +419,24 @@ def api_outline():
     outline = bible_data.get_outline(book)
     if not outline:
         return jsonify({"error": "No outline available"}), 404
+
+    # Translate outline refs from outline-vsf -> user-translation-vsf so the
+    # frontend can navigate using the labels the user expects.
+    version_id = _resolve_version_id(bible_data, request.args.get("version"))
+    src_vsf = bible_data.vsf.outline_vsf(book)
+    dst_vsf = bible_data.vsf.translation_vsf(version_id) if version_id is not None else "eng"
+    if src_vsf != dst_vsf:
+        def _walk(nodes):
+            for n in nodes:
+                refs = n.get("refs") or []
+                for r in refs:
+                    b1, c1, v1 = bible_data.vsf.convert(src_vsf, dst_vsf, r["book"], r["ch_start"], r["vs_start"])
+                    _, c2, v2 = bible_data.vsf.convert(src_vsf, dst_vsf, r["book"], r["ch_end"], r["vs_end"])
+                    r["book"] = b1
+                    r["ch_start"], r["vs_start"] = c1, v1
+                    r["ch_end"], r["vs_end"] = c2, v2
+                _walk(n.get("children") or [])
+        _walk(outline.get("tree", []))
     return jsonify(outline)
 
 

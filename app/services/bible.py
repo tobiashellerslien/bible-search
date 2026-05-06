@@ -197,82 +197,6 @@ BOOK_GROUPS = {
 
 SORTED_GROUPS = sorted(BOOK_GROUPS.keys(), key=len, reverse=True)
 
-# ── Versification remapping ───────────────────────────────────────────────────
-# Some translations (Norwegian/Hebrew-based) use MT chapter/verse numbering,
-# which differs from the English "standard" versification used by the TSK cross-
-# reference dataset.  When a verse lookup fails, these rules let us retry with
-# the correct MT coordinates.
-#
-# Format: { (book_usfm, eng_chapter): [(eng_v_min, eng_v_max, heb_chapter, heb_v_offset)] }
-# Remapped verse = eng_verse + heb_v_offset  (in heb_chapter)
-_VERSIFICATION_REMAP = {
-    # Joel: Eng 2:28-32 → Heb 3:1-5;  Eng 3:1-21 → Heb 3:6-26
-    ("JOL", 2): [(28, 32,  3, -27)],
-    ("JOL", 3): [( 1, 21,  3,   5)],
-    # Leviticus: Eng 6:1-7 → Heb 5:20-26;  Eng 6:8-30 → Heb 6:1-23
-    ("LEV", 6): [( 1,  7,  5,  19), (8, 30, 6, -7)],
-    # Zechariah: Eng 1:18-21 → Heb 2:1-4;  Eng 2:1-13 → Heb 2:5-17
-    ("ZEC", 1): [(18, 21,  2, -17)],
-    ("ZEC", 2): [( 1, 13,  2,   4)],
-    # Ezekiel: Eng 20:45-49 → Heb 21:1-5;  Eng 21:1-32 → Heb 21:6-37
-    ("EZK", 20): [(45, 49, 21, -44)],
-    ("EZK", 21): [( 1, 32, 21,   5)],
-}
-
-# Sentinel checks to detect MT versification per translation.
-# Format: { book_usfm: (sentinel_book, sentinel_ch, comparison, threshold) }
-# 'lte': max_verse ≤ threshold  →  translation uses MT versification for that book
-# 'gte': max_verse ≥ threshold  →  translation uses MT versification for that book
-_VERSIFICATION_SENTINELS = {
-    "JOL": ("JOL", 2, "lte", 27),
-    "LEV": ("LEV", 5, "gte", 20),
-    "ZEC": ("ZEC", 1, "lte", 17),
-    "EZK": ("EZK", 20, "lte", 44),
-}
-
-
-def _mt_chapter_window_to_eng(book, mt_ch, v_lo, v_hi):
-    """Decompose an MT verse window (mt_ch, v_lo..v_hi) into (eng_ch, eng_lo, eng_hi)
-    windows that cover the same verses in English versification (where place_verses lives)."""
-    rules = []
-    for (b, eng_ch), entries in _VERSIFICATION_REMAP.items():
-        if b != book:
-            continue
-        for v_min, v_max, hch, offset in entries:
-            if hch == mt_ch:
-                rules.append((v_min + offset, v_max + offset, eng_ch, offset))
-    rules.sort()
-
-    if not rules:
-        yield (mt_ch, v_lo, v_hi)
-        return
-
-    cursor = v_lo
-    for heb_lo, heb_hi, eng_ch, offset in rules:
-        if cursor > v_hi:
-            break
-        if cursor < heb_lo:
-            yield (mt_ch, cursor, min(heb_lo - 1, v_hi))
-            cursor = heb_lo
-            if cursor > v_hi:
-                break
-        if cursor <= heb_hi:
-            seg_lo = max(cursor, heb_lo)
-            seg_hi = min(heb_hi, v_hi)
-            yield (eng_ch, seg_lo - offset, seg_hi - offset)
-            cursor = seg_hi + 1
-    if cursor <= v_hi:
-        yield (mt_ch, cursor, v_hi)
-
-
-def _eng_to_mt_verse(book, eng_ch, eng_v):
-    """Inverse of the forward remap rule for a single (chapter, verse) point."""
-    for v_min, v_max, hch, offset in _VERSIFICATION_REMAP.get((book, eng_ch), []):
-        if v_min <= eng_v <= v_max:
-            return (hch, eng_v + offset)
-    return (eng_ch, eng_v)
-
-
 # ── Bible data (SQLite-backed) ────────────────────────────────────────────────
 
 class BibleData:
@@ -281,6 +205,9 @@ class BibleData:
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("PRAGMA foreign_keys=ON")
         self._load_metadata()
+        # Lazy import to avoid circulars at module-load time.
+        from .versification import Versifier
+        self.vsf = Versifier(self.db)
 
     def _load_metadata(self):
         self.translations = {}
@@ -312,46 +239,6 @@ class BibleData:
         ):
             self.book_verse_counts.setdefault(tid, {}).setdefault(book_usfm, {})[chapter] = max_v
 
-        # Cache sentinel max-verses for versification detection
-        self._versification_cache: dict = {}
-        for _book, (_sb, _sc, _, _) in _VERSIFICATION_SENTINELS.items():
-            for _tid, _mv in self.db.execute(
-                "SELECT translation_id, MAX(verse) FROM verses WHERE book_usfm=? AND chapter=? GROUP BY translation_id",
-                [_sb, _sc],
-            ):
-                self._versification_cache[(_tid, _sb, _sc)] = _mv
-
-        # Psalm verse-0 offset cache.
-        # KJV/TSK cross-refs count superscription titles as verse 0.
-        # Some translations (B2011, BGO, NB88) store the title as a separate verse 1,
-        # making every subsequent verse off-by-one vs KJV.
-        # Others (B1930, NASB) merge the title into verse 1 text — no offset needed.
-        # Detection: if a translation's max verse for a psalm exceeds the KJV-style
-        # reference max (computed from translations that have verse 0), it has a
-        # separate title row and needs +1 adjustment.
-        self._psalm_offset_per_tid: dict = {}  # tid → set of psalm chapters needing +1
-
-        # Reference max verse per psalm chapter from translations that have verse 0
-        _ref_max: dict = {}  # psalm_ch → max non-zero verse in KJV-style translations
-        for _ch, _mv in self.db.execute(
-            """SELECT chapter, MAX(verse) FROM verses
-               WHERE book_usfm='PSA' AND verse > 0
-               AND translation_id IN (
-                   SELECT DISTINCT translation_id FROM verses WHERE book_usfm='PSA' AND verse=0
-               )
-               GROUP BY chapter"""
-        ):
-            _ref_max[_ch] = _mv
-
-        # Flag translations whose max verse exceeds the reference (separate title row)
-        for _tid, _ch, _mv in self.db.execute(
-            """SELECT translation_id, chapter, MAX(verse) FROM verses
-               WHERE book_usfm='PSA' AND verse > 0
-               GROUP BY translation_id, chapter"""
-        ):
-            if _ch in _ref_max and _mv > _ref_max[_ch]:
-                self._psalm_offset_per_tid.setdefault(_tid, set()).add(_ch)
-
         names = ", ".join(t["name"] for t in self.translations.values())
         print(f"Loaded {len(self.translations)} Bible version(s): {names}")
 
@@ -371,65 +258,21 @@ class BibleData:
             print(f"Loaded {len(self.commentaries)} commentary source(s): "
                   + ", ".join(c["code"] for c in self.commentaries.values()))
 
-    # ── Versification helpers ─────────────────────────────────────────────────
-
-    def _uses_mt_versification(self, translation_id, book_usfm):
-        if book_usfm not in _VERSIFICATION_SENTINELS:
-            return False
-        sent_book, sent_ch, comp, threshold = _VERSIFICATION_SENTINELS[book_usfm]
-        mv = self._versification_cache.get((translation_id, sent_book, sent_ch))
-        if mv is None:
-            return False
-        return (mv <= threshold) if comp == "lte" else (mv >= threshold)
-
-    def _remap_verse(self, translation_id, book_usfm, chapter, verse):
-        """Return (book, chapter, verse) remapped to MT versification, or None."""
-        if not self._uses_mt_versification(translation_id, book_usfm):
-            return None
-        for v_min, v_max, heb_ch, offset in _VERSIFICATION_REMAP.get((book_usfm, chapter), []):
-            if v_min <= verse <= v_max:
-                return (book_usfm, heb_ch, verse + offset)
-        return None
-
-    def _psalm_verse0_offset(self, translation_id, chapter):
-        """Return 1 if this Psalm has a separate title verse 1 in this translation
-        (making verse numbering off-by-one vs KJV cross-refs). 0 otherwise."""
-        return 1 if chapter in self._psalm_offset_per_tid.get(translation_id, set()) else 0
-
-    def normalize_verse(self, translation_id, book_usfm, chapter, verse):
-        """Return (book, chapter, verse) for this translation, remapping if needed."""
-        remapped = self._remap_verse(translation_id, book_usfm, chapter, verse)
-        return remapped if remapped else (book_usfm, chapter, verse)
+    # ── Versification helpers (TVTMS-driven via self.vsf) ─────────────────────
 
     def normalize_reference(self, translation_id, book_usfm, chapter, verse_start, verse_end=None):
-        """Remap KJV/English-versification coordinates to this translation's coordinates.
-        Returns (book, chapter, verse_start, verse_end).
-        """
-        r_start = self._remap_verse(translation_id, book_usfm, chapter, verse_start)
-        if r_start is None:
-            # Psalm verse-0 adjustment: KJV titles are verse 0, MT translations use verse 1
-            if book_usfm == "PSA":
-                offset = self._psalm_verse0_offset(translation_id, chapter)
-                if offset:
-                    nv_e = (verse_end + offset) if verse_end is not None else None
-                    return (book_usfm, chapter, verse_start + offset, nv_e)
-            return (book_usfm, chapter, verse_start, verse_end)
-        rb, rc, rv = r_start
-        if verse_end is not None:
-            r_end = self._remap_verse(translation_id, book_usfm, chapter, verse_end)
-            rv_end = r_end[2] if r_end is not None else rv + (verse_end - verse_start)
-        else:
-            rv_end = None
-        return (rb, rc, rv, rv_end)
+        """Map an eng/KJV-versification ref into the given translation's vsf.
+        Used to display xref results (which come from KJV) in user coordinates.
+        Returns (book, chapter, verse_start, verse_end)."""
+        b1, c1, v1 = self.vsf.eng_to_translation(translation_id, book_usfm, chapter, verse_start)
+        if verse_end is None:
+            return (b1, c1, v1, None)
+        _, _, v2 = self.vsf.eng_to_translation(translation_id, book_usfm, chapter, verse_end)
+        return (b1, c1, v1, v2)
 
     def verse_to_kjv(self, translation_id, book_usfm, chapter, verse):
-        """Convert a translation verse coordinate to KJV coordinate for cross-ref FROM lookup.
-        Inverse of normalize_reference for single verses."""
-        if book_usfm == "PSA":
-            offset = self._psalm_verse0_offset(translation_id, chapter)
-            if offset:
-                return (book_usfm, chapter, verse - offset)
-        return (book_usfm, chapter, verse)
+        """Map a verse from the translation's vsf to eng/KJV (for xref FROM-side lookup)."""
+        return self.vsf.translation_to_eng(translation_id, book_usfm, chapter, verse)
 
     def get_xref_source_verses(self, book_usfm, ch_start, ch_end=None):
         """Return a set of (chapter, verse) in KJV versification that have at least
@@ -468,6 +311,22 @@ class BibleData:
             [version_id, book_code, chapter, verse_start, end],
         ).fetchall()
         if not rows:
+            # Storage mismatch fallback: the input may use a different vsf than the
+            # actual storage (e.g. B2011 declared 'heb' but stores Mal in eng-style).
+            # Translate input vsf -> eng and retry once.
+            vsf = self.vsf.translation_vsf(version_id)
+            if vsf != "eng":
+                eb, ec_s, ev_s = self.vsf.to_eng(vsf, book_code, chapter, verse_start)
+                _, ec_e, ev_e = self.vsf.to_eng(vsf, book_code, chapter, end)
+                if (eb, ec_s, ev_s) != (book_code, chapter, verse_start) or (ec_e, ev_e) != (chapter, end):
+                    rows = self.db.execute(
+                        """SELECT verse, text FROM verses
+                           WHERE translation_id=? AND book_usfm=? AND chapter=? AND verse>=? AND verse<=?
+                           ORDER BY verse""",
+                        [version_id, eb, ec_s, ev_s, ev_e],
+                    ).fetchall()
+                    if rows:
+                        return list(rows), None
             ref = f"{chapter}:{verse_start}" + (f"-{verse_end}" if verse_end and verse_end != verse_start else "")
             return None, f"Verses {ref} not found in {USFM_TO_NAME.get(book_code, book_code)}"
         return list(rows), None
@@ -528,34 +387,30 @@ class BibleData:
     def get_places_for_range(self, book_usfm, ch_start, vs_start=None, ch_end=None, vs_end=None, translation_id=None):
         """Distinct places mentioned in a verse/chapter range. ch_end defaults to ch_start.
         If vs_start is None: whole chapter(s). Otherwise restricts first/last chapter to verse window.
-        Returns list of {id, name, aliases, placemark, kind, geometry, refs} where refs is the list
-        of (chapter, verse) hits within the queried range (used by the frontend to attach chips).
-        place_verses rows are stored in English versification; when `translation_id` uses MT
-        numbering for this book, we translate the query MT→Eng and remap returned refs Eng→MT."""
+        place_verses is stored in eng/KJV versification; when the translation uses a
+        different vsf, we translate the query window vsf→eng and remap results back."""
         if ch_end is None:
             ch_end = ch_start
 
-        uses_mt = (translation_id is not None
-                   and self._uses_mt_versification(translation_id, book_usfm))
+        tx_vsf = self.vsf.translation_vsf(translation_id) if translation_id is not None else "eng"
+        non_eng = (tx_vsf != "eng")
 
-        if uses_mt:
-            BIG = 9999
-            windows = []
-            for mt_ch in range(ch_start, ch_end + 1):
-                v_lo = vs_start if (mt_ch == ch_start and vs_start is not None) else 1
-                v_hi = vs_end if (mt_ch == ch_end and vs_end is not None) else BIG
-                windows.extend(_mt_chapter_window_to_eng(book_usfm, mt_ch, v_lo, v_hi))
-            if not windows:
-                return []
-            clauses = []
-            params = [book_usfm]
-            for ch, lo, hi in windows:
-                clauses.append("(pv.chapter = ? AND pv.verse BETWEEN ? AND ?)")
-                params.extend([ch, lo, hi])
-            where = ["pv.book_usfm = ?", "(" + " OR ".join(clauses) + ")"]
-        else:
+        where = ["pv.book_usfm = ?", "pv.chapter BETWEEN ? AND ?"]
+        params = [book_usfm, ch_start, ch_end]
+
+        if non_eng and vs_start is not None:
+            # Translate range endpoints to eng for the lookup; widen chapter
+            # range to span any boundary shifts.
+            _, ec_s, ev_s = self.vsf.to_eng(tx_vsf, book_usfm, ch_start, vs_start)
+            _, ec_e, ev_e = self.vsf.to_eng(tx_vsf, book_usfm, ch_end, vs_end if vs_end is not None else 999)
             where = ["pv.book_usfm = ?", "pv.chapter BETWEEN ? AND ?"]
-            params = [book_usfm, ch_start, ch_end]
+            params = [book_usfm, min(ec_s, ec_e), max(ec_s, ec_e)]
+            where.append("NOT (pv.chapter = ? AND pv.verse < ?)")
+            params.extend([ec_s, ev_s])
+            if vs_end is not None:
+                where.append("NOT (pv.chapter = ? AND pv.verse > ?)")
+                params.extend([ec_e, ev_e])
+        else:
             if vs_start is not None:
                 where.append("NOT (pv.chapter = ? AND pv.verse < ?)")
                 params.extend([ch_start, vs_start])
@@ -574,8 +429,8 @@ class BibleData:
         by_id = {}
         order = []
         for pid, name, aliases, placemark, kind, geometry, ch, vs in self.db.execute(sql, params):
-            if uses_mt:
-                ch, vs = _eng_to_mt_verse(book_usfm, ch, vs)
+            if non_eng:
+                _, ch, vs = self.vsf.from_eng(tx_vsf, book_usfm, ch, vs)
             if pid not in by_id:
                 by_id[pid] = {
                     "id": pid,

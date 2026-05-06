@@ -1,4 +1,16 @@
+__pycache__
+*.pyc
+*.db-*
+.venv
+venv
 .git
 .gitignore
-CLAUDE.md
+.dockerignore
+
+migrations/
+temp_resources/
+
 README.md
+LICENSE
+CLAUSE.md
+todo.md
