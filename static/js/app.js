@@ -132,7 +132,7 @@ const I18N = {
         'card.copy.title': 'Kopier',
         'card.copy.textOnly': 'Kopier kun tekst',
         'card.copy.withRef': 'Kopier tekst og referanse',
-        'card.compare': '⚖️Sammenlign',
+        'card.compare': '⚖️ Sammenlign',
         'card.compare.title': 'Sammenlign oversettelser',
         'card.alignVerses': 'juster',
         'card.alignVerses.title': 'Juster vers side ved side',
