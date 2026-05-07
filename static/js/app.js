@@ -40,8 +40,8 @@ const I18N = {
         'help.row.multiPassages': 'Flere passasjer (kontekst videreføres)',
         'help.row.abbrevs': 'Forkortelser og engelske navn fungerer',
         'help.section.textSearch': 'Tekstsøk-operatorer (kan kombineres)',
-        'help.row.allWords': 'Alle vers som inneholder ord (også i ord, som «trofast»)',
-        'help.row.exactWord': 'Alle vers med eksakt ord',
+        'help.row.allWords': 'Alle vers med eksakt ord',
+        'help.row.exactWord': 'Wildcard: tro* (starter med), *tro (slutter med), *tro* (inneholder)',
         'help.row.exactPhrase': 'Eksakt frase',
         'help.row.exclude': 'Ekskluder ord med -',
         'help.row.either': 'Enten/eller-ord',
@@ -2048,14 +2048,32 @@ function highlightWords(htmlText, query) {
             htmlText = htmlText.replace(new RegExp(WBL + '(' + esc + ')' + WBR, 'gi'), '<b style="color:var(--highlight)">$1</b>');
         } catch {}
     }
-    // Plain words → substring match (mirrors backend behavior)
-    // Strip -"phrase" exclusions, complete quoted pairs, then lone quotes.
+    // Plain words — strip exclusions, quoted pairs, operators, then apply per-wildcard highlighting.
     const q2 = query.replace(/-"[^"]*"/g, '').replace(/"[^"]+"/g, '').replace(/"/g, '').replace(/[|+]/g, ' ');
     for (const w of q2.split(/\s+/)) {
         if (!w || w.startsWith('-')) continue;
-        const esc = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const hasLeading = w.startsWith('*');
+        const hasTrailing = w.endsWith('*') && w.length > 1;
+        const core = w.replace(/^\*+|\*+$/g, '');
+        if (!core) continue;
+        const esc = core.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         try {
-            htmlText = htmlText.replace(new RegExp('(' + esc + ')', 'gi'), '<b style="color:var(--highlight)">$1</b>');
+            const wc = '[a-zA-ZÀ-ɏ0-9_]';
+            let pattern;
+            if (!hasLeading && !hasTrailing) {
+                // Exact word: word boundaries on both sides
+                pattern = new RegExp(WBL + '(' + esc + ')' + WBR, 'gi');
+            } else if (!hasLeading && hasTrailing) {
+                // tro* → whole word starting with core
+                pattern = new RegExp(WBL + '(' + esc + wc + '*)' + WBR, 'gi');
+            } else if (hasLeading && !hasTrailing) {
+                // *tro → whole word ending with core
+                pattern = new RegExp(WBL + '(' + wc + '*' + esc + ')' + WBR, 'gi');
+            } else {
+                // *tro* → whole word containing core as substring
+                pattern = new RegExp(WBL + '(' + wc + '*' + esc + wc + '*)' + WBR, 'gi');
+            }
+            htmlText = htmlText.replace(pattern, '<b style="color:var(--highlight)">$1</b>');
         } catch {}
     }
     return htmlText;
@@ -2572,12 +2590,15 @@ function highlightSegment(text) {
         } else if (ch === '|' || ch === '+') {
             result += `<span class="qs">${escHtmlFast(ch)}</span>`;
             i++;
+        } else if (ch === '*') {
+            result += `<span class="qs">*</span>`;
+            i++;
         } else {
             // Collect a run of plain characters to minimize span count
             let j = i + 1;
             while (j < text.length) {
                 const c = text[j];
-                if (c === '"' || c === ';' || c === '|' || c === '+') break;
+                if (c === '"' || c === ';' || c === '|' || c === '+' || c === '*') break;
                 if (c === '-' && j + 1 < text.length && text[j + 1] !== ' ') break;
                 j++;
             }
