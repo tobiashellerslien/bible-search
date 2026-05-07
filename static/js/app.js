@@ -132,7 +132,7 @@ const I18N = {
         'card.copy.title': 'Kopier',
         'card.copy.textOnly': 'Kopier kun tekst',
         'card.copy.withRef': 'Kopier tekst og referanse',
-        'card.compare': 'Sammenlign',
+        'card.compare': '⚖️Sammenlign',
         'card.compare.title': 'Sammenlign oversettelser',
         'card.alignVerses': 'juster',
         'card.alignVerses.title': 'Juster vers side ved side',
@@ -852,6 +852,14 @@ if (togglePlaces) {
     });
 }
 
+document.querySelectorAll('.toggle-item').forEach(item => {
+    item.addEventListener('click', e => {
+        if (e.target.closest('.toggle-switch') || e.target.closest('.copy-hint-btn')) return;
+        const cb = item.querySelector('input[type="checkbox"]');
+        if (cb) cb.click();
+    });
+});
+
 const copyHintButtons = document.querySelectorAll('.copy-hint-btn');
 if (copyHintButtons.length) {
     copyHintButtons.forEach((button) => {
@@ -982,6 +990,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
     });
     compareOptionsHtml += `<option value="__all__"${isAllMode ? ' selected' : ''}>${escHtml(t('card.allVersionsOption'))}</option>`;
 
+    // credit copy-icon: https://www.flaticon.com/authors/erix
     let html = `<div class="card-swipe-wrap">${sideNavHtml}<div class="verse-card${compareActive ? ' compare-active' : ''}" id="${cardId}"${swipeAttrs}>
         <div class="verse-card-header">
             <div class="verse-card-header-main">
@@ -991,7 +1000,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
                 </div>
                 <div class="verse-card-header-actions">
                     <div class="copy-menu-wrap">
-                        <button class="copy-btn copy-menu-btn" onclick="toggleCopyMenu(${idx})" title="${escAttr(t('card.copy.title'))}">${escHtml(t('card.copy'))}</button>
+                        <button class="copy-btn copy-menu-btn" onclick="toggleCopyMenu(${idx})" title="${escAttr(t('card.copy.title'))}"><img src="/static/images/copy.png" class="copy-icon" alt="kopier"></button> 
                         <div class="copy-menu" id="copy-menu-${idx}">
                             <button class="copy-menu-item" onclick="copyBlockText(${idx})">${escHtml(t('card.copy.textOnly'))}</button>
                             <button class="copy-menu-item" onclick="copyBlockRef(${idx})">${escHtml(t('card.copy.withRef'))}</button>
@@ -2441,7 +2450,7 @@ function renderAllVersions(allResults, label) {
     </div>
     <div class="all-versions-block">
         <div class="verse-card-header" style="border-bottom:none;padding-bottom:0;margin-bottom:8px;">
-            <span class="verse-card-label" style="font-size:1rem;">${escHtml(displayLabel)}</span>
+            <span class="verse-card-label">${escHtml(displayLabel)}</span>
         </div>
         <div class="all-versions-grid">`;
     for (const [versionName, blocks] of Object.entries(allResults)) {
@@ -3631,6 +3640,19 @@ function toggleVisningPanel() {
 
 window.toggleBlaPanel = toggleBlaPanel;
 window.toggleVisningPanel = toggleVisningPanel;
+
+// Stop propagation inside panels/buttons so the document click-outside handler
+// doesn't see clicks that originated inside (re-render detaches the target node,
+// making closest() return null even for valid inside clicks).
+['blaPanel', 'visningPanel', 'blaBtn', 'visningBtn'].forEach(id => {
+    document.getElementById(id)?.addEventListener('click', e => e.stopPropagation());
+});
+
+// Close panels when clicking outside
+document.addEventListener('click', () => {
+    _setPanel('blaPanel', 'blaBtn', false);
+    _setPanel('visningPanel', 'visningBtn', false);
+});
 
 // ── Map: place visualization ─────────────────────────────────────────────────
 
