@@ -7,7 +7,6 @@ const I18N = {
         'search.placeholder': 'Søk i Bibelen...',
         'search.clear': 'Tøm søk',
         'search.button': 'Søk',
-        'display.toggleLabel': 'bla & vis',
         'display.browse': 'Bla:',
         'display.bookPlaceholder': '-- Bok --',
         'display.chapterPlaceholder': '-- Kap --',
