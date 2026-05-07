@@ -19,6 +19,7 @@
             --font-ui: var(--font-mono);
             --font-serif: 'Georgia', 'Times New Roman', 'Palatino Linotype', serif;
             --verse-font-size: 1.1rem;
+            --ref-font-size: calc(var(--verse-font-size) * 1);
             --radius: 10px;
         }
 
@@ -546,6 +547,7 @@
             max-width: 880px;
             margin: 6px auto 0;
             padding: 0 20px;
+            position: relative;
         }
         .display-bar {
             display: flex;
@@ -578,39 +580,39 @@
         .display-bar-btn.open .display-arrow { transform: rotate(90deg); }
 
         .display-panel {
-            /* Default = closed: zero everything that contributes vertical space.
-               When the panel above is closed, residual padding/border would
-               otherwise still push the next-open panel down by ~22px. */
-            padding: 0 20px;
+            /* Overlay popup — floats above results without shifting layout */
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 100%;
+            z-index: 200;
+            padding: 12px;
             background: var(--card-bg);
             border: 1px solid var(--border);
-            border-width: 0;
             border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
             display: flex;
             flex-direction: column;
             gap: 10px;
-            overflow: hidden;
+            /* Closed: clip to 0 height; delayed so it waits for opacity/translate out */
             max-height: 0;
-            margin-top: 0;
+            overflow: hidden;
             opacity: 0;
+            transform: translateY(-6px);
             pointer-events: none;
-            transition: max-height 0.25s ease, padding 0.25s ease, border-width 0.25s ease, margin-top 0.25s ease, opacity 0.15s;
+            transition: opacity 0.18s ease, transform 0.18s ease, max-height 0s 0.18s;
         }
         .display-panel.open {
-            max-height: 500px;
-            padding: 10px 20px;
-            border-width: 1px;
-            margin-top: 6px;
-            opacity: 1;
-            pointer-events: auto;
-            overflow: visible;
-        }
-        /* Bla panel: chapter/book grids can be tall (Psalms 150 chapters,
-           OT 39 books on narrow mobile). Scroll inside the panel rather than
-           clipping. Tooltip pseudo-elements live in the Visning panel only,
-           so overflow-y: auto here is safe. */
-        .bla-panel.open {
+            /* Open: height reveals instantly, then opacity/translate animate in */
             max-height: min(75vh, 900px);
+            overflow: visible;
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+            transition: opacity 0.18s ease, transform 0.18s ease, max-height 0s 0s;
+        }
+        /* Bla panel: chapter/book grids can be tall — scroll inside. */
+        .bla-panel.open {
             overflow: hidden auto;
         }
 
@@ -685,8 +687,9 @@
         .toggles-grid {
             display: grid;
             grid-template-columns: 1fr;
-            gap: 10px;
+            gap: 0;
             align-items: start;
+            margin: -12px;
         }
 
         .toggle-item {
@@ -695,14 +698,19 @@
             align-items: center;
             column-gap: 14px;
             row-gap: 4px;
-            width: 100%;
-            padding-bottom: 10px;
+            padding: 10px 12px;
             border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.12s;
         }
 
+        .toggle-item:hover { background: var(--accent-dim); }
+
+        .toggle-item:first-child { border-radius: var(--radius) var(--radius) 0 0; }
+
         .toggle-item:last-child {
-            padding-bottom: 0;
             border-bottom: none;
+            border-radius: 0 0 var(--radius) var(--radius);
         }
 
         .toggle-label-row {
@@ -1015,7 +1023,7 @@
         }
         .verse-card-label {
             font-weight: 700;
-            font-size: 1.05rem;
+            font-size: var(--ref-font-size);
             color: var(--accent);
             font-family: 'Lora', Georgia, serif;
         }
@@ -1026,7 +1034,7 @@
             flex-shrink: 0;
         }
         .copy-btn {
-            padding: 4px 10px;
+            padding: 6px 6px;
             font-size: 0.75rem;
             font-family: var(--font-ui);
             background: transparent;
@@ -1039,6 +1047,10 @@
         }
         .copy-btn:hover { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
         .copy-btn:active { transform: scale(0.96); }
+        .copy-icon { width: 14px; height: 14px; display: block; filter: brightness(0) opacity(0.55); }
+        .copy-btn:hover .copy-icon { filter: brightness(0) opacity(1); }
+        [data-theme="dark"] .copy-icon { filter: brightness(0) invert(1) opacity(0.65); }
+        [data-theme="dark"] .copy-btn:hover .copy-icon { filter: brightness(0) invert(1) opacity(1); }
 
         /* Highlight dismiss chip — sits in card header left, same style as copy-btn but accent-tinted */
         .highlight-dismiss-btn {
@@ -1623,7 +1635,7 @@
         .search-result-ref {
             font-weight: 700;
             color: var(--accent);
-            font-size: 1rem;
+            font-size: var(--ref-font-size);
             margin-bottom: 4px;
             font-family: 'Lora', Georgia, serif;
         }
@@ -2234,10 +2246,6 @@
             .search-highlight-overlay { padding-right: 30px; }
 
             .copy-hint-btn::after { right: 0; left: auto; }
-
-            .toggles-grid {
-                gap: 12px;
-            }
 
             .toggle-item {
                 column-gap: 12px;
