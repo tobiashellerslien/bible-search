@@ -175,11 +175,15 @@ window.AppDrawer = (() => {
             return parseFloat(v) || 0;
         }
         function getSafeAreaBottom() {
+            if (document.body.classList.contains('mvb-on')) return 0;
             const v = getComputedStyle(document.documentElement).getPropertyValue('--safe-area-bottom').trim();
             return parseFloat(v) || 0;
         }
+        function getCollapsedH() {
+            return document.body.classList.contains('mvb-on') ? 44 : COLLAPSED_H;
+        }
         function collapsedTranslatePx(h) {
-            return Math.max(0, h - COLLAPSED_H - getSafeAreaBottom() - getMvbH());
+            return Math.max(0, h - getCollapsedH() - getSafeAreaBottom() - getMvbH());
         }
 
         handle.addEventListener('pointerdown', e => {

@@ -3013,6 +3013,15 @@
             body.mvb-on .app-drawer.drawer-collapsed {
                 border-bottom: none;
             }
+            /* When MVB is open, the collapsed drawer sits just above MVB — 44px is enough there.
+               Reset safe-area offset too since MVB already handles bottom spacing. */
+            body.mvb-on {
+                --drawer-collapsed-h: 44px;
+                --safe-area-bottom: 0px;
+            }
+            body.mvb-on .drawer-handle-area {
+                padding-bottom: 6px;
+            }
             /* Hide close-X when collapsed; only the handle bar shows */
             .app-drawer:not(.drawer-expanded) .drawer-header { display: none; }
             /* Hide module body when collapsed so nothing pokes through the visible 44 px */
