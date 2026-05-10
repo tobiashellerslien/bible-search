@@ -1,7 +1,7 @@
 /* AppDrawer — mobile bottom-sheet module system (≤700px only) */
 window.AppDrawer = (() => {
     const MOBILE_BP = 701;
-    const COLLAPSED_H = 44; // px visible when collapsed (handle area only)
+    const COLLAPSED_H = 64; // px visible when collapsed (handle area only)
 
     function isMobile() { return window.innerWidth < MOBILE_BP; }
 
@@ -174,8 +174,12 @@ window.AppDrawer = (() => {
             const v = getComputedStyle(document.documentElement).getPropertyValue('--mvb-h').trim();
             return parseFloat(v) || 0;
         }
+        function getSafeAreaBottom() {
+            const v = getComputedStyle(document.documentElement).getPropertyValue('--safe-area-bottom').trim();
+            return parseFloat(v) || 0;
+        }
         function collapsedTranslatePx(h) {
-            return Math.max(0, h - COLLAPSED_H - getMvbH());
+            return Math.max(0, h - COLLAPSED_H - getSafeAreaBottom() - getMvbH());
         }
 
         handle.addEventListener('pointerdown', e => {

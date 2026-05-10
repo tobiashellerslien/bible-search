@@ -2788,7 +2788,7 @@
         .verse-panel-close:hover { opacity: 1; color: var(--error); background: var(--error-bg); }
 
         /* ── Marked verses bar (MVB) ── */
-        :root { --drawer-collapsed-h: 44px; --mvb-h: 0px; --mvb-shift: 0px; }
+        :root { --drawer-collapsed-h: 64px; --mvb-h: 0px; --mvb-shift: 0px; --safe-area-bottom: env(safe-area-inset-bottom, 0px); }
         .marked-verses-bar {
             position: fixed;
             bottom: 0;
@@ -2992,7 +2992,7 @@
             /* Collapsed: drawer slides up so only its top 44px sits just above MVB (or the screen bottom).
                --mvb-shift mirrors any active MVB swipe so the collapsed drawer rides along with MVB as one unit. */
             .app-drawer.drawer-collapsed {
-                transform: translateY(calc(100% - 44px - var(--mvb-h, 0px) + var(--mvb-shift, 0px)));
+                transform: translateY(calc(100% - var(--drawer-collapsed-h) - var(--safe-area-bottom, 0px) - var(--mvb-h, 0px) + var(--mvb-shift, 0px)));
             }
             /* During an active MVB drag, kill the drawer's transform transition so it follows the finger 1:1. */
             body.mvb-dragging .app-drawer,
@@ -3022,9 +3022,10 @@
             }
             .app-drawer.drawer-expanded .drawer-modules { opacity: 1; }
             .drawer-handle-area {
-                height: 44px;
+                min-height: var(--drawer-collapsed-h);
                 box-sizing: border-box;
                 padding: 6px 14px;
+                padding-bottom: calc(6px + var(--safe-area-bottom, 0px));
                 display: flex;
                 flex-direction: column;
                 align-items: center;
