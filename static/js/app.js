@@ -418,6 +418,8 @@ let showPlaces = localStorage.getItem('showPlaces') === 'true';
 const xrefCache = new Map();
 const blockPlacesRegistry = {}; // { [cardIdx]: places[] }
 const mapState = { instance: null, baseLayers: null, layerGroup: null };
+// Marked verses: key = `${book}.${chapter}.${verse}` → {book, chapter, verse, hasFn, hasXr, blockIdx, text}
+const markedVerses = new Map();
 
 // ── Elements ──
 const searchInput = document.getElementById('searchInput');
@@ -742,7 +744,7 @@ searchInput.addEventListener('keydown', e => {
 
 async function doSearch(pushHistory = true, resetAC = true) {
     if (resetAC) closeAutocomplete();
-    if (!_preserveHighlight) currentHighlightVerses = null;
+    if (!_preserveHighlight) { currentHighlightVerses = null; updateMvbHighlightChip(); updateMarkedVersesBar(); }
     _preserveHighlight = false;
     const query = searchInput.value.trim();
     if (!query) return;
@@ -880,6 +882,7 @@ if (copyHintButtons.length) {
 
 // ── Render reference results ──
 function renderAll() {
+    clearAllMarkedVerses();
     if (!mainData || mainData.length === 0) { resultsWrapper.innerHTML = emptyStateHtml; applyI18n(); return; }
     setPageTitle(mainData.map(b => b.label).join('; '));
     const showNums = toggleVerseNums.checked;
@@ -919,11 +922,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
     const defaultCompareVer = allVersionsList.find(v => String(v.id) !== ver);
     const compareVer = cs ? cs.version : (defaultCompareVer ? String(defaultCompareVer.id) : ver);
 
-    const hasHighlight = currentHighlightVerses && block.verses.some(v =>
-        currentHighlightVerses.keys.has(`${v.chapter}:${v.num}`));
-    const chipHtml = hasHighlight
-        ? `<button class="copy-btn highlight-dismiss-btn" onclick="clearHighlight()" title="${escAttr(t('card.dismissHighlight'))}">${escHtml(buildHighlightChipLabel())} &times;</button>`
-        : '';
+    const chipHtml = '';
 
     // Compute swipe nav metadata for this card
     let swipeAttrs = '';
@@ -990,6 +989,8 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
     });
     compareOptionsHtml += `<option value="__all__"${isAllMode ? ' selected' : ''}>${escHtml(t('card.allVersionsOption'))}</option>`;
 
+    const trayOpen = block.book && block.verses.length > 0 ? (compareVisible || !!cardTrayOpen[idx]) : false;
+
     // credit copy-icon: https://www.flaticon.com/authors/erix
     let html = `<div class="card-swipe-wrap">${sideNavHtml}<div class="verse-card${compareActive ? ' compare-active' : ''}" id="${cardId}"${swipeAttrs}>
         <div class="verse-card-header">
@@ -1000,12 +1001,13 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
                 </div>
                 <div class="verse-card-header-actions">
                     <div class="copy-menu-wrap">
-                        <button class="copy-btn copy-menu-btn" onclick="toggleCopyMenu(${idx})" title="${escAttr(t('card.copy.title'))}"><img src="/static/images/copy.png" class="copy-icon" alt="kopier"></button> 
+                        <button class="copy-btn copy-menu-btn" onclick="toggleCopyMenu(${idx})" title="${escAttr(t('card.copy.title'))}"><img src="/static/images/copy.png" class="copy-icon" alt="kopier"></button>
                         <div class="copy-menu" id="copy-menu-${idx}">
                             <button class="copy-menu-item" onclick="copyBlockText(${idx})">${escHtml(t('card.copy.textOnly'))}</button>
                             <button class="copy-menu-item" onclick="copyBlockRef(${idx})">${escHtml(t('card.copy.withRef'))}</button>
                         </div>
                     </div>
+                    ${block.book && block.verses.length > 0 ? `<button class="copy-btn study-toggle${trayOpen ? ' open' : ''}" onclick="toggleStudyTray(${idx})" aria-expanded="${trayOpen ? 'true' : 'false'}" title="${escAttr(t('card.study.title'))}">🎓</button>` : ''}
                 </div>
             </div>
             <div class="header-compare-slot">
@@ -1044,27 +1046,24 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
         const crUrl = biblerefUrl(block.book, ch, isSingleVerse ? block.verses[0].num : null);
         const yvUrl = youversionUrl(block.book, ch, block.verses, ver, !!block.is_chapter);
 
-        // Study tray (compact square toggle, expands to show study/external links)
-        const trayOpen = !!cardTrayOpen[idx];
+        // Study tray (toggle is in card header; tray expands below card body)
         const placeCount = (block.places || []).length;
         const mapDisabled = placeCount === 0;
         const mapLabel = placeCount > 0 ? `🗺️ Kart (${placeCount})` : `🗺️ Kart`;
         const mapTitle = mapDisabled ? escAttr(t('card.study.map.empty')) : escAttr(t('card.mapBtn.title', placeCount));
 
         html += `<div class="verse-card-footer">
-            <button class="copy-btn study-toggle${trayOpen ? ' open' : ''}" onclick="toggleStudyTray(${idx})" aria-expanded="${trayOpen ? 'true' : 'false'}" title="${escAttr(t('card.study.title'))}">
-                <span class="study-label">${escHtml(t('card.study'))}</span>
-                <svg class="study-chevron" viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4 L6 8 L10 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
             <div class="study-tray" data-open="${trayOpen ? 'true' : 'false'}" id="study-tray-${idx}">
-                <div class="study-tray-inner">
-                    <button class="tray-btn compare-header-btn${compareVisible ? ' active' : ''}" onclick="toggleCardCompare(${idx})" title="${escAttr(t('card.compare.title'))}">${escHtml(t('card.compare'))}</button>
-                    <button class="tray-btn map-tray-btn"${mapDisabled ? ' disabled aria-disabled="true"' : ` onclick="openMapForBlock(${idx},null)"`} title="${mapTitle}">${mapLabel}</button>
-                    <button class="tray-btn pin-tray-btn${isBlockPinned(idx) ? ' pinned' : ''}" onclick="togglePinForBlock(${idx})" title="Fest dette avsnittet i sidebar">📌 <span class="pin-label">${isBlockPinned(idx) ? 'Festet' : 'Fest'}</span></button>
-                    ${(ilUrl || crUrl || yvUrl) ? `<span class="tray-divider" aria-hidden="true"></span>` : ''}
-                    ${ilUrl ? `<a class="tray-btn external" href="${ilUrl}" target="_blank" rel="noopener" title="biblehub.com"><img class="tray-btn-logo" src="/static/images/biblehub.png" alt=""><span>${escHtml(t('card.study.interlinear'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
-                    ${crUrl ? `<a class="tray-btn external" href="${crUrl}" target="_blank" rel="noopener" title="bibleref.com"><img class="tray-btn-logo" src="/static/images/bibleref.png" alt=""><span>${escHtml(t('card.study.bibleref'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
-                    ${yvUrl ? `<a class="tray-btn external" href="${yvUrl}" target="_blank" rel="noopener" title="bible.com"><span>${escHtml(t('card.study.source'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
+                <div class="study-tray-row">
+                    <div class="study-tray-inner">
+                        <button class="tray-btn compare-header-btn${compareVisible ? ' active' : ''}" onclick="toggleCardCompare(${idx})" title="${escAttr(t('card.compare.title'))}">${escHtml(t('card.compare'))}</button>
+                        <button class="tray-btn map-tray-btn"${mapDisabled ? ' disabled aria-disabled="true"' : ` onclick="openMapForBlock(${idx},null)"`} title="${mapTitle}">${mapLabel}</button>
+                        <button class="tray-btn pin-tray-btn${isBlockPinned(idx) ? ' pinned' : ''}" onclick="togglePinForBlock(${idx})" title="Fest dette avsnittet i sidebar">📌 <span class="pin-label">${isBlockPinned(idx) ? 'Festet' : 'Fest'}</span></button>
+                        ${ilUrl ? `<a class="tray-btn external" href="${ilUrl}" target="_blank" rel="noopener" title="biblehub.com"><img class="tray-btn-logo" src="/static/images/biblehub.png" alt=""><span>${escHtml(t('card.study.interlinear'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
+                        ${crUrl ? `<a class="tray-btn external" href="${crUrl}" target="_blank" rel="noopener" title="bibleref.com"><img class="tray-btn-logo" src="/static/images/bibleref.png" alt=""><span>${escHtml(t('card.study.bibleref'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
+                        ${yvUrl ? `<a class="tray-btn external" href="${yvUrl}" target="_blank" rel="noopener" title="bible.com"><span>${escHtml(t('card.study.source'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
+                    </div>
+                    <button class="study-tray-close" onclick="toggleStudyTray(${idx})" title="Lukk studie">✕</button>
                 </div>
             </div>
         </div>`;
@@ -1244,6 +1243,7 @@ window.toggleCardCompare = async function(idx) {
         // section's transition uses the PC side-by-side layout from the start instead
         // of briefly applying the mobile (full-width below) layout.
         updateWideMode();
+        ensureStudyTrayOpen(idx);
         if (section) {
             section.classList.add('visible');
             if (headerBtn) headerBtn.classList.add('active');
@@ -1262,7 +1262,7 @@ window.toggleCardCompare = async function(idx) {
             const cb = document.getElementById(`align-toggle-${idx}`);
             if (cb) cb.checked = false;
         }
-        if (nowVisible) renderCompareBody(idx);
+        if (nowVisible) { ensureStudyTrayOpen(idx); renderCompareBody(idx); }
         if (section) {
             section.classList.toggle('visible', nowVisible);
             if (headerBtn) headerBtn.classList.toggle('active', nowVisible);
@@ -1436,7 +1436,8 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
         if (bookCodeSafe) {
             const hasFn = !!fnText;
             const hasXr = (v.has_xrefs === undefined) ? true : !!v.has_xrefs;
-            html += `<span class="verse-text-clickable" data-book="${bookCodeSafe}" data-chapter="${v.chapter}" data-verse="${v.num}" data-ref="${refName}" data-has-fn="${hasFn ? '1' : '0'}" data-has-xr="${hasXr ? '1' : '0'}">${escHtml(v.text)}</span>`;
+            const isMarked = markedVerses.has(`${bookCode}.${v.chapter}.${v.num}`);
+            html += `<span class="verse-text-clickable${isMarked ? ' verse-marked' : ''}" data-book="${bookCodeSafe}" data-chapter="${v.chapter}" data-verse="${v.num}" data-ref="${refName}" data-has-fn="${hasFn ? '1' : '0'}" data-has-xr="${hasXr ? '1' : '0'}">${escHtml(v.text)}</span>`;
         } else {
             html += escHtml(v.text);
         }
@@ -1470,10 +1471,10 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
 
         // Panels are block siblings of verse-line (display:none = no layout impact when closed)
         if (showFootnotes && fnText) {
-            html += `<div class="verse-panel fn-panel" style="display:none;max-height:0;opacity:0"><div class="fn-panel-inner">${escHtml(fnText)}</div></div>`;
+            html += `<div class="verse-panel fn-panel" style="display:none;max-height:0;opacity:0"><button class="verse-panel-close" onclick="closePanelFromBtn(this,'fn-panel')" title="Lukk">✕</button><div class="fn-panel-inner">${escHtml(fnText)}</div></div>`;
         }
         if (showXrefs && bookCodeSafe && hasXrefs) {
-            html += `<div class="verse-panel xr-panel" style="display:none;max-height:0;opacity:0"><div class="xr-panel-inner"></div></div>`;
+            html += `<div class="verse-panel xr-panel" style="display:none;max-height:0;opacity:0"><button class="verse-panel-close" onclick="closePanelFromBtn(this,'xr-panel')" title="Lukk">✕</button><div class="xr-panel-inner"></div></div>`;
         }
 
         if (alignMode) html += `</div>`; // close .verse-align-row
@@ -1502,6 +1503,23 @@ function closeVersePanel(panel) {
         if (panel.style.maxHeight === '0px') panel.style.display = 'none';
     }, { once: true });
 }
+
+window.closePanelFromBtn = function(btn, panelClass) {
+    const panel = btn.closest('.' + panelClass);
+    if (!panel) return;
+    closeVersePanel(panel);
+    // Deactivate the toggle button by walking backwards among siblings
+    let el = panel.previousElementSibling;
+    while (el) {
+        if (el.classList.contains('verse-line')) {
+            const toggleBtn = panelClass === 'fn-panel'
+                ? el.querySelector('.fn-btn')
+                : el.querySelector('.xr-btn');
+            if (toggleBtn) { toggleBtn.classList.remove('active'); break; }
+        }
+        el = el.previousElementSibling;
+    }
+};
 
 function findSiblingPanel(verseLine, cls) {
     // Walk forward among parent's children starting after verseLine
@@ -1714,6 +1732,8 @@ window.goChapter = async function(bookCode, chapter, bName, direction, cardIdx) 
         return;
     }
     currentHighlightVerses = null;
+    updateMvbHighlightChip();
+    updateMarkedVersesBar();
     await slideTransition(direction, async () => {
         searchInput.value = `${bName} ${chapter}`;
         updateSearchHighlight();
@@ -1738,94 +1758,397 @@ window.openSingleVerse = async function(bookCode, chapter, verse, bName) {
     }
 };
 
-// ── Verse-text click popup ───────────────────────────────────────────────────
-let _versePopupEl = null;
-let _versePopupKey = null;
-let _activeVerseEl = null;
-function _ensureVersePopup() {
-    if (_versePopupEl) return _versePopupEl;
-    const el = document.createElement('div');
-    el.className = 'verse-open-popup';
-    el.style.display = 'none';
-    document.body.appendChild(el);
-    _versePopupEl = el;
-    return el;
+// ── Marked verses & Marked Verses Bar (MVB) ──────────────────────────────────
+// MVB is positioned via CSS using body.drawer-* classes (set by AppDrawer).
+// It sits at the bottom on desktop, lifts above the collapsed-drawer handle
+// on mobile, and hides while the drawer is fully expanded.
+
+function updateMvbHighlightChip() {
+    const chip = document.getElementById('mvbHighlightChip');
+    if (!chip) return;
+    const show = !!(currentHighlightVerses && [...markedVerses.values()].some(v =>
+        currentHighlightVerses.keys.has(`${v.chapter}:${v.verse}`)
+    ));
+    if (show) {
+        chip.textContent = buildHighlightChipLabel() + ' ×';
+        chip.style.display = '';
+    } else {
+        chip.style.display = 'none';
+    }
 }
-function _hideVersePopup() {
-    if (_versePopupEl) _versePopupEl.style.display = 'none';
-    _versePopupKey = null;
-    if (_activeVerseEl) { _activeVerseEl.classList.remove('verse-popup-active'); _activeVerseEl = null; }
+
+function clearAllMarkedVerses() {
+    markedVerses.clear();
+    document.querySelectorAll('.verse-marked').forEach(el => el.classList.remove('verse-marked'));
+    const bar = document.getElementById('markedVersesBar');
+    if (!currentHighlightVerses) {
+        if (bar) bar.classList.remove('mvb-visible');
+        document.body.classList.remove('mvb-on');
+        document.documentElement.style.setProperty('--mvb-h', '0px');
+    }
+    updateMvbHighlightChip();
 }
-document.addEventListener('click', (ev) => {
-    const target = ev.target.closest('.verse-text-clickable');
-    if (target) {
-        // ignore if a child interactive element handled it
-        if (ev.target.closest('.verse-btn, .place-chip, .verse-num, a, button')) return;
-        ev.stopPropagation();
-        const book = target.dataset.book;
-        const chapter = parseInt(target.dataset.chapter, 10);
-        const verse = parseInt(target.dataset.verse, 10);
-        const ref = target.dataset.ref || book;
-        const key = `${book}|${chapter}|${verse}`;
-        if (_versePopupEl && _versePopupEl.style.display === 'block' && _versePopupKey === key) {
-            _hideVersePopup();
-            return;
+
+// Book order lookup: returns a sort key for a USFM code using booksData
+function _bookOrder(usfm) {
+    const idx = booksData.findIndex(b => b.code === usfm);
+    return idx >= 0 ? idx : 999;
+}
+
+function _getSortedMarkedVerses() {
+    return [...markedVerses.values()].sort((a, b) => {
+        const oa = _bookOrder(a.book), ob = _bookOrder(b.book);
+        if (oa !== ob) return oa - ob;
+        if (a.chapter !== b.chapter) return a.chapter - b.chapter;
+        return a.verse - b.verse;
+    });
+}
+
+function getMarkedVersesGroups() {
+    const sorted = _getSortedMarkedVerses();
+    if (sorted.length === 0) return [];
+    const groups = [];
+    let cur = null;
+    for (const v of sorted) {
+        if (cur && cur.book === v.book && cur.chapter === v.chapter && v.verse === cur.vsEnd + 1) {
+            cur.vsEnd = v.verse;
+            cur.verses.push(v);
+        } else {
+            cur = { book: v.book, chapter: v.chapter, vsStart: v.verse, vsEnd: v.verse, verses: [v] };
+            groups.push(cur);
         }
-        if (_activeVerseEl) _activeVerseEl.classList.remove('verse-popup-active');
-        const popup = _ensureVersePopup();
-        _versePopupKey = key;
-        _activeVerseEl = target;
-        target.classList.add('verse-popup-active');
-        const hasFn = target.dataset.hasFn === '1';
-        const hasXr = target.dataset.hasXr === '1';
-        let buttons = `<button type="button" class="verse-open-popup-btn" data-action="open">📖 ${escHtml(t('verse.openVerse'))}</button>`;
-        if (hasFn) buttons += `<button type="button" class="verse-open-popup-btn" data-action="fn" title="${escAttr(t('annot.fnTitle'))}">†</button>`;
-        if (hasXr) buttons += `<button type="button" class="verse-open-popup-btn" data-action="xr" title="${escAttr(t('annot.xrTitle'))}">§</button>`;
-        popup.innerHTML = buttons;
-        popup.style.display = 'block';
-        // Position above the click point
-        const px = ev.clientX;
-        const py = ev.clientY;
-        popup.style.visibility = 'hidden';
-        popup.style.left = '0px';
-        popup.style.top = '0px';
-        const rect = popup.getBoundingClientRect();
-        let left = px - rect.width / 2;
-        let top = py - rect.height - 10;
-        if (top < 8) top = py + 14;
-        left = Math.max(8, Math.min(left, window.innerWidth - rect.width - 8));
-        popup.style.left = (left + window.scrollX) + 'px';
-        popup.style.top = (top + window.scrollY) + 'px';
-        popup.style.visibility = 'visible';
-        popup.querySelectorAll('.verse-open-popup-btn').forEach(btn => {
-            btn.onclick = (e) => {
-                e.stopPropagation();
-                const action = btn.dataset.action;
-                _hideVersePopup();
-                if (action === 'open') {
-                    window.openSingleVerse(book, chapter, verse, ref);
-                } else if (action === 'fn') {
-                    // Find the existing fn-btn next to this verse and click it
-                    const verseLine = target.closest('.verse-line');
-                    const fnBtn = verseLine?.querySelector('.fn-btn');
-                    fnBtn?.click();
-                } else if (action === 'xr') {
-                    const xrBtn = document.querySelector(
-                        `.xr-btn[data-book="${book}"][data-chapter="${chapter}"][data-verse="${verse}"]`
-                    );
-                    xrBtn?.click();
-                }
-            };
-        });
+    }
+    return groups;
+}
+
+function buildMvbRefString() {
+    const sorted = _getSortedMarkedVerses();
+    if (sorted.length === 0) return '';
+    // Group by book+chapter, build ranges within chapter
+    const byBookChap = [];
+    let curBook = null, curChap = null, curGroup = null;
+    for (const v of sorted) {
+        if (v.book !== curBook || v.chapter !== curChap) {
+            curBook = v.book; curChap = v.chapter;
+            curGroup = { book: v.book, chapter: v.chapter, ranges: [] };
+            byBookChap.push(curGroup);
+        }
+        const ranges = curGroup.ranges;
+        if (ranges.length > 0) {
+            const last = ranges[ranges.length - 1];
+            if (v.verse === last.end + 1) { last.end = v.verse; continue; }
+        }
+        ranges.push({ start: v.verse, end: v.verse });
+    }
+    const parts = byBookChap.map(g => {
+        const bookName = bookRefName(g.book) || g.book;
+        const rangeParts = g.ranges.map(r => r.start === r.end ? String(r.start) : `${r.start}-${r.end}`);
+        return `${bookName} ${g.chapter}:${rangeParts.join(', ')}`;
+    });
+    return parts.join(' · ');
+}
+
+function buildMvbQuery(forCompare) {
+    const groups = getMarkedVersesGroups();
+    const parts = groups.map(g => {
+        const bookName = bookRefName(g.book) || g.book;
+        return g.vsStart === g.vsEnd
+            ? `${bookName} ${g.chapter}:${g.vsStart}`
+            : `${bookName} ${g.chapter}:${g.vsStart}-${g.vsEnd}`;
+    });
+    return parts.join(';');
+}
+
+function updateMvbExternalLinks() {
+    const groups = getMarkedVersesGroups();
+    const first = groups[0];
+    const ilEl = document.getElementById('mvbInterlinear');
+    const crEl = document.getElementById('mvbBibleref');
+    if (!first) {
+        if (ilEl) ilEl.style.display = 'none';
+        if (crEl) crEl.style.display = 'none';
         return;
     }
-    if (_versePopupEl && _versePopupEl.style.display === 'block' && !ev.target.closest('.verse-open-popup')) {
-        _hideVersePopup();
+    const ilUrl = typeof interlinearUrl === 'function' ? interlinearUrl(first.book, first.chapter, first.vsStart) : null;
+    const crUrl = typeof biblerefUrl === 'function' ? biblerefUrl(first.book, first.chapter, first.vsStart) : null;
+    if (ilEl) { ilEl.style.display = ilUrl ? '' : 'none'; if (ilUrl) ilEl.href = ilUrl; }
+    if (crEl) { crEl.style.display = crUrl ? '' : 'none'; if (crUrl) crEl.href = crUrl; }
+}
+
+function updateMarkedVersesBar() {
+    const bar = document.getElementById('markedVersesBar');
+    if (!bar) return;
+
+    const hasVerses = markedVerses.size > 0;
+    const hasHighlight = !!currentHighlightVerses;
+
+    if (!hasVerses) {
+        bar.classList.remove('mvb-visible');
+        document.body.classList.remove('mvb-on');
+        document.documentElement.style.setProperty('--mvb-h', '0px');
+        updateMvbHighlightChip();
+        return;
     }
+
+    document.body.classList.add('mvb-on');
+    bar.classList.add('mvb-visible');
+
+    const refEl = document.getElementById('mvbRef');
+    if (refEl) refEl.textContent = hasVerses ? buildMvbRefString() : '';
+
+    const anyFn = hasVerses && [...markedVerses.values()].some(v => v.hasFn);
+    const anyXr = hasVerses && [...markedVerses.values()].some(v => v.hasXr);
+    const fnBtn = document.getElementById('mvbFn');
+    const xrBtn = document.getElementById('mvbXr');
+    const annotRow = document.getElementById('mvbAnnotRow');
+    if (fnBtn) fnBtn.style.display = anyFn ? '' : 'none';
+    if (xrBtn) xrBtn.style.display = anyXr ? '' : 'none';
+
+    updateMvbHighlightChip();
+
+    const chip = document.getElementById('mvbHighlightChip');
+    const showAnnotRow = anyFn || anyXr || (chip && chip.style.display !== 'none');
+    if (annotRow) annotRow.style.display = showAnnotRow ? '' : 'none';
+
+    const actionsRow = bar.querySelector('.mvb-row-actions');
+    const topRow = bar.querySelector('.mvb-row-top');
+    if (actionsRow) actionsRow.style.display = hasVerses ? '' : 'none';
+    if (topRow) topRow.style.display = hasVerses ? '' : 'none';
+
+    if (hasVerses) updateMvbExternalLinks();
+
+    // Measure AFTER content is laid out — first activation populates mvbRef and
+    // toggles row visibility, so measuring before would yield a too-small height
+    // and park the collapsed drawer behind MVB.
+    const measuredH = bar.offsetHeight || 0;
+    document.documentElement.style.setProperty('--mvb-h', measuredH + 'px');
+}
+
+function _mvbCopyText(withRef) {
+    const sorted = _getSortedMarkedVerses();
+    const showNums = toggleVerseNums && toggleVerseNums.checked;
+    const lines = sorted.map(v => {
+        const numPart = showNums ? `${v.verse} ` : '';
+        return numPart + v.text;
+    });
+    let text = lines.join('\n');
+    if (withRef) {
+        const ref = buildMvbRefString();
+        const verLabel = versionSelect ? (' ' + (versionSelect.options[versionSelect.selectedIndex]?.text || '')) : '';
+        text = text + '\n\n' + ref + verLabel;
+    }
+    navigator.clipboard.writeText(text).then(() => {
+        showToast(withRef ? t('toast.copiedRef') : t('toast.copied'));
+    }).catch(() => {});
+}
+
+// Initialize MVB buttons (called once after DOM ready)
+function initMarkedVersesBar() {
+    const closeBtn = document.getElementById('mvbClose');
+    if (closeBtn) closeBtn.addEventListener('click', clearAllMarkedVerses);
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        if (window.innerWidth <= 700) return; // mobile uses drawer, not Esc
+        if (document.body.classList.contains('mvb-on')) {
+            clearAllMarkedVerses();
+            e.preventDefault();
+        }
+    });
+
+    const openBtn = document.getElementById('mvbOpen');
+    if (openBtn) openBtn.addEventListener('click', () => {
+        const q = buildMvbQuery();
+        if (!q) return;
+        searchInput.value = q;
+        updateSearchHighlight();
+        doSearch();
+    });
+
+    const compareBtn = document.getElementById('mvbCompare');
+    if (compareBtn) compareBtn.addEventListener('click', async () => {
+        const q = buildMvbQuery();
+        if (!q) return;
+        searchInput.value = q;
+        updateSearchHighlight();
+        await doSearch();
+        // Open compare on each card after render
+        if (mainData) mainData.forEach((_, idx) => {
+            if (!cardCompare[idx] || !cardCompare[idx].visible) toggleCardCompare(idx);
+        });
+    });
+
+    const pinBtn = document.getElementById('mvbPin');
+    if (pinBtn) pinBtn.addEventListener('click', () => {
+        if (!window.PinnedVerses) return;
+        const version = versionSelect ? versionSelect.value : '';
+        getMarkedVersesGroups().forEach(g => {
+            const label = (() => {
+                const bookName = bookRefName(g.book) || g.book;
+                return g.vsStart === g.vsEnd
+                    ? `${bookName} ${g.chapter}:${g.vsStart}`
+                    : `${bookName} ${g.chapter}:${g.vsStart}-${g.vsEnd}`;
+            })();
+            const text = g.verses.map(v => v.text).join(' ').slice(0, 400);
+            window.PinnedVerses.add({
+                book: g.book,
+                ch_start: g.chapter, vs_start: g.vsStart,
+                ch_end: g.chapter, vs_end: g.vsEnd,
+                version, label, text
+            });
+        });
+    });
+
+    function _collectAnnotButtons(kind) {
+        const btns = [];
+        markedVerses.forEach((v) => {
+            if (kind === 'fn' && !v.hasFn) return;
+            if (kind === 'xr' && !v.hasXr) return;
+            const ref = document.querySelector(
+                `.verse-text-clickable[data-book="${v.book}"][data-chapter="${v.chapter}"][data-verse="${v.verse}"]`
+            );
+            const verseLine = ref?.closest('.verse-line');
+            const btn = kind === 'fn'
+                ? verseLine?.querySelector('.fn-btn')
+                : document.querySelector(`.xr-btn[data-book="${v.book}"][data-chapter="${v.chapter}"][data-verse="${v.verse}"]`);
+            if (btn) btns.push(btn);
+        });
+        return btns;
+    }
+
+    function _toggleAnnotForMarked(kind, mvbBtn) {
+        const btns = _collectAnnotButtons(kind);
+        if (btns.length === 0) return;
+        const allActive = btns.every(b => b.classList.contains('active'));
+        // If all open → close all; otherwise open any not-yet-open
+        btns.forEach(b => {
+            const isActive = b.classList.contains('active');
+            if (allActive && isActive) b.click();
+            else if (!allActive && !isActive) b.click();
+        });
+        if (mvbBtn) mvbBtn.classList.toggle('active', !allActive);
+    }
+
+    const fnBtn = document.getElementById('mvbFn');
+    if (fnBtn) fnBtn.addEventListener('click', () => _toggleAnnotForMarked('fn', fnBtn));
+
+    const xrBtn = document.getElementById('mvbXr');
+    if (xrBtn) xrBtn.addEventListener('click', () => _toggleAnnotForMarked('xr', xrBtn));
+
+    const copyBtn = document.getElementById('mvbCopyBtn');
+    const copyMenu = document.getElementById('mvbCopyMenu');
+    if (copyBtn && copyMenu) {
+        copyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const wasOpen = copyMenu.classList.contains('open');
+            document.querySelectorAll('.copy-menu.open').forEach(m => m.classList.remove('open'));
+            if (!wasOpen) copyMenu.classList.add('open');
+        });
+    }
+
+    const copyTextBtn = document.getElementById('mvbCopyText');
+    if (copyTextBtn) copyTextBtn.addEventListener('click', () => { _mvbCopyText(false); document.querySelectorAll('.copy-menu.open').forEach(m => m.classList.remove('open')); });
+
+    const copyRefBtn = document.getElementById('mvbCopyRef');
+    if (copyRefBtn) copyRefBtn.addEventListener('click', () => { _mvbCopyText(true); document.querySelectorAll('.copy-menu.open').forEach(m => m.classList.remove('open')); });
+
+    // Wheel scroll on actions row
+    const actionsScroll = document.getElementById('mvbActionsScroll');
+    if (actionsScroll) {
+        actionsScroll.addEventListener('wheel', (e) => {
+            if (Math.abs(e.deltaX) < Math.abs(e.deltaY)) {
+                e.preventDefault();
+                actionsScroll.scrollLeft += e.deltaY;
+            }
+        }, { passive: false });
+    }
+
+    // Swipe-down anywhere on MVB (except interactive controls / scrollable rows) → dismiss
+    const bar = document.getElementById('markedVersesBar');
+    if (bar) {
+        let dragging = false, startY = 0, startX = 0, lastDy = 0, axisLocked = null;
+        bar.addEventListener('pointerdown', (e) => {
+            if (e.target.closest('button, a, .copy-menu, .mvb-actions-scroll')) return;
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            dragging = true;
+            startY = e.clientY;
+            startX = e.clientX;
+            lastDy = 0;
+            axisLocked = null;
+            try { bar.setPointerCapture(e.pointerId); } catch {}
+            // Suppress text selection / native gestures while we decide axis
+            e.preventDefault();
+        });
+        bar.addEventListener('pointermove', (e) => {
+            if (!dragging) return;
+            const dy = e.clientY - startY;
+            const dx = e.clientX - startX;
+            if (axisLocked === null && (Math.abs(dy) > 6 || Math.abs(dx) > 6)) {
+                axisLocked = Math.abs(dy) > Math.abs(dx) ? 'y' : 'x';
+            }
+            if (axisLocked !== 'y') return;
+            e.preventDefault();
+            // First confirmed Y move: switch off transitions so MVB + drawer follow finger 1:1.
+            if (!document.body.classList.contains('mvb-dragging')) {
+                document.body.classList.add('mvb-dragging');
+            }
+            lastDy = Math.max(0, dy);
+            // Drive both MVB and the collapsed drawer via shared CSS var so they move as one unit.
+            document.documentElement.style.setProperty('--mvb-shift', lastDy + 'px');
+            bar.style.opacity = String(Math.max(0.3, 1 - lastDy / 200));
+        });
+        function endDrag() {
+            if (!dragging) return;
+            dragging = false;
+            document.body.classList.remove('mvb-dragging');
+            bar.style.opacity = '';
+            const dismiss = axisLocked === 'y' && lastDy > 60;
+            if (dismiss) {
+                // Leave --mvb-shift at its current value so MVB continues smoothly
+                // from finger position to off-screen. clearAllMarkedVerses removes
+                // mvb-visible/mvb-on; reset shift after that so the next open starts clean.
+                clearAllMarkedVerses();
+                document.documentElement.style.setProperty('--mvb-shift', '0px');
+            } else {
+                // Rubber-band back into place — MVB and drawer transition together.
+                document.documentElement.style.setProperty('--mvb-shift', '0px');
+            }
+        }
+        bar.addEventListener('pointerup', endDrag);
+        bar.addEventListener('pointercancel', endDrag);
+    }
+}
+
+// ── Verse-text click: mark / unmark with underline ───────────────────────────
+document.addEventListener('click', (ev) => {
+    const target = ev.target.closest('.verse-text-clickable');
+    if (!target) return;
+    if (ev.target.closest('.verse-btn, .place-chip, .verse-num, a, button')) return;
+    ev.stopPropagation();
+    const book = target.dataset.book;
+    const chapter = parseInt(target.dataset.chapter, 10);
+    const verse = parseInt(target.dataset.verse, 10);
+    const key = `${book}.${chapter}.${verse}`;
+    if (markedVerses.has(key)) {
+        markedVerses.delete(key);
+        target.classList.remove('verse-marked');
+    } else {
+        const cardEl = target.closest('[data-card-idx]') || target.closest('.verse-card');
+        const blockIdx = cardEl ? parseInt(cardEl.dataset.cardIdx ?? cardEl.id?.replace('card-', '') ?? '0', 10) : 0;
+        markedVerses.set(key, {
+            book,
+            chapter,
+            verse,
+            hasFn: target.dataset.hasFn === '1',
+            hasXr: target.dataset.hasXr === '1',
+            blockIdx,
+            text: target.textContent.trim()
+        });
+        target.classList.add('verse-marked');
+    }
+    updateMarkedVersesBar();
 });
-document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') _hideVersePopup(); });
-window.addEventListener('scroll', _hideVersePopup, true);
-window.addEventListener('resize', _hideVersePopup);
+
 window.addEventListener('resize', () => {
     Object.entries(cardCompare).forEach(([idx, cs]) => {
         if (cs && cs.alignMode && cs.visible && cs.mode === 'single') equalizeVerseHeights(parseInt(idx));
@@ -2202,6 +2525,15 @@ function maybeShowSwipeHint() {
 }
 
 // ── Study tray (per-card) ──
+function ensureStudyTrayOpen(idx) {
+    cardTrayOpen[idx] = true;
+    const tray = document.getElementById(`study-tray-${idx}`);
+    const card = document.getElementById(`card-${idx}`);
+    const toggle = card && card.querySelector('.study-toggle');
+    if (tray) tray.dataset.open = 'true';
+    if (toggle) { toggle.setAttribute('aria-expanded', 'true'); toggle.classList.add('open'); }
+}
+
 window.toggleStudyTray = function(idx) {
     const next = !cardTrayOpen[idx];
     cardTrayOpen[idx] = next;
@@ -2212,6 +2544,9 @@ window.toggleStudyTray = function(idx) {
     if (toggle) {
         toggle.setAttribute('aria-expanded', next ? 'true' : 'false');
         toggle.classList.toggle('open', next);
+    }
+    if (next && tray) {
+        setTimeout(() => tray.scrollIntoView({ behavior: 'smooth', block: 'end' }), 50);
     }
 };
 
@@ -2258,6 +2593,8 @@ window.toggleChapterExpand = async function(idx) {
     if (expandState && expandState.originalBlock) {
         // Collapse back to original verses — clear chapter-highlight first, animate out, then re-render.
         currentHighlightVerses = null;
+        updateMvbHighlightChip();
+        updateMarkedVersesBar();
         mainData[idx] = expandState.originalBlock;
         delete cardExpandedState[idx];
         if (cardCompare[idx]) { cardCompare[idx].data = null; cardCompare[idx].allData = null; }
@@ -2287,6 +2624,8 @@ window.toggleChapterExpand = async function(idx) {
         // Mark which verses to highlight inside the chapter (the verses originally shown)
         const keys = new Set(block.verses.map(v => `${v.chapter}:${v.num}`));
         currentHighlightVerses = { keys };
+        updateMvbHighlightChip();
+        updateMarkedVersesBar();
         mainData[idx] = newBlock;
         if (cardCompare[idx]) { cardCompare[idx].data = null; cardCompare[idx].allData = null; }
         await animateCardExpand(idx);
@@ -2380,6 +2719,8 @@ window.readChapter = async function(bookCode, chapter, bName, highlightKeys) {
     searchInput.value = `${bName} ${chapter}`;
     updateSearchHighlight();
     await doSearch();
+    updateMvbHighlightChip();
+    updateMarkedVersesBar();
     if (currentHighlightVerses) {
         requestAnimationFrame(() => {
             const el = resultsWrapper.querySelector('.verse-highlight-wrap');
@@ -2389,19 +2730,26 @@ window.readChapter = async function(bookCode, chapter, bName, highlightKeys) {
 };
 
 window.clearHighlight = function() {
-    const wraps = resultsWrapper.querySelectorAll('.verse-highlight-wrap');
-    const chips = resultsWrapper.querySelectorAll('.highlight-dismiss-btn');
-    if (wraps.length === 0 && chips.length === 0) {
-        currentHighlightVerses = null;
-        renderAll();
+    currentHighlightVerses = null;
+    updateMvbHighlightChip();
+    const wraps = Array.from(resultsWrapper.querySelectorAll('.verse-highlight-wrap'));
+    if (wraps.length === 0) {
+        updateMarkedVersesBar();
         return;
     }
     wraps.forEach(w => w.classList.add('fading-out'));
-    chips.forEach(c => c.classList.add('fading-out'));
     setTimeout(() => {
-        currentHighlightVerses = null;
-        renderAll();
+        wraps.forEach(wrap => {
+            while (wrap.firstChild) wrap.parentNode.insertBefore(wrap.firstChild, wrap);
+            wrap.remove();
+        });
+        updateMarkedVersesBar();
     }, 180);
+};
+
+window.clearHighlightAndMarked = function() {
+    clearAllMarkedVerses();
+    window.clearHighlight();
 };
 
 function buildHighlightChipLabel() {
@@ -2512,6 +2860,7 @@ window.goHome = function(pushHistory = true) {
     allVersionsTextCache = null;
     currentChapterInfo = null;
     currentHighlightVerses = null;
+    updateMvbHighlightChip();
     Object.keys(cardCompare).forEach(k => delete cardCompare[k]);
     searchInput.value = '';
     updateSearchHighlight();
@@ -3349,6 +3698,8 @@ async function navigateCardToRef(cardIdx, ref, direction, highlightKeys) {
         if (cardExpandedState[cardIdx]) delete cardExpandedState[cardIdx];
         if (highlightKeys) currentHighlightVerses = { keys: new Set(highlightKeys) };
         else currentHighlightVerses = null;
+        updateMvbHighlightChip();
+        updateMarkedVersesBar();
         const card = document.getElementById(`card-${cardIdx}`);
         // If the card is mid-swipe (touch gesture), continue the motion off-screen
         // instead of snapping back to a small 28px slide (no visual springback).
@@ -3503,6 +3854,7 @@ function escAttr(s) {
 
     resultsWrapper.addEventListener('touchstart', function(e) {
         if (isAnimating) return;
+        if (e.target.closest('.study-tray-inner')) return; // let study tray scroll horizontally
         const card = e.target.closest('.verse-card');
         if (!card || !card.dataset.swipeBook) return;
         activeCard = card;
@@ -4026,7 +4378,7 @@ document.addEventListener('keydown', (e) => {
     }
 }, true); // capture phase so we run before the global Escape handler
 
-// ── Stage 6: Sidebar integration ──
+// ── Sidebar integration ──
 Object.defineProperty(window, 'mainData', { get: () => mainData, configurable: true });
 Object.defineProperty(window, 'allVersionsList', { get: () => allVersionsList, configurable: true });
 
@@ -4064,6 +4416,31 @@ window.openPinnedVerse = function(p) {
     window.scrollToBlockIdx(p);
 };
 
+window.insertBlocksIntoView = async function(specs) {
+    if (!specs || !specs.length) return;
+    const allNewBlocks = [];
+    for (const spec of specs) {
+        const ref = spec.label;
+        const version = spec.version || versionSelect.value;
+        if (!ref) continue;
+        try {
+            const resp = await fetch(`/api/search?q=${encodeURIComponent(ref)}&version=${encodeURIComponent(version)}`);
+            const data = await resp.json();
+            if (data.type === 'reference' && Array.isArray(data.results)) {
+                allNewBlocks.push(...data.results);
+            }
+        } catch {}
+    }
+    if (!allNewBlocks.length) return;
+    const existing = (currentView === 'normal' && mainData) ? mainData : [];
+    mainData = [...existing, ...allNewBlocks];
+    cardTrayOpen = {};
+    cardExpandedState = {};
+    currentView = 'normal';
+    detectChapterInfo(mainData);
+    renderAll();
+};
+
 function getBlockPinSpec(idx) {
     if (!mainData || !mainData[idx]) return null;
     const block = mainData[idx];
@@ -4098,7 +4475,15 @@ window.togglePinForBlock = function(idx) {
     if (!window.PinnedVerses) return;
     const spec = getBlockPinSpec(idx);
     if (!spec) return;
+    const wasPinned = window.PinnedVerses.isPinned(spec);
     window.PinnedVerses.toggle(spec);
+    if (!wasPinned) {
+        // Pin was added: open correct container
+        if (window.AppDrawer && window.AppDrawer.isMobile()) {
+            window.AppDrawer.ensureOpen();
+        }
+        // AppSidebar.ensureOpen is handled inside PinnedVerses.add() for desktop
+    }
     if (typeof window.refreshPinButtons === 'function') window.refreshPinButtons();
 };
 
@@ -4119,7 +4504,6 @@ window.refreshPinButtons = function() {
 // Re-observe cards whenever results re-render (covers all render paths: renderAll,
 // renderTextSearch, renderAllVersions, etc.) and refresh pin button state.
 (function () {
-    if (!window.AppSidebar) return;
     const wrapper = document.getElementById('resultsWrapper');
     if (!wrapper) return;
     let pending = 0;
@@ -4127,9 +4511,23 @@ window.refreshPinButtons = function() {
         if (pending) cancelAnimationFrame(pending);
         pending = requestAnimationFrame(() => {
             pending = 0;
-            try { window.AppSidebar.refreshObserver(); } catch {}
+            try { window.AppSidebar && window.AppSidebar.refreshObserver(); } catch {}
             try { window.refreshPinButtons && window.refreshPinButtons(); } catch {}
         });
     });
     mo.observe(wrapper, { childList: true, subtree: false });
 })();
+
+// Study tray horizontal wheel scroll
+document.addEventListener('wheel', (e) => {
+    const inner = e.target.closest('.study-tray-inner');
+    if (!inner) return;
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        inner.scrollLeft += e.deltaY;
+    }
+}, { passive: false });
+
+// Initialize Marked Verses Bar
+initMarkedVersesBar();
+

@@ -405,6 +405,52 @@
     </div>
 </div>
 
+<!-- Mobile Drawer -->
+<div id="appDrawer" class="app-drawer">
+    <div class="drawer-handle-area" id="drawerHandleArea">
+        <div class="drawer-grab-bar"></div>
+        <div class="drawer-handle-label" id="drawerHandleLabel"></div>
+    </div>
+    <div class="drawer-header">
+        <button class="drawer-close-btn" id="drawerCloseBtn" title="Lukk">✕</button>
+    </div>
+    <div class="drawer-modules" id="drawerModules"></div>
+</div>
+
+<!-- Marked Verses Bar -->
+<div id="markedVersesBar" class="marked-verses-bar">
+    <div class="mvb-inner">
+        <div class="mvb-row mvb-row-top">
+            <span class="mvb-ref" id="mvbRef"></span>
+            <div class="mvb-top-actions">
+                <button class="mvb-btn" id="mvbOpen">📖 Åpne</button>
+                <div class="copy-menu-wrap">
+                    <button class="copy-btn copy-menu-btn" id="mvbCopyBtn" title="Kopier"><img src="{{ url_for('static', filename='images/copy.png') }}" class="copy-icon" alt="kopier"></button>
+                    <div class="copy-menu menu-up" id="mvbCopyMenu">
+                        <button class="copy-menu-item" id="mvbCopyText" data-i18n="card.copy.textOnly">Kopier kun tekst</button>
+                        <button class="copy-menu-item" id="mvbCopyRef" data-i18n="card.copy.withRef">Kopier tekst og referanse</button>
+                    </div>
+                </div>
+                <button class="mvb-close-btn" id="mvbClose" title="Fjern markering">✕</button>
+            </div>
+        </div>
+        <div class="mvb-row mvb-row-annot" id="mvbAnnotRow" style="display:none;">
+            <button class="mvb-annot-btn" id="mvbFn" style="display:none;" title="Fotnoter">†</button>
+            <button class="mvb-annot-btn" id="mvbXr" style="display:none;" title="Kryssreferanser">§</button>
+            <button class="copy-btn highlight-dismiss-btn" id="mvbHighlightChip" onclick="window.clearHighlight()" style="display:none;"></button>
+        </div>
+        <div class="mvb-study-label">🎓 Studie</div>
+        <div class="mvb-row mvb-row-actions">
+            <div class="mvb-actions-scroll" id="mvbActionsScroll">
+                <button class="mvb-action-btn" id="mvbCompare">⚖️ Sammenlign</button>
+                <button class="mvb-action-btn" id="mvbPin">📌 Fest</button>
+                <a class="mvb-action-btn" id="mvbInterlinear" href="#" target="_blank" rel="noopener" style="display:none;"><img src="{{ url_for('static', filename='images/biblehub.png') }}" alt="" style="height:12px;"> Grunntekst <span style="font-size:0.7rem;opacity:0.7">↗</span></a>
+                <a class="mvb-action-btn" id="mvbBibleref" href="#" target="_blank" rel="noopener" style="display:none;"><img src="{{ url_for('static', filename='images/bibleref.png') }}" alt="" style="height:12px;"> BibleRef <span style="font-size:0.7rem;opacity:0.7">↗</span></a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="toast" id="toast"></div>
 <div class="sw-update-banner" id="swUpdateBanner">
     Siden er oppdatert
@@ -412,6 +458,7 @@
 </div>
 
 <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
+<script src="{{ url_for('static', filename='js/drawer.js') }}"></script>
 <script src="{{ url_for('static', filename='js/modules/pinnedVerses.js') }}"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 <script>

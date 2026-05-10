@@ -1046,17 +1046,20 @@
             white-space: nowrap;
         }
         .copy-btn:hover { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
-        .copy-btn:active { transform: scale(0.96); }
+        .copy-btn:active { opacity: 0.65; }
+        .copy-btn:active .copy-icon { transform: scale(0.85); transition: transform 0.1s; }
         .copy-icon { width: 14px; height: 14px; display: block; filter: brightness(0) opacity(0.55); }
         .copy-btn:hover .copy-icon { filter: brightness(0) opacity(1); }
         [data-theme="dark"] .copy-icon { filter: brightness(0) invert(1) opacity(0.65); }
         [data-theme="dark"] .copy-btn:hover .copy-icon { filter: brightness(0) invert(1) opacity(1); }
 
-        /* Highlight dismiss chip — sits in card header left, same style as copy-btn but accent-tinted */
+        /* Highlight dismiss chip — sits in mvb-annot row, matches annot-btn height */
         .highlight-dismiss-btn {
             background: var(--accent-dim) !important;
             border-color: var(--accent) !important;
             color: var(--accent) !important;
+            padding: 3px 8px !important;
+            font-size: 0.85rem !important;
         }
         .highlight-dismiss-btn:hover {
             background: var(--accent) !important;
@@ -1112,40 +1115,18 @@
         }
         .verse-num:hover { text-decoration: underline; }
         .verse-text-clickable { cursor: pointer; }
-        .verse-text-clickable:hover,
-        .verse-text-clickable.verse-popup-active {
+        .verse-text-clickable:hover {
             text-decoration: underline;
             text-decoration-color: var(--accent);
             text-decoration-thickness: 1px;
             text-underline-offset: 3px;
         }
-        .verse-open-popup {
-            position: absolute;
-            z-index: 9999;
-            background: var(--card-bg, #fff);
-            border: 1px solid var(--border, rgba(0,0,0,0.12));
-            border-radius: 8px;
-            box-shadow: 0 6px 24px rgba(0,0,0,0.18);
-            padding: 4px;
-            font-family: var(--font-ui);
-            animation: verseOpenPopupIn 120ms ease-out;
+        .verse-text-clickable.verse-marked {
+            text-decoration: underline;
+            text-decoration-color: var(--accent);
+            text-decoration-thickness: 2px;
+            text-underline-offset: 3px;
         }
-        @keyframes verseOpenPopupIn {
-            from { opacity: 0; transform: translateY(4px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .verse-open-popup-btn {
-            background: transparent;
-            border: 0;
-            color: var(--text);
-            font: inherit;
-            font-size: 0.85rem;
-            padding: 6px 12px;
-            border-radius: 5px;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-        .verse-open-popup-btn:hover { background: var(--accent-dim, #4a90e2); color: var(--text); }
         .chapter-heading {
             font-weight: 700;
             font-size: 0.85rem;
@@ -1253,9 +1234,6 @@
         .verse-card-footer {
             display: flex;
             gap: 6px;
-            margin-top: 10px;
-            padding-top: 8px;
-            border-top: 1px solid var(--border);
             flex-wrap: wrap;
             align-items: center;
         }
@@ -1280,70 +1258,97 @@
         
         /* ── Study tray ── */
         .verse-card-footer {
-            display: flex;
-            flex-direction: column;
-            gap: 0;
-            align-items: stretch;
-            padding-top: 6px;
-            margin-top: 8px;
-            border-top: 1px solid var(--border);
+            display: block;
         }
         .study-toggle {
-            /* inherits .copy-btn base; override only for chevron alignment */
             display: inline-flex;
             align-items: center;
-            gap: 5px;
-            align-self: flex-start;
-        }
-        .study-toggle .study-chevron {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            transform-origin: 50% 50%;
-            transition: transform 0.2s ease;
-            flex-shrink: 0;
+            justify-content: center;
+            padding: 6px 6px;
+            font-size: 0.9rem;
+            line-height: 1;
         }
         .study-toggle.open {
             background: var(--accent-dim);
             color: var(--accent);
             border-color: var(--accent);
         }
-        .study-toggle.open .study-chevron { transform: rotate(180deg); }
         .study-tray {
             max-height: 0;
             overflow: hidden;
             opacity: 0;
             margin-top: 0;
+            width: 100%;
+            min-width: 0;
+            max-width: 100%;
             transition: max-height 0.25s ease, opacity 0.18s ease, margin-top 0.2s ease;
         }
         .study-tray[data-open="true"] {
             max-height: 200px;
             opacity: 1;
             margin-top: 8px;
+            padding-top: 8px;
+            padding-bottom: 4px;
+            border-top: 1px solid var(--border);
+            scroll-margin-bottom: 60px;
         }
+        .study-tray-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .study-tray-close {
+            flex-shrink: 0;
+            padding: 2px 5px;
+            font-size: 0.65rem;
+            line-height: 1;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            color: var(--text-muted);
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+        }
+        .study-tray-close:hover { color: #e05; border-color: #e05; background: #ff002208; }
         .study-tray-inner {
+            flex: 1 1 0;
+            min-width: 0;
             display: flex;
             gap: 8px;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             align-items: center;
             padding: 4px 0 2px;
+            width: 100%;
+            min-width: 0;
+            max-width: 100%;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-x;
+            overscroll-behavior-x: contain;
         }
+        .study-tray-inner::-webkit-scrollbar { display: none; }
         .tray-btn {
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            padding: 5px 11px;
-            font-size: 0.78rem;
-            line-height: 1;
+            padding: 7px 13px;
+            font-size: 0.88rem;
+            line-height: 1.15;
             font-family: var(--font-ui);
             background: transparent;
             border: 1px solid var(--border);
-            border-radius: 5px;
+            border-radius: 6px;
             color: var(--text-muted);
             cursor: pointer;
             text-decoration: none;
             transition: all 0.15s ease;
             white-space: nowrap;
+            flex-shrink: 0;
+        }
+        @media (max-width: 700px) {
+            .tray-btn { padding: 8px 15px; font-size: 0.95rem; }
         }
         .tray-btn:hover:not([disabled]) { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
         .tray-btn:active:not([disabled]) { transform: scale(0.96); }
@@ -1502,7 +1507,8 @@
         }
         .copy-menu-item:last-child { border-bottom: none; }
         .copy-menu-item:hover { background: var(--accent-dim); color: var(--accent); }
-        .copy-menu.menu-up { top: auto; bottom: calc(100% + 4px); transform-origin: bottom right; }
+        .copy-menu.menu-up { top: auto; bottom: calc(100% + 4px); transform-origin: bottom right; transform: translateY(4px) scale(0.96); }
+        .copy-menu.menu-up.open { transform: translateY(0) scale(1); }
 
         /* ── Inline compare section ──
            Stacked-below layout (mobile, and PC all-versions mode): animates max-height.
@@ -2219,6 +2225,7 @@
         @media (max-width: 700px) {
             .controls { gap: 8px; margin-top: 14px; }
             .display-area { margin-top: 4px; }
+            .display-panel { left: 12px; right: 12px; }
             .results-wrapper { margin-top: 6px; }
             .header h1 { font-size: 1.45rem; }
             .chapter-nav { margin-left: auto; }
@@ -2421,7 +2428,7 @@
             .chapter-nav { display: none; }
         }
 
-        /* ── Stage 6: Sidebar foundation (PC) ── */
+        /* ── Sidebar foundation (PC) ── */
         body { transition: padding-right 0.32s cubic-bezier(0.2, 0.8, 0.3, 1); }
 
         /* Sidebar is always rendered on desktop, hidden via transform */
@@ -2452,7 +2459,6 @@
 
         @media (max-width: 700px) {
             .app-sidebar { display: none !important; }
-            .pin-tray-btn { display: none !important; }
         }
 
         .sidebar-resize-handle {
@@ -2628,6 +2634,16 @@
             background: var(--error-bg);
             color: var(--error);
         }
+        .pinned-insert-all-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .pinned-insert-all-btn:hover {
+            opacity: 1;
+            background: var(--accent-dim) !important;
+            color: var(--accent) !important;
+        }
 
         /* Pinned-verses module */
         .pinned-empty {
@@ -2650,6 +2666,7 @@
             background: var(--bg-card);
             border: 1px solid var(--border);
             border-radius: 6px;
+            touch-action: none;
             cursor: grab;
             transition: border-color 0.15s ease, background 0.15s ease;
         }
@@ -2751,6 +2768,347 @@
         /* In-view focus highlight on cards */
         .verse-card.sidebar-focused {
             box-shadow: 0 0 0 2px var(--accent-dim), var(--shadow);
+        }
+
+        /* ── Verse panel close button ── */
+        .verse-panel-close {
+            float: right;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            cursor: pointer;
+            padding: 2px 4px;
+            margin-left: 6px;
+            line-height: 1;
+            opacity: 0.7;
+            border-radius: 5px;
+            transition: all 0.15s;
+        }
+        .verse-panel-close:hover { opacity: 1; color: var(--error); background: var(--error-bg); }
+
+        /* ── Marked verses bar (MVB) ── */
+        :root { --drawer-collapsed-h: 44px; --mvb-h: 0px; --mvb-shift: 0px; }
+        .marked-verses-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 210;
+            background: var(--card-bg, var(--bg));
+            border-top: 1.5px solid var(--border);
+            box-shadow: 0 -4px 16px rgba(0,0,0,0.13);
+            transform: translateY(110%);
+            transition: transform 0.32s cubic-bezier(.2,.8,.2,1), opacity 0.18s ease;
+            padding: 12px 18px 18px;
+            padding-bottom: calc(18px + env(safe-area-inset-bottom));
+        }
+        .marked-verses-bar.mvb-visible { transform: translateY(var(--mvb-shift, 0px)); }
+        /* Reserve native gestures for the horizontal action row only; everywhere else MVB owns pointer events
+           so its swipe-down-to-dismiss handler isn't pre-empted by browser scroll. */
+        .marked-verses-bar { touch-action: none; }
+        .marked-verses-bar .mvb-actions-scroll { touch-action: pan-x; }
+        @media (min-width: 701px) {
+            .marked-verses-bar {
+                left: 50%;
+                right: auto;
+                max-width: min(960px, calc(100% - 40px));
+                width: 100%;
+                border-radius: 16px 16px 0 0;
+                transform: translate(-50%, 110%);
+                padding: 14px 22px 20px;
+            }
+            .marked-verses-bar.mvb-visible { transform: translate(-50%, var(--mvb-shift, 0px)); }
+            body.sidebar-open .marked-verses-bar {
+                left: calc(50% - var(--sidebar-width) / 2);
+                max-width: min(960px, calc(100% - var(--sidebar-width) - 40px));
+            }
+        }
+        @media (max-width: 700px) {
+            .marked-verses-bar {
+                bottom: 0;
+                left: 4px;
+                right: 4px;
+                border: 1px solid var(--border);
+                border-radius: 14px 14px 0 0;
+                box-shadow: 0 -6px 18px rgba(0,0,0,0.18);
+                padding: 12px 16px 16px;
+                padding-bottom: calc(16px + env(safe-area-inset-bottom));
+            }
+            /* When drawer is fully expanded, hide MVB */
+            body.drawer-expanded .marked-verses-bar {
+                transform: translateY(110%) !important;
+                opacity: 0;
+                pointer-events: none;
+            }
+        }
+        /* Studie label above the bottom action row */
+        .mvb-study-label {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-family: var(--font-ui);
+            padding-top: 4px;
+            border-top: 1px dashed var(--border);
+            margin-top: 2px;
+        }
+        @media (max-width: 700px) {
+            .mvb-study-label { font-size: 0.78rem; padding-top: 6px; }
+        }
+        .mvb-inner { display: flex; flex-direction: column; gap: 8px; }
+        .mvb-row { display: flex; align-items: center; gap: 8px; }
+        .mvb-row-top { justify-content: space-between; align-items: center; }
+        .mvb-ref { font-size: 1.05rem; font-weight: 600; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.2; display: flex; align-items: center; }
+        .mvb-top-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        /* Unified pill-button look for the MVB top row (Open + Copy match in height) */
+        .mvb-btn,
+        .marked-verses-bar .copy-menu-btn {
+            font-size: 0.88rem;
+            padding: 6px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            white-space: nowrap;
+            font-family: var(--font-ui);
+            line-height: 1.15;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .mvb-btn:hover,
+        .marked-verses-bar .copy-menu-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+        .marked-verses-bar .copy-icon { width: 16px; height: 16px; }
+        .mvb-close-btn { font-size: 1rem; background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 4px 8px; line-height: 1; border-radius: 6px; transition: all 0.15s; }
+        .mvb-close-btn:hover { color: var(--error); background: var(--error-bg); }
+        .mvb-row-annot { gap: 8px; }
+        .mvb-annot-btn {
+            font-size: 0.92rem;
+            padding: 5px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-family: var(--font-ui);
+            line-height: 1.15;
+        }
+        .mvb-annot-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+        .mvb-annot-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+        /* Highlight chip in MVB annot row matches annot-btn dimensions */
+        .marked-verses-bar .highlight-dismiss-btn {
+            padding: 5px 12px !important;
+            font-size: 0.92rem !important;
+            border-radius: 6px !important;
+            line-height: 1.15;
+        }
+        .mvb-row-actions { overflow: hidden; }
+        .mvb-actions-scroll {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 2px;
+        }
+        .mvb-actions-scroll::-webkit-scrollbar { display: none; }
+        .mvb-action-btn {
+            font-size: 0.88rem;
+            padding: 7px 13px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            white-space: nowrap;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-family: var(--font-ui);
+            flex-shrink: 0;
+            line-height: 1.15;
+        }
+        .mvb-action-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+        .mvb-divider { width: 1px; height: 18px; background: var(--border); flex-shrink: 0; }
+
+        /* Mobile: a touch larger for fingertips */
+        @media (max-width: 700px) {
+            .mvb-inner { gap: 10px; }
+            .mvb-ref {
+                font-size: 1.1rem;
+                white-space: normal;
+                overflow: visible;
+                text-overflow: clip;
+                line-height: 1.25;
+                word-break: break-word;
+            }
+            .mvb-btn,
+            .marked-verses-bar .copy-menu-btn { font-size: 0.95rem; padding: 7px 13px; }
+            .marked-verses-bar .copy-icon { width: 17px; height: 17px; }
+            .mvb-close-btn { font-size: 1.05rem; padding: 6px 10px; }
+            .mvb-annot-btn,
+            .marked-verses-bar .highlight-dismiss-btn { font-size: 0.98rem !important; padding: 7px 14px !important; }
+            .mvb-action-btn { font-size: 0.95rem; padding: 8px 15px; }
+            .mvb-actions-scroll { gap: 11px; }
+        }
+
+        /* ── Mobile Drawer ── */
+        .app-drawer {
+            display: none;
+        }
+        @media (max-width: 700px) {
+            .app-drawer {
+                display: flex;
+                flex-direction: column;
+                position: fixed;
+                bottom: 0;
+                left: 4px;
+                right: 4px;
+                /* Below MVB (210) so MVB visually covers the drawer's lower portion as it slides up */
+                z-index: 200;
+                background: var(--card-bg, var(--bg));
+                border: 1px solid var(--border);
+                border-radius: 14px 14px 0 0;
+                box-shadow: 0 -8px 18px -8px rgba(0,0,0,0.22);
+                /* Always full target height so the visible portion is controlled by translateY only —
+                   gives a clean "drawer pulled up" slide instead of growing in both directions. */
+                height: 92vh;
+                /* Default = closed (fully off below). drawer-collapsed/expanded override transform. */
+                transform: translateY(100%);
+                transition: transform 0.32s cubic-bezier(.2,.8,.2,1);
+                will-change: transform;
+            }
+            /* When MVB is visible, the *closed* drawer parks just behind MVB instead of fully off-screen.
+               That way opening it from this state is a short, clean 44 px slide above MVB instead of a
+               long slide-up that's mostly hidden behind MVB. Same trick reversed for closing. */
+            body.mvb-on .app-drawer:not(.drawer-collapsed):not(.drawer-expanded) {
+                transform: translateY(calc(100% - var(--mvb-h, 0px) + var(--mvb-shift, 0px)));
+            }
+            /* Collapsed: drawer slides up so only its top 44px sits just above MVB (or the screen bottom).
+               --mvb-shift mirrors any active MVB swipe so the collapsed drawer rides along with MVB as one unit. */
+            .app-drawer.drawer-collapsed {
+                transform: translateY(calc(100% - 44px - var(--mvb-h, 0px) + var(--mvb-shift, 0px)));
+            }
+            /* During an active MVB drag, kill the drawer's transform transition so it follows the finger 1:1. */
+            body.mvb-dragging .app-drawer,
+            body.mvb-dragging .marked-verses-bar { transition: none !important; }
+            /* Expanded: fully visible */
+            .app-drawer.drawer-expanded {
+                transform: translateY(0);
+            }
+            /* When drawer is collapsed AND MVB is visible, MVB merges visually with the handle:
+               square top, no top border, no upward shadow that would cast onto the drawer. */
+            body.mvb-on.drawer-collapsed .marked-verses-bar {
+                border-top-left-radius: 0;
+                border-top-right-radius: 0;
+                border-top: none;
+                box-shadow: none;
+            }
+            /* Drawer's own bottom seam is invisible behind MVB; kill its bottom border just in case */
+            body.mvb-on .app-drawer.drawer-collapsed {
+                border-bottom: none;
+            }
+            /* Hide close-X when collapsed; only the handle bar shows */
+            .app-drawer:not(.drawer-expanded) .drawer-header { display: none; }
+            /* Hide module body when collapsed so nothing pokes through the visible 44 px */
+            .drawer-modules {
+                opacity: 0;
+                transition: opacity 0.18s ease;
+            }
+            .app-drawer.drawer-expanded .drawer-modules { opacity: 1; }
+            .drawer-handle-area {
+                height: 44px;
+                box-sizing: border-box;
+                padding: 6px 14px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 3px;
+                cursor: grab;
+                touch-action: none;
+                flex-shrink: 0;
+            }
+            .drawer-grab-bar {
+                width: 36px;
+                height: 4px;
+                border-radius: 2px;
+                background: var(--border);
+            }
+            .drawer-handle-label {
+                font-size: 0.72rem;
+                color: var(--text-muted);
+                font-family: var(--font-ui);
+                line-height: 1.1;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 90%;
+            }
+            .app-drawer.drawer-expanded .drawer-handle-label { display: none; }
+            .drawer-header {
+                display: flex;
+                justify-content: flex-end;
+                gap: 8px;
+                padding: 0 12px 6px;
+                flex-shrink: 0;
+            }
+            .drawer-close-btn {
+                background: none;
+                border: none;
+                color: var(--text-muted);
+                cursor: pointer;
+                font-size: 0.85rem;
+                padding: 2px 5px;
+                border-radius: 5px;
+                font-family: var(--font-ui);
+                transition: all 0.15s;
+            }
+            .drawer-close-btn:hover { color: var(--error); background: var(--error-bg); }
+            .drawer-modules {
+                flex: 1;
+                overflow-y: auto;
+                overscroll-behavior: contain;
+                padding: 0 12px 16px;
+            }
+            /* Module card in drawer */
+            .drawer-module-card {
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                margin-bottom: 10px;
+                overflow: hidden;
+            }
+            .drawer-module-header {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 8px 12px;
+                cursor: pointer;
+                background: var(--card-bg, var(--bg));
+                user-select: none;
+            }
+            .drawer-module-icon { font-size: 1rem; }
+            .drawer-module-title { flex: 1; font-size: 0.85rem; font-weight: 600; font-family: var(--font-ui); color: var(--text); }
+            .drawer-module-chevron {
+                transition: transform 0.2s;
+                color: var(--text-muted);
+                font-size: 0.8rem;
+            }
+            .drawer-module-card.collapsed .drawer-module-chevron { transform: rotate(-90deg); }
+            .drawer-module-body {
+                border-top: 1px solid var(--border);
+                overflow: hidden;
+                background: var(--card-bg, var(--bg));
+            }
+            .drawer-module-card.collapsed .drawer-module-body { display: none; }
+        }
+        @media (min-width: 701px) {
+            .app-drawer { display: none !important; }
         }
 
         /* ── Reduced motion ── */
