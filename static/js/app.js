@@ -39,8 +39,9 @@ const I18N = {
         'help.row.multiPassages': 'Flere passasjer (kontekst videreføres)',
         'help.row.abbrevs': 'Forkortelser og engelske navn fungerer',
         'help.section.textSearch': 'Tekstsøk-operatorer (kan kombineres)',
-        'help.row.allWords': 'Alle vers med eksakt ord',
-        'help.row.exactWord': 'Wildcard: tro* (starter med), *tro (slutter med), *tro* (inneholder)',
+        'help.row.allWords': 'Prefix-søk — matcher tro, tror, troen, …',
+        'help.row.substring': 'Inneholder «tro» (f.eks. Jetro)',
+        'help.row.exactWord': 'Eksakt ord',
         'help.row.exactPhrase': 'Eksakt frase',
         'help.row.exclude': 'Ekskluder ord med -',
         'help.row.either': 'Enten/eller-ord',
@@ -2068,18 +2069,12 @@ function highlightWords(htmlText, query) {
         try {
             const wc = '[a-zA-ZÀ-ɏ0-9_]';
             let pattern;
-            if (!hasLeading && !hasTrailing) {
-                // Exact word: word boundaries on both sides
-                pattern = new RegExp(WBL + '(' + esc + ')' + WBR, 'gi');
-            } else if (!hasLeading && hasTrailing) {
-                // tro* → whole word starting with core
-                pattern = new RegExp(WBL + '(' + esc + wc + '*)' + WBR, 'gi');
-            } else if (hasLeading && !hasTrailing) {
-                // *tro → whole word ending with core
-                pattern = new RegExp(WBL + '(' + wc + '*' + esc + ')' + WBR, 'gi');
-            } else {
+            if (hasLeading && hasTrailing) {
                 // *tro* → whole word containing core as substring
                 pattern = new RegExp(WBL + '(' + wc + '*' + esc + wc + '*)' + WBR, 'gi');
+            } else {
+                // tro, tro*, *tro → whole word starting with core (prefix)
+                pattern = new RegExp(WBL + '(' + esc + wc + '*)' + WBR, 'gi');
             }
             htmlText = htmlText.replace(pattern, '<b style="color:var(--highlight)">$1</b>');
         } catch {}
@@ -2599,8 +2594,25 @@ function highlightSegment(text) {
             result += `<span class="qs">${escHtmlFast(ch)}</span>`;
             i++;
         } else if (ch === '*') {
-            result += `<span class="qs">*</span>`;
-            i++;
+            // Only highlight * when it's the *word* substring pattern; trailing/leading-only * is plain.
+            const nextIsLetter = i + 1 < text.length && /[a-zA-ZÀ-ɏæøåÆØÅ]/.test(text[i + 1]);
+            if (nextIsLetter) {
+                let j = i + 1;
+                while (j < text.length && /[a-zA-ZÀ-ɏæøåÆØÅ0-9_]/.test(text[j])) j++;
+                if (j < text.length && text[j] === '*') {
+                    // *word* — highlight both stars, word stays plain
+                    result += `<span class="qs">*</span>${escHtmlFast(text.slice(i + 1, j))}<span class="qs">*</span>`;
+                    i = j + 1;
+                } else {
+                    // *word without closing * — treat * as plain
+                    result += escHtmlFast('*');
+                    i++;
+                }
+            } else {
+                // Trailing * or lone * — plain
+                result += escHtmlFast('*');
+                i++;
+            }
         } else {
             // Collect a run of plain characters to minimize span count
             let j = i + 1;
