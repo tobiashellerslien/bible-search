@@ -963,25 +963,12 @@ def _like_escape(s):
     return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-def _like_suffix_conds(core):
-    """Conditions for *word: matches core at a right word boundary.
-    Pads text with a leading space so every word is preceded by a space,
-    then matches core followed by end-of-text or common punctuation/space."""
-    c = _like_escape(core.lower())
-    padded = "(' '||LOWER(v.text))"
-    terminators = ['', ' %', ',%', '.%', ';%', ':%', '!%', '?%']
-    parts = [f"{padded} LIKE ? ESCAPE '\\'" for _ in terminators]
-    params = [f"%{c}{t}" for t in terminators]
-    return '(' + ' OR '.join(parts) + ')', params
-
-
 def _build_group_sql(group_raw, excluded_raw, version_id, books, select_cols):
     """Build (sql, params) for one OR-group.
-    Bare words use FTS5 exact token match (word-boundary).
-    word* uses FTS5 prefix match. *word uses LIKE suffix match (right word boundary).
-    *word* uses LIKE substring match. Quoted phrases use FTS5 phrase match.
+    Plain words and words with trailing/leading-only * use FTS5 prefix match.
+    *word* uses LIKE substring match. Quoted phrases use FTS5 exact phrase match.
     Excluded phrases use FTS5 NOT when positive FTS5 terms exist, else NOT LIKE.
-    Excluded words (with or without *) use NOT LIKE on the stripped core."""
+    Excluded words use FTS5 prefix NOT IN; excluded *word* uses NOT LIKE substring."""
     phrases = [v for k, v in group_raw if k == 'phrase']
     words = [v for k, v in group_raw if k == 'word']
     excl_phrases = [v for k, v in excluded_raw if k == 'phrase']
@@ -991,10 +978,8 @@ def _build_group_sql(group_raw, excluded_raw, version_id, books, select_cols):
     where = ["v.translation_id = ?", f"v.book_usfm IN ({placeholders})"]
     params = [version_id, *books]
 
-    # Classify word tokens by wildcard pattern
-    fts_exact = []    # no wildcards → FTS5 exact token ("word")
-    fts_prefix = []   # trailing * only → FTS5 prefix    (word*)
-    like_suffix = []  # leading * only → right-boundary LIKE conditions
+    # Classify word tokens: *word* → substring LIKE; everything else → FTS5 prefix
+    fts_prefix = []   # plain words, word*, *word → FTS5 prefix (word*)
     like_sub = []     # both * (*word*) → LIKE %core% substring
 
     for w in words:
@@ -1003,17 +988,12 @@ def _build_group_sql(group_raw, excluded_raw, version_id, books, select_cols):
             continue
         if w.startswith('*') and w.endswith('*'):
             like_sub.append(core)
-        elif w.startswith('*'):
-            like_suffix.append(core)
-        elif w.endswith('*'):
-            fts_prefix.append(core)
         else:
-            fts_exact.append(w)
+            fts_prefix.append(core)
 
-    # Build positive FTS5 terms (phrases + exact words + prefix words)
+    # Build positive FTS5 terms (phrases + prefix words)
     fts_positive = (
         [f'"{_fts_escape(p)}"' for p in phrases]
-        + [f'"{_fts_escape(w)}"' for w in fts_exact]
         + [f'{_fts_escape(c)}*' for c in fts_prefix]
     )
 
@@ -1030,21 +1010,12 @@ def _build_group_sql(group_raw, excluded_raw, version_id, books, select_cols):
             where.append("LOWER(v.text) NOT LIKE ? ESCAPE '\\'")
             params.append(f"%{_like_escape(ep.lower())}%")
 
-    # Right-boundary LIKE conditions for leading-only wildcards (*word)
-    for core in like_suffix:
-        frag, frag_params = _like_suffix_conds(core)
-        where.append(frag)
-        params.extend(frag_params)
-
     # Substring LIKE for both-wildcard words (*word*)
     for core in like_sub:
         where.append("LOWER(v.text) LIKE ? ESCAPE '\\'")
         params.append(f"%{_like_escape(core.lower())}%")
 
-    # Classify and apply excluded words with the same wildcard logic as positive terms.
-    # Exact/-prefix exclusions use FTS5 NOT IN (independent of positive FTS5 context).
-    # Suffix exclusions negate the OR group from _like_suffix_conds.
-    # Substring exclusions use NOT LIKE %core%.
+    # Apply excluded words: *word* excludes substring, everything else excludes prefix.
     for w in excl_words:
         core = w.strip('*')
         if not core:
@@ -1053,19 +1024,10 @@ def _build_group_sql(group_raw, excluded_raw, version_id, books, select_cols):
             # -*word* → exclude substring
             where.append("LOWER(v.text) NOT LIKE ? ESCAPE '\\'")
             params.append(f"%{_like_escape(core.lower())}%")
-        elif w.startswith('*'):
-            # -*word → exclude words ending in core (negate suffix conditions)
-            frag, frag_params = _like_suffix_conds(core)
-            where.append(f"NOT {frag}")
-            params.extend(frag_params)
-        elif w.endswith('*'):
-            # -word* → exclude via FTS5 prefix (exact right boundary)
+        else:
+            # -word, -word*, -*word → exclude via FTS5 prefix
             where.append("v.id NOT IN (SELECT rowid FROM verses_fts WHERE verses_fts MATCH ?)")
             params.append(f"{_fts_escape(core.lower())}*")
-        else:
-            # -word → exclude exact token via FTS5
-            where.append("v.id NOT IN (SELECT rowid FROM verses_fts WHERE verses_fts MATCH ?)")
-            params.append(f'"{_fts_escape(core.lower())}"')
 
     sql = f"SELECT {select_cols} FROM verses v WHERE {' AND '.join(where)}"
     return sql, params

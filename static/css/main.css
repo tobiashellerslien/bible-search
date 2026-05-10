@@ -1278,7 +1278,7 @@
         .chapter-nav { margin-left: auto; display: flex; gap: 5px; }
 
         
-        /* ── Stage 5: Study tray ── */
+        /* ── Study tray ── */
         .verse-card-footer {
             display: flex;
             flex-direction: column;
@@ -1370,7 +1370,7 @@
             margin: 0 2px;
         }
 
-        /* ── Stage 5: V-arrow chapter expand/collapse — sits OUTSIDE the card, below it ── */
+        /* ── V-arrow chapter expand/collapse ── */
         .chapter-expand-bar {
             display: flex;
             align-items: center;
@@ -1409,7 +1409,7 @@
             .card-swipe-wrap:has(.verse-card.compare-active) + .chapter-expand-bar { max-width: 1240px; }
         }
 
-        /* ── Stage 5: Mobile swipe-hint (one-time, non-blocking pill at card bottom) ── */
+        /* ── Mobile swipe-hint (one-time, non-blocking pill at card bottom) ── */
         .swipe-hint-overlay {
             position: absolute;
             left: 50%;
@@ -1718,7 +1718,7 @@
             display: block;
             width: 100%;
             padding: 10px 16px;
-            background: transparent;
+            background: var(--card-bg);
             border: none;
             border-top: 1px solid var(--border);
             color: var(--accent);
