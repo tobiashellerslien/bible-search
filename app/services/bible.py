@@ -242,7 +242,7 @@ class BibleData:
         names = ", ".join(t["name"] for t in self.translations.values())
         print(f"Loaded {len(self.translations)} Bible version(s): {names}")
 
-        # Commentaries metadata (Stage 4). Entries themselves are loaded lazily.
+        # Commentaries metadata. Entries themselves are loaded lazily.
         self.commentaries = {}
         try:
             for cid, code, name, short, gran, fmt in self.db.execute(
@@ -253,7 +253,7 @@ class BibleData:
                     "short_name": short, "granularity": gran, "format": fmt,
                 }
         except sqlite3.OperationalError:
-            pass  # Stage 4 schema not yet applied
+            pass  # Commentaries schema not yet applied
         if self.commentaries:
             print(f"Loaded {len(self.commentaries)} commentary source(s): "
                   + ", ".join(c["code"] for c in self.commentaries.values()))
@@ -449,7 +449,7 @@ class BibleData:
             entry["refs"].sort(key=lambda r: (r["chapter"], r["verse"]))
         return [by_id[pid] for pid in order]
 
-    # ── Stage 4: commentaries / topics / outlines ────────────────────────────
+    # ── commentaries / topics / outlines ────────────────────────────
     def get_commentary_entries(self, commentary_id, book_usfm, ch_start, vs_start=None,
                                ch_end=None, vs_end=None):
         """Return commentary entries overlapping the given verse range.

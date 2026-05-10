@@ -1,4 +1,4 @@
-// ── Stage 6: Sidebar foundation (PC only) ──
+// ── Sidebar foundation (PC only) ──
 // In-memory state only — clean slate every visit and on every close.
 // Sidebar opens automatically when a module gets content, closes automatically when all modules empty
 // (or via user clicking X). Closing clears all module content.

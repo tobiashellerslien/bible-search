@@ -21,7 +21,11 @@
         if (_pins.some(p => pinKey(p) === key)) return false;
         _pins.unshift({ ...item, ts: Date.now() });
         notifyChange();
-        if (window.AppSidebar) window.AppSidebar.ensureOpen();
+        if (window.AppDrawer && window.AppDrawer.isMobile()) {
+            window.AppDrawer.ensureOpen();
+        } else if (window.AppSidebar) {
+            window.AppSidebar.ensureOpen();
+        }
         return true;
     }
 
@@ -31,7 +35,11 @@
         _pins = _pins.filter(p => pinKey(p) !== key);
         if (_pins.length === before) return false;
         notifyChange();
-        if (window.AppSidebar) window.AppSidebar.checkAutoClose();
+        if (window.AppDrawer && window.AppDrawer.isMobile()) {
+            window.AppDrawer.checkAutoClose();
+        } else if (window.AppSidebar) {
+            window.AppSidebar.checkAutoClose();
+        }
         return true;
     }
 
@@ -92,6 +100,9 @@
             });
             const openItem = () => {
                 if (typeof window.openPinnedVerse === 'function') window.openPinnedVerse(item);
+                if (window.AppDrawer && window.AppDrawer.isMobile() && window.AppDrawer.isExpanded && window.AppDrawer.isExpanded()) {
+                    window.AppDrawer.collapse();
+                }
             };
             el.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openItem(); }
@@ -99,8 +110,9 @@
             // Combined click + drag handler via pointerdown
             el.addEventListener('pointerdown', (e) => {
                 if (e.target.closest('.pinned-item-remove')) return;
-                if (e.button !== 0) return;
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
                 e.preventDefault(); // suppress native click so we control it in onUp
+                try { el.setPointerCapture(e.pointerId); } catch {}
                 const startY = e.clientY;
                 let moved = false;
                 let dropTarget = null, dropPos = null;
@@ -202,8 +214,9 @@
         mount(container, ctx) {
             listEl = container;
             render();
-            // Inject clear-all button into the module header actions
-            const wrap = container.closest('.sidebar-module');
+            // Inject clear-all + insert-all into whichever module wrapper hosts us
+            // (sidebar on PC, drawer card on mobile — both expose .sidebar-module-actions).
+            const wrap = container.closest('.sidebar-module, .drawer-module-card');
             if (wrap) {
                 const actions = wrap.querySelector('.sidebar-module-actions');
                 if (actions && !actions.querySelector('.sidebar-module-clear-all')) {
@@ -217,9 +230,34 @@
                         _pins = [];
                         seenKeys.clear();
                         notifyChange();
-                        if (window.AppSidebar) window.AppSidebar.checkAutoClose();
+                        if (window.AppDrawer && window.AppDrawer.isMobile()) window.AppDrawer.checkAutoClose();
+                        else if (window.AppSidebar) window.AppSidebar.checkAutoClose();
                     });
                     actions.insertBefore(clearBtn, actions.firstChild);
+
+                    const insertBtn = document.createElement('button');
+                    insertBtn.className = 'sidebar-module-clear-all pinned-insert-all-btn';
+                    insertBtn.title = 'Sett inn alle festede vers i visning';
+                    insertBtn.setAttribute('aria-label', 'Sett inn alle i visning');
+                    insertBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true" style="display:block">
+                        <line x1="1" y1="3" x2="8" y2="3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <line x1="1" y1="6.5" x2="8" y2="6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <line x1="1" y1="10" x2="8" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <polyline points="13,4 10,7 13,10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>`;
+                    insertBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        if (!_pins.length) return;
+                        insertBtn.disabled = true;
+                        if (typeof window.insertBlocksIntoView === 'function') {
+                            await window.insertBlocksIntoView(_pins.slice());
+                        }
+                        insertBtn.disabled = false;
+                        if (window.AppDrawer && window.AppDrawer.isMobile()) {
+                            window.AppDrawer.collapse();
+                        }
+                    });
+                    actions.insertBefore(insertBtn, clearBtn);
                 }
             }
         },
@@ -243,6 +281,9 @@
     function tryRegister() {
         if (window.AppSidebar && window.AppSidebar.register) {
             window.AppSidebar.register(moduleDef);
+            if (window.AppDrawer && window.AppDrawer.register) {
+                window.AppDrawer.register(moduleDef);
+            }
         } else {
             setTimeout(tryRegister, 30);
         }
