@@ -75,6 +75,7 @@ const I18N = {
         'help.row.tabAccept': 'Godta første autofullføring',
         'help.row.tabBookSearch': 'Søk innenfor fullført boknavn',
         'help.row.acNav': 'Naviger autofullføringer',
+        'help.row.toggleQuick': 'Slå hurtigsøk av/på',
         'info.aboutMe.title': 'Om meg',
         // Fyll inn din bio nedenfor. HTML støttes (f.eks. <a href="..."> lenker).
         'info.aboutMe.text': 'Jeg heter Tobias, og er en kristen student i Trondheim. Jeg lagde denne appen fordi jeg selv savnet en måte å kunne søke raskt i bibelen på, spesielt i de norske oversettelsene. Håper nå at dette kan bli til nytte for andre også, både for å kunne finne rett vers i rett tid, som en hjelp til bibelstudie, og for å bli bedre kjent med Gud og Hans ord.',
@@ -3247,6 +3248,7 @@ function setQuickMode(on) {
         } else {
             renderQuickHint();
         }
+        searchInput.focus();
     } else {
         if (_quickAbortCtrl) _quickAbortCtrl.abort();
         clearTimeout(_quickDebounceTimer);
@@ -3503,6 +3505,7 @@ document.addEventListener('keydown', e => {
 
     if (e.key === '/') { e.preventDefault(); searchInput.focus(); searchInput.select(); return; }
     if (e.key === '?') { document.getElementById('helpModal').classList.toggle('open'); return; }
+    if (e.key === 'q' && e.ctrlKey) { e.preventDefault(); setQuickMode(!quickMode); return; }
 
     if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && currentChapterInfo) {
         e.preventDefault();
