@@ -1034,7 +1034,12 @@
             flex-shrink: 0;
         }
         .copy-btn {
-            padding: 6px 6px;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             font-size: 0.75rem;
             font-family: var(--font-ui);
             background: transparent;
@@ -1042,16 +1047,21 @@
             border-radius: 5px;
             cursor: pointer;
             color: var(--text-muted);
-            transition: all 0.15s;
+            transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
             white-space: nowrap;
+            flex-shrink: 0;
         }
         .copy-btn:hover { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
-        .copy-btn:active { opacity: 0.65; }
-        .copy-btn:active .copy-icon { transform: scale(0.85); transition: transform 0.1s; }
+        .copy-btn:active { transform: scale(0.87); }
         .copy-icon { width: 14px; height: 14px; display: block; filter: brightness(0) opacity(0.55); }
         .copy-btn:hover .copy-icon { filter: brightness(0) opacity(1); }
+        .study-icon { width: 15px; height: 15px; }
         [data-theme="dark"] .copy-icon { filter: brightness(0) invert(1) opacity(0.65); }
         [data-theme="dark"] .copy-btn:hover .copy-icon { filter: brightness(0) invert(1) opacity(1); }
+        [data-theme="dark"] .study-icon { filter: brightness(0) invert(1) opacity(0.65); }
+        [data-theme="dark"] .copy-btn:hover .study-icon { filter: brightness(0) invert(1) opacity(1); }
+        .study-toggle.open .study-icon { filter: brightness(0) opacity(1); }
+        [data-theme="dark"] .study-toggle.open .study-icon { filter: brightness(0) invert(1) opacity(1); }
 
         /* Highlight dismiss chip — sits in mvb-annot row, matches annot-btn height */
         .highlight-dismiss-btn {
@@ -1261,12 +1271,7 @@
             display: block;
         }
         .study-toggle {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 6px 6px;
             font-size: 0.9rem;
-            line-height: 1;
         }
         .study-toggle.open {
             background: var(--accent-dim);
@@ -2854,8 +2859,18 @@
             border-top: 1px dashed var(--border);
             margin-top: 2px;
         }
+        .mvb-study-icon {
+            width: 11px;
+            height: 11px;
+            display: inline-block;
+            vertical-align: middle;
+            margin-bottom: 1px;
+            filter: brightness(0) opacity(0.55);
+        }
+        [data-theme="dark"] .mvb-study-icon { filter: brightness(0) invert(1) opacity(0.65); }
         @media (max-width: 700px) {
             .mvb-study-label { font-size: 0.78rem; padding-top: 6px; }
+            .mvb-study-icon { width: 12px; height: 12px; }
         }
         .mvb-inner { display: flex; flex-direction: column; gap: 8px; }
         .mvb-row { display: flex; align-items: center; gap: 8px; }
