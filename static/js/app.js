@@ -993,6 +993,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
     const trayOpen = block.book && block.verses.length > 0 ? (compareVisible || !!cardTrayOpen[idx]) : false;
 
     // credit copy-icon: https://www.flaticon.com/authors/erix
+    // credit study-icon: https://www.flaticon.com/authors/bqlqn 
     let html = `<div class="card-swipe-wrap">${sideNavHtml}<div class="verse-card${compareActive ? ' compare-active' : ''}" id="${cardId}"${swipeAttrs}>
         <div class="verse-card-header">
             <div class="verse-card-header-main">
@@ -1008,7 +1009,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
                             <button class="copy-menu-item" onclick="copyBlockRef(${idx})">${escHtml(t('card.copy.withRef'))}</button>
                         </div>
                     </div>
-                    ${block.book && block.verses.length > 0 ? `<button class="copy-btn study-toggle${trayOpen ? ' open' : ''}" onclick="toggleStudyTray(${idx})" aria-expanded="${trayOpen ? 'true' : 'false'}" title="${escAttr(t('card.study.title'))}">🎓</button>` : ''}
+                    ${block.book && block.verses.length > 0 ? `<button class="copy-btn study-toggle${trayOpen ? ' open' : ''}" onclick="toggleStudyTray(${idx})" aria-expanded="${trayOpen ? 'true' : 'false'}" title="${escAttr(t('card.study.title'))}"><img src="/static/images/study.png" class="copy-icon study-icon" alt="studie"></button>` : ''}
                 </div>
             </div>
             <div class="header-compare-slot">
