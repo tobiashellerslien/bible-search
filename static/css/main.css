@@ -902,7 +902,6 @@
             position: relative;
             touch-action: pan-y;
             will-change: transform;
-            transition: max-width 0.32s cubic-bezier(0.2, 0.8, 0.3, 1);
         }
         @media (min-width: 701px) {
             .results-wrapper > .verse-card.compare-active,
@@ -1555,36 +1554,29 @@
             transition: max-height 0.3s ease, opacity 0.2s ease, margin-top 0.3s ease, padding 0.3s ease, border-top-width 0s 0s;
         }
         @media (min-width: 701px) {
-            /* Side-by-side layout: only when card is compare-active (single mode). */
+            /* Side-by-side layout: card jumps instantly to full width (no max-width
+               transition — see _compareActivateInstant in app.js), then only opacity
+               fades in. Animating width/flex-basis causes text to reflow mid-animation
+               which produces unavoidable height glitches; instant layout avoids this. */
             .verse-card.compare-active .card-compare-section {
                 max-height: none;
                 margin-top: 0;
                 padding-top: 0;
                 padding-bottom: 0;
                 border-top: 0;
-                flex: 0 0 0;
-                max-width: 0;
-                padding-left: 0;
-                border-left: 0 solid var(--accent-dim);
-                transition: flex-basis 0.32s cubic-bezier(0.2, 0.8, 0.3, 1),
-                            max-width 0.32s cubic-bezier(0.2, 0.8, 0.3, 1),
-                            opacity 0.22s ease,
-                            padding-left 0.32s ease,
-                            border-left-width 0s 0.32s;
-            }
-            .verse-card.compare-active .card-compare-section.visible {
                 flex: 1 1 50%;
                 max-width: 50%;
-                opacity: 1;
-                pointer-events: auto;
                 padding-left: 18px;
                 border-left: 1.5px solid var(--accent-dim);
+                overflow: hidden;
+                pointer-events: none;
+                transition: opacity 0.25s ease;
+            }
+            .verse-card.compare-active .card-compare-section.visible {
+                opacity: 1;
+                pointer-events: auto;
                 overflow: visible;
-                transition: flex-basis 0.32s cubic-bezier(0.2, 0.8, 0.3, 1),
-                            max-width 0.32s cubic-bezier(0.2, 0.8, 0.3, 1),
-                            opacity 0.22s ease 0.06s,
-                            padding-left 0.32s ease,
-                            border-left-width 0s 0s;
+                transition: opacity 0.25s ease;
             }
         }
         .card-compare-header {
@@ -2246,7 +2238,7 @@
         /* ── Responsive ── */
         @media (max-width: 700px) {
             .controls { gap: 8px; margin-top: 14px; }
-            .display-area { margin-top: 4px; }
+            .display-area { margin-top: 10px; }
             .display-panel { left: 12px; right: 12px; }
             .results-wrapper { margin-top: 6px; }
             .header h1 { font-size: 1.45rem; }

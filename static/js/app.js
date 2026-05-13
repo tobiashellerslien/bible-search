@@ -1221,19 +1221,29 @@ function syncCardCompareSelects(idx) {
     if (b && b.value !== val) b.value = val;
 }
 
+function _compareActivateInstant(idx, section) {
+    const card = document.getElementById(`card-${idx}`);
+    const wrap = card && card.closest('.card-swipe-wrap');
+    if (wrap) wrap.style.transition = 'none';
+    updateWideMode();
+    if (section) {
+        void section.offsetHeight;
+        section.classList.add('visible');
+        renderCompareBody(idx);
+    }
+    requestAnimationFrame(() => { if (wrap) wrap.style.transition = ''; });
+}
+
 window.toggleCardCompare = async function(idx) {
     const section = document.getElementById(`compare-section-${idx}`);
     if (!cardCompare[idx]) {
         const defaultVer = allVersionsList.find(v => String(v.id) !== versionSelect.value) || allVersionsList[0];
         cardCompare[idx] = { version: String(defaultVer.id), data: null, visible: true, mode: 'single', allData: null, alignMode: false };
-        // Add .compare-active to the card BEFORE making the section visible so the
-        // section's transition uses the PC side-by-side layout from the start instead
-        // of briefly applying the mobile (full-width below) layout.
-        updateWideMode();
-        if (section) {
-            section.classList.add('visible');
-            renderCompareBody(idx);
-        }
+        // Suppress the card-swipe-wrap max-width transition so the card jumps instantly
+        // to its final width. Without this, the text column temporarily narrows to 50%
+        // of the growing card width during the 0.32s animation, causing more line wraps
+        // and an ugly height spike. Only the compare section's opacity fade is needed.
+        _compareActivateInstant(idx, section);
         syncCardCompareSelects(idx);
         await loadCardCompareData(idx);
         renderCompareBody(idx);
@@ -1247,9 +1257,12 @@ window.toggleCardCompare = async function(idx) {
             const cb = document.getElementById(`align-toggle-${idx}`);
             if (cb) cb.checked = false;
         }
-        if (nowVisible) renderCompareBody(idx);
-        if (section) section.classList.toggle('visible', nowVisible);
-        updateWideMode();
+        if (nowVisible) {
+            _compareActivateInstant(idx, section);
+        } else {
+            if (section) section.classList.remove('visible');
+            updateWideMode();
+        }
     }
 };
 
@@ -1273,8 +1286,8 @@ window.changeCardCompareVersion = async function(idx, source) {
         cardCompare[idx].version = sel.value;
         cardCompare[idx].data = null;
         syncCardCompareSelects(idx);
-        updateWideMode(); // add .compare-active → card widens, side-by-side
-        renderCompareBody(idx);
+        const _csec = document.getElementById(`compare-section-${idx}`);
+        _compareActivateInstant(idx, _csec); // instant width jump, no height glitch
         await loadCardCompareData(idx);
         renderCompareBody(idx);
     }
@@ -1398,7 +1411,7 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
         if (bookCodeSafe) {
             const hasFn = !!fnText;
             const hasXr = (v.has_xrefs === undefined) ? true : !!v.has_xrefs;
-            const isMarked = markedVerses.has(`${bookCode}.${v.chapter}.${v.num}`);
+            const isMarked = markedVerses.has(`${bookCode}.${v.chapter}.${v.num}.${ver || ''}`);
             html += `<span class="verse-text-clickable${isMarked ? ' verse-marked' : ''}" data-book="${bookCodeSafe}" data-chapter="${v.chapter}" data-verse="${v.num}" data-ref="${refName}" data-has-fn="${hasFn ? '1' : '0'}" data-has-xr="${hasXr ? '1' : '0'}" data-version="${escAttr(ver || '')}">${escHtml(v.text)}</span>`;
         } else {
             html += escHtml(v.text);
@@ -1551,7 +1564,10 @@ window.toggleXrefPanel = async function(btn) {
     const book = btn.dataset.book;
     const chapter = btn.dataset.chapter;
     const verse = btn.dataset.verse;
-    const version = versionSelect.value;
+    // Prefer the version of the verse-line the button lives in (so xrefs from
+    // the compare body fetch against the compare version, not the main one).
+    const localClickable = verseLine.querySelector('.verse-text-clickable');
+    const version = (localClickable && localClickable.dataset.version) || versionSelect.value;
     setOpenXrefState({ book, chapter, verse });
     const cacheKey = `${book}.${chapter}.${verse}.${version}`;
 
@@ -2034,13 +2050,18 @@ function initMarkedVersesBar() {
         markedVerses.forEach((v) => {
             if (kind === 'fn' && !v.hasFn) return;
             if (kind === 'xr' && !v.hasXr) return;
-            const ref = document.querySelector(
+            const refs = document.querySelectorAll(
                 `.verse-text-clickable[data-book="${v.book}"][data-chapter="${v.chapter}"][data-verse="${v.verse}"]`
             );
+            // Match the specific version when marked from compare body, so MVB
+            // opens the panel in the version the user actually clicked.
+            const ref = v.version
+                ? ([...refs].find(r => r.dataset.version === v.version) || refs[0])
+                : refs[0];
             const verseLine = ref?.closest('.verse-line');
             const btn = kind === 'fn'
                 ? verseLine?.querySelector('.fn-btn')
-                : document.querySelector(`.xr-btn[data-book="${v.book}"][data-chapter="${v.chapter}"][data-verse="${v.verse}"]`);
+                : verseLine?.querySelector('.xr-btn');
             if (btn) btns.push(btn);
         });
         return btns;
@@ -2144,14 +2165,14 @@ document.addEventListener('click', (ev) => {
     const book = target.dataset.book;
     const chapter = parseInt(target.dataset.chapter, 10);
     const verse = parseInt(target.dataset.verse, 10);
-    const key = `${book}.${chapter}.${verse}`;
+    const markedVersion = target.dataset.version || null;
+    const key = `${book}.${chapter}.${verse}.${markedVersion || ''}`;
     if (markedVerses.has(key)) {
         markedVerses.delete(key);
         target.classList.remove('verse-marked');
     } else {
         const cardEl = target.closest('[data-card-idx]') || target.closest('.verse-card');
         const blockIdx = cardEl ? parseInt(cardEl.dataset.cardIdx ?? cardEl.id?.replace('card-', '') ?? '0', 10) : 0;
-        const markedVersion = target.dataset.version || null;
         markedVerses.set(key, {
             book,
             chapter,
