@@ -236,15 +236,10 @@
                     actions.insertBefore(clearBtn, actions.firstChild);
 
                     const insertBtn = document.createElement('button');
-                    insertBtn.className = 'sidebar-module-clear-all pinned-insert-all-btn';
-                    insertBtn.title = 'Sett inn alle festede vers i visning';
-                    insertBtn.setAttribute('aria-label', 'Sett inn alle i visning');
-                    insertBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true" style="display:block">
-                        <line x1="1" y1="3" x2="8" y2="3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                        <line x1="1" y1="6.5" x2="8" y2="6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                        <line x1="1" y1="10" x2="8" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                        <polyline points="13,4 10,7 13,10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>`;
+                    insertBtn.className = 'pinned-insert-all-btn';
+                    insertBtn.title = 'Åpne alle festede vers som blokker i visningen';
+                    insertBtn.setAttribute('aria-label', 'Åpne alle festede vers i visning');
+                    insertBtn.innerHTML = `<span>Åpne alle</span>`;
                     insertBtn.addEventListener('click', async (e) => {
                         e.stopPropagation();
                         if (!_pins.length) return;
