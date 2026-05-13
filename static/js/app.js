@@ -7,17 +7,15 @@ const I18N = {
         'search.placeholder': 'Søk i Bibelen...',
         'search.clear': 'Tøm søk',
         'search.button': 'Søk',
-        'display.browse': 'Bla:',
+        'display.browse': 'Oppslag:',
         'display.bookPlaceholder': '-- Bok --',
         'display.chapterPlaceholder': '-- Kap --',
         'toggle.verseNums': 'Versnummer',
         'toggle.newlines': 'Linjeskift per vers',
         'toggle.headings': 'Overskrifter',
-        'toggle.annotations': 'Annotasjoner †§',
-        'toggle.places': 'Steder 📍',
-        'toggle.copyHint': 'påvirker kopiering',
-        'toggle.copyHintAria': 'Formateringsinfo',
-        'modal.helpInfo': '// Hjelp & Om',
+        'toggle.annotations': 'Kryssreferanser og fotnoter †§',
+        'toggle.places': 'Steder i tekst 📍',
+        'modal.helpInfo': 'Hjelp & Om',
         'modal.tab.help': 'Hjelp',
         'modal.tab.info': 'Om',
         'help.section.features': 'Funksjoner',
@@ -91,7 +89,7 @@ const I18N = {
         'info.openSource.competition': 'lenke til konkurrerende tjeneste',
         'info.feedback.title': 'Tilbakemelding',
         'info.feedback.text': 'Spørsmål, forslag eller funnet en bug? Ta kontakt på <a href="mailto:tobias@hellerslien.net">tobias@hellerslien.net</a>.',
-        'modal.stats': '// Statistikk',
+        'modal.stats': 'Statistikk',
         'stats.totalHits': 'Totalt treff',
         'stats.perChapter': 'Per kapittel',
         'stats.perVerse': 'Per vers',
@@ -101,38 +99,32 @@ const I18N = {
         'stats.topGT': 'Topp GT',
         'stats.topNT': 'Topp NT',
         'stats.distribution': 'Fordeling vises for hele Bibelen (søk var filtrert til: {0})',
-        'stats.modalTitle': '// Statistikk: «{0}»',
+        'stats.modalTitle': 'Statistikk: «{0}»',
         'stats.goToResults': 'Gå til resultater',
         'stats.unitHits': '{0} treff',
         'stats.unitChapter': '{0} / kap',
         'stats.unitVerse': '{0} / vs',
-        'modal.settings': '// Innstillinger',
+        'modal.settings': 'Innstillinger',
         'settings.appearance': 'Utseende',
         'settings.darkMode': 'Mørk modus',
-        'settings.uiFont': 'UI-skrift',
+        'settings.uiFont': 'Font',
         'settings.fontMono': 'Mono',
         'settings.fontSans': 'Sans',
         'settings.fontSerif': 'Serif',
-        'settings.accentColor': 'Aksentfarge',
-        'settings.verseFontSize': 'Versskrift-størrelse',
+        'settings.accentColor': 'Farge',
+        'settings.customAccent': 'Egendefinert',
+        'settings.verseFontSize': 'Skriftstørrelse',
         'settings.defaults': 'Standard',
         'settings.bibleVersion': 'Bibeloversettelse',
         'settings.savedDefault': 'Standardoversettelse lagret',
         'empty.title': 'Søk i Bibelen',
-        'empty.tagline': 'Oppslag, fulltekstsøk og studieverktøy — på tvers av oversettelser.',
+        'empty.tagline': 'Oppslag, søk og studieverktøy — på tvers av oversettelser.',
         'empty.verse.text': 'Hele Skriften er innåndet av Gud og nyttig til lærdom, til overbevisning, til rettledning, til opptuktelse i rettferdighet, for at Guds menneske kan være fullkomment, satt i stand til all god gjerning.',
         'empty.verse.ref': '2. Timoteus 3:16–17',
         'empty.btn.help': '? Hjelp',
         'empty.btn.about': 'ⓘ Om',
         'empty.btn.settings': '⚙ Innstillinger',
-        'card.copyTxt': 'kopier tekst',
-        'card.copyTxt.title': 'Kopier kun tekst',
-        'card.copyRef': 'kopier m/ ref',
-        'card.copyRef.title': 'Kopier med referanse',
-        'card.copy': 'kopier',
         'card.copy.title': 'Kopier',
-        'card.copy.textOnly': 'Kopier kun tekst',
-        'card.copy.withRef': 'Kopier tekst og referanse',
         'card.compare': '⚖️ Sammenlign',
         'card.compare.title': 'Sammenlign oversettelser',
         'card.alignVerses': 'juster',
@@ -158,7 +150,7 @@ const I18N = {
         'card.compareFailed': 'Lasting feilet',
         'card.dismissHighlight': 'Fjern markering',
         'annot.fnTitle': 'Fotnote',
-        'annot.xrTitle': 'Kryssreferanser',
+        'annot.xrTitle': 'Referanser',
         'annot.loadingRefs': 'Laster referanser…',
         'annot.loadError': 'Feil ved lasting.',
         'annot.noRefs': 'Ingen kryssreferanser funnet.',
@@ -175,7 +167,6 @@ const I18N = {
         'chapterNav.nextVs': 'Neste vers',
         'verseNum.titleFmt': '{0} {1}:{2}',
         'toast.copied': 'Kopiert!',
-        'toast.copiedRef': 'Kopiert med referanse!',
         'toast.linkCopied': 'Lenke kopiert!',
         'toast.copyFailed': 'Kopiering feilet',
         'toast.clipboardUnavailable': 'Utklippstavle ikke tilgjengelig',
@@ -378,11 +369,8 @@ function bookTotalVerses(code) {
 
 const COLOR_PRESETS = [
     { name: 'Blue',   l: '#2870e8', lh: '#1d5cc8', ld: 'rgba(40,112,232,0.12)',   d: '#5aafff', dh: '#4a9eee', dd: 'rgba(90,175,255,0.12)' },
-    { name: 'Green',  l: '#16a34a', lh: '#15803d', ld: 'rgba(22,163,74,0.12)',    d: '#4ade80', dh: '#22c55e', dd: 'rgba(74,222,128,0.12)' },
     { name: 'Red',    l: '#b53232', lh: '#922222', ld: 'rgba(181,50,50,0.12)',    d: '#e06060', dh: '#c94444', dd: 'rgba(224,96,96,0.12)' },
     { name: 'Purple', l: '#7c3aed', lh: '#6d28d9', ld: 'rgba(124,58,237,0.12)',  d: '#a78bfa', dh: '#8b5cf6', dd: 'rgba(167,139,250,0.12)' },
-    { name: 'Orange', l: '#c97a06', lh: '#a86205', ld: 'rgba(201,122,6,0.12)',   d: '#fbbf24', dh: '#f59e0b', dd: 'rgba(251,191,36,0.12)' },
-    { name: 'Teal',   l: '#0d9488', lh: '#0f766e', ld: 'rgba(13,148,136,0.12)',  d: '#2dd4bf', dh: '#14b8a6', dd: 'rgba(45,212,191,0.12)' },
 ];
 
 // ── Page title ──
@@ -405,9 +393,20 @@ let textSearchGroupData = {};
 let allVersionsTextCache = null;
 let currentChapterInfo = null;
 let allVersionsList = [];
-let currentAccentIdx = parseInt(localStorage.getItem('accentColor') || '0');
+let currentAccent = (() => {
+    const raw = localStorage.getItem('accentColor');
+    if (raw === 'custom') return 'custom';
+    const n = parseInt(raw || '0');
+    if (isNaN(n) || n < 0 || n >= COLOR_PRESETS.length) return 0;
+    return n;
+})();
+let customAccentHex = (() => {
+    const v = localStorage.getItem('accentCustom') || '#2870e8';
+    return /^#[0-9a-fA-F]{6}$/.test(v) ? v : '#2870e8';
+})();
 let lastTextSearchQuery = '';
 const cardCompare = {};  // { [idx]: { version, data, visible } }
+let compareIntent = false; // user's explicit compare on/off preference
 let currentHighlightVerses = null; // { keys: Set<"chapter:verse"> } | null
 let _preserveHighlight = false;
 let lastStatsData = null;
@@ -471,6 +470,15 @@ async function init() {
     history.scrollRestoration = 'manual';
     const resp = await fetch('/api/versions');
     const data = await resp.json();
+    const VERSION_ORDER = ['NB88','B2011','BGO','B1930','ESV','NASB','NKJV','KJV','NIV','BLB'];
+    data.versions.sort((a, b) => {
+        const ia = VERSION_ORDER.indexOf(a.name);
+        const ib = VERSION_ORDER.indexOf(b.name);
+        if (ia === -1 && ib === -1) return 0;
+        if (ia === -1) return 1;
+        if (ib === -1) return -1;
+        return ia - ib;
+    });
     allVersionsList = data.versions; // [{id, name, full_name, language}, ...]
     data.versions.forEach(v => {
         versionSelect.add(new Option(v.name, String(v.id)));
@@ -562,6 +570,7 @@ function refreshBookDropdown() {
 versionSelect.addEventListener('change', () => {
     updateVersionPickerDisplay();
     loadBooks();
+    updateMvbExternalLinks();
     if (quickMode && searchInput.value.trim().length >= 3) {
         runQuickSearch();
     } else if (currentView === 'text_search' && textSearchCache) {
@@ -745,7 +754,7 @@ searchInput.addEventListener('keydown', e => {
 
 async function doSearch(pushHistory = true, resetAC = true) {
     if (resetAC) closeAutocomplete();
-    if (!_preserveHighlight) { currentHighlightVerses = null; updateMvbHighlightChip(); updateMarkedVersesBar(); }
+    if (!_preserveHighlight) { currentHighlightVerses = null; clearAllMarkedVerses(); }
     _preserveHighlight = false;
     const query = searchInput.value.trim();
     if (!query) return;
@@ -795,6 +804,7 @@ async function doSearch(pushHistory = true, resetAC = true) {
         cardExpandedState = {};
         detectChapterInfo(mainData);
         renderAll();
+        if (compareIntent) mainData.forEach((_, idx) => toggleCardCompare(idx));
         window.scrollTo(0, 0);
     } catch (err) {
         resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), t('loading.errorBody'));
@@ -857,29 +867,11 @@ if (togglePlaces) {
 
 document.querySelectorAll('.toggle-item').forEach(item => {
     item.addEventListener('click', e => {
-        if (e.target.closest('.toggle-switch') || e.target.closest('.copy-hint-btn')) return;
+        if (e.target.closest('.toggle-switch')) return;
         const cb = item.querySelector('input[type="checkbox"]');
         if (cb) cb.click();
     });
 });
-
-const copyHintButtons = document.querySelectorAll('.copy-hint-btn');
-if (copyHintButtons.length) {
-    copyHintButtons.forEach((button) => {
-        button.addEventListener('click', (event) => {
-            event.stopPropagation();
-            const shouldOpen = !button.classList.contains('open');
-            copyHintButtons.forEach((otherButton) => otherButton.classList.remove('open'));
-            if (shouldOpen) button.classList.add('open');
-        });
-    });
-
-    document.addEventListener('click', (event) => {
-        if (!event.target.closest('.copy-hint-btn')) {
-            copyHintButtons.forEach((button) => button.classList.remove('open'));
-        }
-    });
-}
 
 // ── Render reference results ──
 function renderAll() {
@@ -903,6 +895,7 @@ function renderAll() {
         if (cardCompare[idx] && cardCompare[idx].visible) renderCompareBody(idx);
     });
     if (typeof updateWideMode === 'function') updateWideMode();
+    if (typeof updateToolbarCompareBtn === 'function') updateToolbarCompareBtn();
     maybeShowSwipeHint();
 }
 
@@ -973,8 +966,8 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
                 _nextCall = `goChapter('${escAttr(block.book)}', ${_ch + 1}, '${escAttr(_bName)}', 'next', ${idx})`;
             }
             cardNavData = { hasPrev: _hasPrev, hasNext: _hasNext };
-            sideNavHtml = `<button class="side-nav side-nav-prev" data-disabled="${_hasPrev ? '0' : '1'}" ${_hasPrev ? `onclick="${_prevCall}"` : ''} title="${escAttr(t('chapterNav.prevCh'))}" aria-label="prev">&#8249;</button>
-                <button class="side-nav side-nav-next" data-disabled="${_hasNext ? '0' : '1'}" ${_hasNext ? `onclick="${_nextCall}"` : ''} title="${escAttr(t('chapterNav.nextCh'))}" aria-label="next">&#8250;</button>`;
+            sideNavHtml = `<button class="side-nav side-nav-prev" data-disabled="${_hasPrev ? '0' : '1'}" ${_hasPrev ? `onclick="${_prevCall}"` : ''} title="${escAttr(t('chapterNav.prevCh'))}" aria-label="prev"><span class="side-nav-arrow">&#8249;</span></button>
+                <button class="side-nav side-nav-next" data-disabled="${_hasNext ? '0' : '1'}" ${_hasNext ? `onclick="${_nextCall}"` : ''} title="${escAttr(t('chapterNav.nextCh'))}" aria-label="next"><span class="side-nav-arrow">&#8250;</span></button>`;
         }
     }
 
@@ -990,7 +983,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
     });
     compareOptionsHtml += `<option value="__all__"${isAllMode ? ' selected' : ''}>${escHtml(t('card.allVersionsOption'))}</option>`;
 
-    const trayOpen = block.book && block.verses.length > 0 ? (compareVisible || !!cardTrayOpen[idx]) : false;
+    const trayOpen = block.book && block.verses.length > 0 ? !!cardTrayOpen[idx] : false;
 
     // credit copy-icon: https://www.flaticon.com/authors/erix
     // credit study-icon: https://www.flaticon.com/authors/bqlqn 
@@ -1002,13 +995,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
                     ${chipHtml}
                 </div>
                 <div class="verse-card-header-actions">
-                    <div class="copy-menu-wrap">
-                        <button class="copy-btn copy-menu-btn" onclick="toggleCopyMenu(${idx})" title="${escAttr(t('card.copy.title'))}"><img src="/static/images/copy.png" class="copy-icon" alt="kopier"></button>
-                        <div class="copy-menu" id="copy-menu-${idx}">
-                            <button class="copy-menu-item" onclick="copyBlockText(${idx})">${escHtml(t('card.copy.textOnly'))}</button>
-                            <button class="copy-menu-item" onclick="copyBlockRef(${idx})">${escHtml(t('card.copy.withRef'))}</button>
-                        </div>
-                    </div>
+                    <button class="copy-btn" onclick="copyBlock(${idx})" title="${escAttr(t('card.copy.title'))}"><img src="/static/images/copy.png" class="copy-icon" alt="kopier"></button>
                     ${block.book && block.verses.length > 0 ? `<button class="copy-btn study-toggle${trayOpen ? ' open' : ''}" onclick="toggleStudyTray(${idx})" aria-expanded="${trayOpen ? 'true' : 'false'}" title="${escAttr(t('card.study.title'))}"><img src="/static/images/study.png" class="copy-icon study-icon" alt="studie"></button>` : ''}
                 </div>
             </div>
@@ -1058,7 +1045,6 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
             <div class="study-tray" data-open="${trayOpen ? 'true' : 'false'}" id="study-tray-${idx}">
                 <div class="study-tray-row">
                     <div class="study-tray-inner">
-                        <button class="tray-btn compare-header-btn${compareVisible ? ' active' : ''}" onclick="toggleCardCompare(${idx})" title="${escAttr(t('card.compare.title'))}">${escHtml(t('card.compare'))}</button>
                         <button class="tray-btn map-tray-btn"${mapDisabled ? ' disabled aria-disabled="true"' : ` onclick="openMapForBlock(${idx},null)"`} title="${mapTitle}">${mapLabel}</button>
                         <button class="tray-btn pin-tray-btn${isBlockPinned(idx) ? ' pinned' : ''}" onclick="togglePinForBlock(${idx})" title="Fest dette avsnittet i sidebar">📌 <span class="pin-label">${isBlockPinned(idx) ? 'Festet' : 'Fest'}</span></button>
                         ${ilUrl ? `<a class="tray-btn external" href="${ilUrl}" target="_blank" rel="noopener" title="biblehub.com"><img class="tray-btn-logo" src="/static/images/biblehub.png" alt=""><span>${escHtml(t('card.study.interlinear'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
@@ -1237,7 +1223,6 @@ function syncCardCompareSelects(idx) {
 
 window.toggleCardCompare = async function(idx) {
     const section = document.getElementById(`compare-section-${idx}`);
-    const headerBtn = document.querySelector(`#card-${idx} .compare-header-btn`);
     if (!cardCompare[idx]) {
         const defaultVer = allVersionsList.find(v => String(v.id) !== versionSelect.value) || allVersionsList[0];
         cardCompare[idx] = { version: String(defaultVer.id), data: null, visible: true, mode: 'single', allData: null, alignMode: false };
@@ -1245,10 +1230,8 @@ window.toggleCardCompare = async function(idx) {
         // section's transition uses the PC side-by-side layout from the start instead
         // of briefly applying the mobile (full-width below) layout.
         updateWideMode();
-        ensureStudyTrayOpen(idx);
         if (section) {
             section.classList.add('visible');
-            if (headerBtn) headerBtn.classList.add('active');
             renderCompareBody(idx);
         }
         syncCardCompareSelects(idx);
@@ -1264,11 +1247,8 @@ window.toggleCardCompare = async function(idx) {
             const cb = document.getElementById(`align-toggle-${idx}`);
             if (cb) cb.checked = false;
         }
-        if (nowVisible) { ensureStudyTrayOpen(idx); renderCompareBody(idx); }
-        if (section) {
-            section.classList.toggle('visible', nowVisible);
-            if (headerBtn) headerBtn.classList.toggle('active', nowVisible);
-        }
+        if (nowVisible) renderCompareBody(idx);
+        if (section) section.classList.toggle('visible', nowVisible);
         updateWideMode();
     }
 };
@@ -1347,26 +1327,6 @@ document.addEventListener('click', e => {
     }
 });
 
-window.toggleCopyMenu = function(idx) {
-    const menu = document.getElementById(`copy-menu-${idx}`);
-    if (!menu) return;
-    const wasOpen = menu.classList.contains('open');
-    document.querySelectorAll('.copy-menu.open').forEach(m => m.classList.remove('open'));
-    if (!wasOpen) {
-        const wrap = menu.closest('.copy-menu-wrap') || menu.parentElement;
-        const rect = wrap.getBoundingClientRect();
-        menu.classList.toggle('menu-up', window.innerHeight - rect.bottom < 200);
-        // Anchor menu to the side facing the screen center, so it never clips off-screen.
-        const buttonCenter = rect.left + rect.width / 2;
-        menu.classList.toggle('anchor-right', buttonCenter > window.innerWidth / 2);
-        menu.classList.add('open');
-    }
-};
-document.addEventListener('click', e => {
-    if (!e.target.closest('.copy-menu-wrap')) {
-        document.querySelectorAll('.copy-menu.open').forEach(m => m.classList.remove('open'));
-    }
-});
 
 
 function isVerseHighlighted(v) {
@@ -1432,14 +1392,14 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
 
         html += `<span class="verse-line">`;
         if (showNums) {
-            html += `<span class="verse-num" onclick="openSingleVerse('${bookCodeSafe}',${v.chapter},${v.num},'${refName}')" title="${escAttr(bookRefName(bookCode))} ${v.chapter}:${v.num}">${v.num}</span>`;
+            html += `<span class="verse-num" onclick="openSingleVerse('${bookCodeSafe}',${v.chapter},${v.num},'${refName}','${escAttr(ver || '')}')" title="${escAttr(bookRefName(bookCode))} ${v.chapter}:${v.num}">${v.num}</span>`;
         }
         const fnText = footnoteMap[v.chapter]?.[v.num];
         if (bookCodeSafe) {
             const hasFn = !!fnText;
             const hasXr = (v.has_xrefs === undefined) ? true : !!v.has_xrefs;
             const isMarked = markedVerses.has(`${bookCode}.${v.chapter}.${v.num}`);
-            html += `<span class="verse-text-clickable${isMarked ? ' verse-marked' : ''}" data-book="${bookCodeSafe}" data-chapter="${v.chapter}" data-verse="${v.num}" data-ref="${refName}" data-has-fn="${hasFn ? '1' : '0'}" data-has-xr="${hasXr ? '1' : '0'}">${escHtml(v.text)}</span>`;
+            html += `<span class="verse-text-clickable${isMarked ? ' verse-marked' : ''}" data-book="${bookCodeSafe}" data-chapter="${v.chapter}" data-verse="${v.num}" data-ref="${refName}" data-has-fn="${hasFn ? '1' : '0'}" data-has-xr="${hasXr ? '1' : '0'}" data-version="${escAttr(ver || '')}">${escHtml(v.text)}</span>`;
         } else {
             html += escHtml(v.text);
         }
@@ -1701,8 +1661,11 @@ function clearChapterTransition() {
     resultsWrapper.style.transform = '';
 }
 
+let _clearTransitionTimer = null;
+
 async function slideTransition(direction, work) {
     if (!direction) { await work(); return; }
+    if (_clearTransitionTimer) { clearTimeout(_clearTransitionTimer); _clearTransitionTimer = null; }
     try {
         const dx = direction === 'next' ? -28 : 28;
         resultsWrapper.style.transition = 'opacity 0.14s ease, transform 0.14s ease';
@@ -1720,7 +1683,7 @@ async function slideTransition(direction, work) {
         resultsWrapper.style.transition = 'opacity 0.14s ease, transform 0.14s ease';
         resultsWrapper.style.opacity = '';
         resultsWrapper.style.transform = '';
-        setTimeout(clearChapterTransition, 250);
+        _clearTransitionTimer = setTimeout(clearChapterTransition, 250);
     } catch (e) {
         clearChapterTransition();
         throw e;
@@ -1733,6 +1696,7 @@ window.goChapter = async function(bookCode, chapter, bName, direction, cardIdx) 
         await navigateCardToRef(cardIdx, `${bName} ${chapter}`, direction, /*highlightKeys*/ null);
         return;
     }
+    clearAllMarkedVerses();
     currentHighlightVerses = null;
     updateMvbHighlightChip();
     updateMarkedVersesBar();
@@ -1743,7 +1707,13 @@ window.goChapter = async function(bookCode, chapter, bName, direction, cardIdx) 
     });
 };
 
-window.openSingleVerse = async function(bookCode, chapter, verse, bName) {
+window.openSingleVerse = async function(bookCode, chapter, verse, bName, verToSwitch) {
+    clearAllMarkedVerses();
+    if (verToSwitch && verToSwitch !== versionSelect.value && allVersionsList.some(v => String(v.id) === verToSwitch)) {
+        versionSelect.value = verToSwitch;
+        updateVersionPickerDisplay();
+        await loadBooks();
+    }
     if (currentView === 'text_search') {
         const openBooks = [...resultsWrapper.querySelectorAll('.book-group-header.open')]
             .map(h => h.closest('.book-group')?.dataset.book)
@@ -1768,11 +1738,18 @@ window.openSingleVerse = async function(bookCode, chapter, verse, bName) {
 function updateMvbHighlightChip() {
     const chip = document.getElementById('mvbHighlightChip');
     if (!chip) return;
-    const show = !!(currentHighlightVerses && [...markedVerses.values()].some(v =>
+    // Only show when highlight state exists AND at least one highlight wrap is
+    // actually rendered in the DOM. Without the DOM check, the chip can linger
+    // after a re-render path removes the wraps but leaves currentHighlightVerses set.
+    const hasWraps = !!document.querySelector('.verse-highlight-wrap');
+    const show = !!(currentHighlightVerses && hasWraps && [...markedVerses.values()].some(v =>
         currentHighlightVerses.keys.has(`${v.chapter}:${v.verse}`)
     ));
     if (show) {
-        chip.textContent = buildHighlightChipLabel() + ' ×';
+        // Two spans so the × stays vertically centered next to the (possibly
+        // wrapping) label instead of falling onto its own second line.
+        chip.innerHTML = `<span class="hl-dismiss-label"></span><span class="hl-dismiss-x">×</span>`;
+        chip.querySelector('.hl-dismiss-label').textContent = t('card.dismissHighlight');
         chip.style.display = '';
     } else {
         chip.style.display = 'none';
@@ -1783,11 +1760,9 @@ function clearAllMarkedVerses() {
     markedVerses.clear();
     document.querySelectorAll('.verse-marked').forEach(el => el.classList.remove('verse-marked'));
     const bar = document.getElementById('markedVersesBar');
-    if (!currentHighlightVerses) {
-        if (bar) bar.classList.remove('mvb-visible');
-        document.body.classList.remove('mvb-on');
-        document.documentElement.style.setProperty('--mvb-h', '0px');
-    }
+    if (bar) bar.classList.remove('mvb-visible');
+    document.body.classList.remove('mvb-on');
+    document.documentElement.style.setProperty('--mvb-h', '0px');
     updateMvbHighlightChip();
 }
 
@@ -1861,20 +1836,58 @@ function buildMvbQuery(forCompare) {
     return parts.join(';');
 }
 
+function _getMvbPinSpecs() {
+    const version = String(versionSelect ? versionSelect.value : '');
+    return getMarkedVersesGroups().map(g => {
+        const bookName = bookRefName(g.book) || g.book;
+        const label = g.vsStart === g.vsEnd
+            ? `${bookName} ${g.chapter}:${g.vsStart}`
+            : `${bookName} ${g.chapter}:${g.vsStart}-${g.vsEnd}`;
+        const text = g.verses.map(v => v.text).join(' ').slice(0, 400);
+        return {
+            book: g.book,
+            ch_start: g.chapter, vs_start: g.vsStart,
+            ch_end: g.chapter, vs_end: g.vsEnd,
+            version, label, text
+        };
+    });
+}
+
+function updateMvbPinButtonState() {
+    const pinBtn = document.getElementById('mvbPin');
+    if (!pinBtn) return;
+    const specs = _getMvbPinSpecs();
+    const pinned = specs.length > 0 && !!window.PinnedVerses
+        && specs.every(s => window.PinnedVerses.isPinned(s));
+    pinBtn.classList.toggle('pinned', pinned);
+    pinBtn.textContent = pinned ? '📌 Festet' : '📌 Fest';
+}
+
 function updateMvbExternalLinks() {
     const groups = getMarkedVersesGroups();
     const first = groups[0];
     const ilEl = document.getElementById('mvbInterlinear');
     const crEl = document.getElementById('mvbBibleref');
+    const srcElEarly = document.getElementById('mvbSource');
     if (!first) {
         if (ilEl) ilEl.style.display = 'none';
         if (crEl) crEl.style.display = 'none';
+        if (srcElEarly) srcElEarly.style.display = 'none';
         return;
     }
     const ilUrl = typeof interlinearUrl === 'function' ? interlinearUrl(first.book, first.chapter, first.vsStart) : null;
     const crUrl = typeof biblerefUrl === 'function' ? biblerefUrl(first.book, first.chapter, first.vsStart) : null;
+    const ver = versionSelect ? versionSelect.value : null;
+    const yvVerses = groups.flatMap(g => {
+        const vs = [];
+        for (let i = g.vsStart; i <= g.vsEnd; i++) vs.push({ chapter: g.chapter, num: i });
+        return vs;
+    });
+    const yvUrl = (typeof youversionUrl === 'function' && ver) ? youversionUrl(first.book, first.chapter, yvVerses, ver, false) : null;
+    const srcEl = document.getElementById('mvbSource');
     if (ilEl) { ilEl.style.display = ilUrl ? '' : 'none'; if (ilUrl) ilEl.href = ilUrl; }
     if (crEl) { crEl.style.display = crUrl ? '' : 'none'; if (crUrl) crEl.href = crUrl; }
+    if (srcEl) { srcEl.style.display = yvUrl ? '' : 'none'; if (yvUrl) srcEl.href = yvUrl; }
 }
 
 function updateMarkedVersesBar() {
@@ -1917,7 +1930,7 @@ function updateMarkedVersesBar() {
     if (actionsRow) actionsRow.style.display = hasVerses ? '' : 'none';
     if (topRow) topRow.style.display = hasVerses ? '' : 'none';
 
-    if (hasVerses) updateMvbExternalLinks();
+    if (hasVerses) { updateMvbExternalLinks(); updateMvbPinButtonState(); }
 
     // Measure AFTER content is laid out — first activation populates mvbRef and
     // toggles row visibility, so measuring before would yield a too-small height
@@ -1926,28 +1939,37 @@ function updateMarkedVersesBar() {
     document.documentElement.style.setProperty('--mvb-h', measuredH + 'px');
 }
 
-function _mvbCopyText(withRef) {
+function _mvbCopyText() {
     const sorted = _getSortedMarkedVerses();
-    const showNums = toggleVerseNums && toggleVerseNums.checked;
-    const lines = sorted.map(v => {
-        const numPart = showNums ? `${v.verse} ` : '';
-        return numPart + v.text;
-    });
-    let text = lines.join('\n');
-    if (withRef) {
-        const ref = buildMvbRefString();
-        const verLabel = versionSelect ? (' ' + (versionSelect.options[versionSelect.selectedIndex]?.text || '')) : '';
-        text = text + '\n\n' + ref + verLabel;
-    }
-    navigator.clipboard.writeText(text).then(() => {
-        showToast(withRef ? t('toast.copiedRef') : t('toast.copied'));
+    const text = sorted.map(v => v.text).join(' ').trim();
+    const ref = buildMvbRefString();
+    const verLabel = versionSelect ? (' ' + (versionSelect.options[versionSelect.selectedIndex]?.text || '')) : '';
+    const full = `${text}\n\n${ref}${verLabel}`;
+    navigator.clipboard.writeText(full).then(() => {
+        showToast(t('toast.copied'));
     }).catch(() => {});
 }
 
 // Initialize MVB buttons (called once after DOM ready)
 function initMarkedVersesBar() {
     const closeBtn = document.getElementById('mvbClose');
-    if (closeBtn) closeBtn.addEventListener('click', clearAllMarkedVerses);
+    // X closes MVB entirely — clear both marks AND any active highlight chip,
+    // otherwise the bar lingers (empty) whenever the user landed on the verse
+    // via a path that set currentHighlightVerses (openSingleVerse, expand-to-chapter, …).
+    if (closeBtn) closeBtn.addEventListener('click', () => window.clearHighlightAndMarked());
+
+    // Keep --mvb-h in lockstep with the actual bar height so the collapsed drawer always
+    // parks exactly above MVB. Without this, a row showing/hiding (annot row, highlight chip)
+    // after the initial measurement can leave the drawer partially behind MVB.
+    const barForObs = document.getElementById('markedVersesBar');
+    if (barForObs && typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(() => {
+            if (!document.body.classList.contains('mvb-on')) return;
+            const h = barForObs.offsetHeight || 0;
+            document.documentElement.style.setProperty('--mvb-h', h + 'px');
+        });
+        ro.observe(barForObs);
+    }
 
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape') return;
@@ -1959,9 +1981,17 @@ function initMarkedVersesBar() {
     });
 
     const openBtn = document.getElementById('mvbOpen');
-    if (openBtn) openBtn.addEventListener('click', () => {
+    if (openBtn) openBtn.addEventListener('click', async () => {
         const q = buildMvbQuery();
         if (!q) return;
+        const markedVersions = [...markedVerses.values()].map(v => v.version).filter(Boolean);
+        const uniqueVersions = [...new Set(markedVersions)];
+        if (uniqueVersions.length === 1 && uniqueVersions[0] !== versionSelect.value
+            && allVersionsList.some(v => String(v.id) === uniqueVersions[0])) {
+            versionSelect.value = uniqueVersions[0];
+            updateVersionPickerDisplay();
+            await loadBooks();
+        }
         searchInput.value = q;
         updateSearchHighlight();
         doSearch();
@@ -1969,36 +1999,34 @@ function initMarkedVersesBar() {
 
     const compareBtn = document.getElementById('mvbCompare');
     if (compareBtn) compareBtn.addEventListener('click', async () => {
+        if (compareIntent) {
+            _toggleCompareAllCards();
+            return;
+        }
+        compareIntent = true;
+        updateToolbarCompareBtn();
         const q = buildMvbQuery();
-        if (!q) return;
-        searchInput.value = q;
-        updateSearchHighlight();
-        await doSearch();
-        // Open compare on each card after render
-        if (mainData) mainData.forEach((_, idx) => {
-            if (!cardCompare[idx] || !cardCompare[idx].visible) toggleCardCompare(idx);
-        });
+        if (q) {
+            searchInput.value = q;
+            updateSearchHighlight();
+            await doSearch();
+        } else {
+            if (mainData) mainData.forEach((_, idx) => toggleCardCompare(idx));
+        }
     });
 
     const pinBtn = document.getElementById('mvbPin');
     if (pinBtn) pinBtn.addEventListener('click', () => {
         if (!window.PinnedVerses) return;
-        const version = versionSelect ? versionSelect.value : '';
-        getMarkedVersesGroups().forEach(g => {
-            const label = (() => {
-                const bookName = bookRefName(g.book) || g.book;
-                return g.vsStart === g.vsEnd
-                    ? `${bookName} ${g.chapter}:${g.vsStart}`
-                    : `${bookName} ${g.chapter}:${g.vsStart}-${g.vsEnd}`;
-            })();
-            const text = g.verses.map(v => v.text).join(' ').slice(0, 400);
-            window.PinnedVerses.add({
-                book: g.book,
-                ch_start: g.chapter, vs_start: g.vsStart,
-                ch_end: g.chapter, vs_end: g.vsEnd,
-                version, label, text
-            });
-        });
+        const specs = _getMvbPinSpecs();
+        if (!specs.length) return;
+        const allPinned = specs.every(s => window.PinnedVerses.isPinned(s));
+        if (allPinned) {
+            specs.forEach(s => window.PinnedVerses.remove(s));
+        } else {
+            specs.forEach(s => { if (!window.PinnedVerses.isPinned(s)) window.PinnedVerses.add(s); });
+        }
+        updateMvbPinButtonState();
     });
 
     function _collectAnnotButtons(kind) {
@@ -2038,21 +2066,7 @@ function initMarkedVersesBar() {
     if (xrBtn) xrBtn.addEventListener('click', () => _toggleAnnotForMarked('xr', xrBtn));
 
     const copyBtn = document.getElementById('mvbCopyBtn');
-    const copyMenu = document.getElementById('mvbCopyMenu');
-    if (copyBtn && copyMenu) {
-        copyBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const wasOpen = copyMenu.classList.contains('open');
-            document.querySelectorAll('.copy-menu.open').forEach(m => m.classList.remove('open'));
-            if (!wasOpen) copyMenu.classList.add('open');
-        });
-    }
-
-    const copyTextBtn = document.getElementById('mvbCopyText');
-    if (copyTextBtn) copyTextBtn.addEventListener('click', () => { _mvbCopyText(false); document.querySelectorAll('.copy-menu.open').forEach(m => m.classList.remove('open')); });
-
-    const copyRefBtn = document.getElementById('mvbCopyRef');
-    if (copyRefBtn) copyRefBtn.addEventListener('click', () => { _mvbCopyText(true); document.querySelectorAll('.copy-menu.open').forEach(m => m.classList.remove('open')); });
+    if (copyBtn) copyBtn.addEventListener('click', () => _mvbCopyText());
 
     // Wheel scroll on actions row
     const actionsScroll = document.getElementById('mvbActionsScroll');
@@ -2070,7 +2084,7 @@ function initMarkedVersesBar() {
     if (bar) {
         let dragging = false, startY = 0, startX = 0, lastDy = 0, axisLocked = null;
         bar.addEventListener('pointerdown', (e) => {
-            if (e.target.closest('button, a, .copy-menu, .mvb-actions-scroll')) return;
+            if (e.target.closest('button, a, .mvb-actions-scroll')) return;
             if (e.pointerType === 'mouse' && e.button !== 0) return;
             dragging = true;
             startY = e.clientY;
@@ -2107,9 +2121,9 @@ function initMarkedVersesBar() {
             const dismiss = axisLocked === 'y' && lastDy > 60;
             if (dismiss) {
                 // Leave --mvb-shift at its current value so MVB continues smoothly
-                // from finger position to off-screen. clearAllMarkedVerses removes
-                // mvb-visible/mvb-on; reset shift after that so the next open starts clean.
-                clearAllMarkedVerses();
+                // from finger position to off-screen. Clear marks AND highlight so the
+                // bar fully closes — same intent as tapping the X.
+                window.clearHighlightAndMarked();
                 document.documentElement.style.setProperty('--mvb-shift', '0px');
             } else {
                 // Rubber-band back into place — MVB and drawer transition together.
@@ -2137,6 +2151,7 @@ document.addEventListener('click', (ev) => {
     } else {
         const cardEl = target.closest('[data-card-idx]') || target.closest('.verse-card');
         const blockIdx = cardEl ? parseInt(cardEl.dataset.cardIdx ?? cardEl.id?.replace('card-', '') ?? '0', 10) : 0;
+        const markedVersion = target.dataset.version || null;
         markedVerses.set(key, {
             book,
             chapter,
@@ -2144,7 +2159,8 @@ document.addEventListener('click', (ev) => {
             hasFn: target.dataset.hasFn === '1',
             hasXr: target.dataset.hasXr === '1',
             blockIdx,
-            text: target.textContent.trim()
+            text: target.textContent.trim(),
+            version: markedVersion
         });
         target.classList.add('verse-marked');
     }
@@ -2156,6 +2172,38 @@ window.addEventListener('resize', () => {
         if (cs && cs.alignMode && cs.visible && cs.mode === 'single') equalizeVerseHeights(parseInt(idx));
     });
 });
+
+// ── Study tray drag-to-scroll (PC only) ──
+(function() {
+    let trayDragging = false, trayEl = null, trayStartX = 0, trayScrollLeft = 0, trayMoved = false;
+    document.addEventListener('pointerdown', (e) => {
+        if (window.innerWidth <= 700) return;
+        if (e.pointerType === 'touch') return;
+        const inner = e.target.closest('.study-tray-inner');
+        if (!inner) return;
+        if (e.target.closest('button, a')) return;
+        trayDragging = true;
+        trayEl = inner;
+        trayStartX = e.clientX;
+        trayScrollLeft = inner.scrollLeft;
+        trayMoved = false;
+        try { inner.setPointerCapture(e.pointerId); } catch {}
+        e.preventDefault();
+    }, { passive: false });
+    document.addEventListener('pointermove', (e) => {
+        if (!trayDragging || !trayEl) return;
+        const dx = e.clientX - trayStartX;
+        if (Math.abs(dx) > 3) trayMoved = true;
+        trayEl.scrollLeft = trayScrollLeft - dx;
+    });
+    document.addEventListener('pointerup', (e) => {
+        if (!trayDragging) return;
+        if (trayMoved) e.stopImmediatePropagation();
+        trayDragging = false;
+        trayEl = null;
+    });
+    document.addEventListener('pointercancel', () => { trayDragging = false; trayEl = null; });
+})();
 
 // ── Text search ──
 let textSearchBookTotals = {};
@@ -2572,6 +2620,39 @@ function rerenderCard(idx) {
         topEl.nextElementSibling.classList.contains('chapter-expand-bar') &&
         topEl.nextElementSibling.dataset.cardIdx === String(idx))
         ? topEl.nextElementSibling : null;
+
+    // Preserve side-nav buttons across re-renders so :hover state doesn't flicker when
+    // user clicks an arrow (the wrap would otherwise be replaced under the cursor).
+    const oldHasWrap = wrap && wrap.classList && wrap.classList.contains('card-swipe-wrap');
+    const newIsWrap = newTop.classList && newTop.classList.contains('card-swipe-wrap');
+    if (oldHasWrap && newIsWrap) {
+        const newCard = newTop.querySelector('.verse-card');
+        if (newCard) {
+            ['side-nav-prev', 'side-nav-next'].forEach(cls => {
+                const oldBtn = wrap.querySelector('.' + cls);
+                const newBtn = newTop.querySelector('.' + cls);
+                if (!oldBtn || !newBtn) return;
+                oldBtn.setAttribute('data-disabled', newBtn.getAttribute('data-disabled') || '0');
+                const oc = newBtn.getAttribute('onclick');
+                if (oc) oldBtn.setAttribute('onclick', oc);
+                else oldBtn.removeAttribute('onclick');
+                const titleAttr = newBtn.getAttribute('title');
+                if (titleAttr != null) oldBtn.setAttribute('title', titleAttr);
+            });
+            card.replaceWith(newCard);
+            if (newExpand) {
+                if (oldExpand) oldExpand.replaceWith(newExpand);
+                else wrap.parentElement.insertBefore(newExpand, wrap.nextSibling);
+            } else if (oldExpand) {
+                oldExpand.remove();
+            }
+            if (cardCompare[idx] && cardCompare[idx].visible) {
+                try { renderCompareBody(idx); } catch {}
+            }
+            if (typeof updateWideMode === 'function') updateWideMode();
+            return;
+        }
+    }
     topEl.replaceWith(newTop);
     if (newExpand) {
         if (oldExpand) oldExpand.replaceWith(newExpand);
@@ -2591,6 +2672,9 @@ window.toggleChapterExpand = async function(idx) {
     if (!mainData || !mainData[idx]) return;
     const block = mainData[idx];
     const expandState = cardExpandedState[idx];
+
+    // Navigation/scope change — drop any marked verses so MVB doesn't linger over re-rendered DOM.
+    clearAllMarkedVerses();
 
     if (expandState && expandState.originalBlock) {
         // Collapse back to original verses — clear chapter-highlight first, animate out, then re-render.
@@ -2814,34 +2898,15 @@ function renderAllVersions(allResults, label) {
 }
 
 // ── Copy ──
-function buildCopyText(verses) {
-    const showNums = toggleVerseNums.checked;
-    const showNewlines = toggleNewlines.checked;
-    if (showNewlines) {
-        return verses.map(v => (showNums ? `${v.num} ` : '') + v.text).join('\n');
-    } else {
-        return verses.map(v => (showNums ? `${v.num} ` : '') + v.text).join(' ').trim();
-    }
-}
-
-window.copyBlockText = function(blockIdx) {
-    document.querySelectorAll('.copy-menu.open').forEach(m => m.classList.remove('open'));
-    if (!mainData || !mainData[blockIdx]) return;
-    const block = mainData[blockIdx];
-    const text = buildCopyText(block.verses);
-    navigator.clipboard.writeText(text).then(() => showToast(t('toast.copied')));
-};
-
-window.copyBlockRef = function(blockIdx) {
-    document.querySelectorAll('.copy-menu.open').forEach(m => m.classList.remove('open'));
+window.copyBlock = function(blockIdx) {
     if (!mainData || !mainData[blockIdx]) return;
     const block = mainData[blockIdx];
     const ver = versionSelect.value;
     const lang = versionLang(ver);
-    const text = buildCopyText(block.verses);
+    const text = block.verses.map(v => v.text).join(' ').trim();
     const label = translateLabel(block.label, block.book, lang);
     const full = `${text}\n\n${label} ${versionLabel(ver)}`;
-    navigator.clipboard.writeText(full).then(() => showToast(t('toast.copiedRef')));
+    navigator.clipboard.writeText(full).then(() => showToast(t('toast.copied')));
 };
 
 // ── Empty state verse link ──
@@ -2862,13 +2927,14 @@ window.goHome = function(pushHistory = true) {
     allVersionsTextCache = null;
     currentChapterInfo = null;
     currentHighlightVerses = null;
-    updateMvbHighlightChip();
+    clearAllMarkedVerses();
     Object.keys(cardCompare).forEach(k => delete cardCompare[k]);
     searchInput.value = '';
     updateSearchHighlight();
     setPageTitle(null);
     resultsWrapper.innerHTML = emptyStateHtml;
     if (typeof updateWideMode === 'function') updateWideMode();
+    if (typeof updateToolbarCompareBtn === 'function') updateToolbarCompareBtn();
     applyI18n();
     if (pushHistory) history.pushState({}, '', '/');
 };
@@ -3254,14 +3320,25 @@ function setQuickMode(on) {
         if (_quickAbortCtrl) _quickAbortCtrl.abort();
         clearTimeout(_quickDebounceTimer);
         // Restore the view we were on before quick mode was enabled.
-        currentView = _viewBeforeQuick || 'normal';
-        if (currentView === 'normal' && mainData) {
+        // _viewBeforeQuick may be null (quickMode persisted from localStorage on page load
+        // without ever passing through setQuickMode(true)) — fall through to whatever cache
+        // we have rather than wiping the screen.
+        let target = _viewBeforeQuick;
+        if (!target || target === 'quick_search') {
+            if (mainData) target = 'normal';
+            else if (textSearchCache) target = 'text_search';
+            else if (allVersionsCache) target = 'all_versions';
+            else if (allVersionsTextCache) target = 'text_search_all';
+            else target = 'normal';
+        }
+        currentView = target;
+        if (target === 'normal' && mainData) {
             renderAll();
-        } else if (currentView === 'all_versions' && allVersionsCache) {
+        } else if (target === 'all_versions' && allVersionsCache) {
             renderAllVersions(allVersionsCache.results, allVersionsCache.label);
-        } else if (currentView === 'text_search' && textSearchCache) {
+        } else if (target === 'text_search' && textSearchCache) {
             renderTextSearch(textSearchCache.results, textSearchCache.query, textSearchCache.bookTotals || {});
-        } else if (currentView === 'text_search_all' && allVersionsTextCache) {
+        } else if (target === 'text_search_all' && allVersionsTextCache) {
             renderAllVersionsTextSearch(allVersionsTextCache.results, allVersionsTextCache.query);
         } else {
             currentView = 'normal';
@@ -3274,6 +3351,28 @@ function setQuickMode(on) {
 
 quickModeBtn.addEventListener('click', () => setQuickMode(!quickMode));
 setQuickModeBtnState();
+
+// ── Toolbar + MVB compare buttons (synced) ──
+const toolbarCompareBtn = document.getElementById('toolbarCompareBtn');
+function updateToolbarCompareBtn() {
+    const pressed = compareIntent ? 'true' : 'false';
+    if (toolbarCompareBtn) toolbarCompareBtn.setAttribute('aria-pressed', pressed);
+    const mvbCmp = document.getElementById('mvbCompare');
+    if (mvbCmp) mvbCmp.setAttribute('aria-pressed', pressed);
+}
+function _toggleCompareAllCards() {
+    if (compareIntent) {
+        compareIntent = false;
+        if (mainData) mainData.forEach((_, idx) => { if (cardCompare[idx] && cardCompare[idx].visible) toggleCardCompare(idx); });
+    } else {
+        compareIntent = true;
+        if (mainData) mainData.forEach((_, idx) => toggleCardCompare(idx));
+    }
+    updateToolbarCompareBtn();
+}
+if (toolbarCompareBtn) {
+    toolbarCompareBtn.addEventListener('click', _toggleCompareAllCards);
+}
 if (quickMode && searchInput.value.trim().length >= 3) {
     // Trigger initial quick search if mode persisted with a value (rare)
     runQuickSearch();
@@ -3502,11 +3601,12 @@ document.addEventListener('keydown', e => {
         return;
     }
 
+    if (e.key === 'q' && e.ctrlKey) { e.preventDefault(); setQuickMode(!quickMode); return; }
+
     if (inInput) return;
 
     if (e.key === '/') { e.preventDefault(); searchInput.focus(); searchInput.select(); return; }
     if (e.key === '?') { document.getElementById('helpModal').classList.toggle('open'); return; }
-    if (e.key === 'q' && e.ctrlKey) { e.preventDefault(); setQuickMode(!quickMode); return; }
 
     if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && currentChapterInfo) {
         e.preventDefault();
@@ -3538,43 +3638,288 @@ function applyFontSize(val) {
 // ── Dark mode & accent color ──
 const darkToggle = document.getElementById('darkToggle');
 
-function applyAccent(idx) {
-    const c = COLOR_PRESETS[idx] || COLOR_PRESETS[0];
+function _hexToRgb(hex) {
+    const h = (hex || '').replace('#', '').trim();
+    if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+    return { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16) };
+}
+function _rgbToHsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h, s, l = (max + min) / 2;
+    if (max === min) { h = s = 0; }
+    else {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch (max) {
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            case b: h = (r - g) / d + 4; break;
+        }
+        h /= 6;
+    }
+    return { h, s, l };
+}
+function _hslToHex(h, s, l) {
+    let r, g, b;
+    if (s === 0) { r = g = b = l; }
+    else {
+        const hue2rgb = (p, q, t) => {
+            if (t < 0) t += 1; if (t > 1) t -= 1;
+            if (t < 1 / 6) return p + (q - p) * 6 * t;
+            if (t < 1 / 2) return q;
+            if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+            return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1 / 3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1 / 3);
+    }
+    const toHex = x => Math.round(Math.max(0, Math.min(1, x)) * 255).toString(16).padStart(2, '0');
+    return '#' + toHex(r) + toHex(g) + toHex(b);
+}
+// Derive {accent, hover, dim} from a single hex, tuned for light or dark theme.
+function deriveAccentFromHex(hex, isDark) {
+    const rgb = _hexToRgb(hex);
+    if (!rgb) return null;
+    const hsl = _rgbToHsl(rgb.r, rgb.g, rgb.b);
+    let l = hsl.l;
+    if (isDark) {
+        // Ensure visible on dark backgrounds: lift dim colors
+        if (l < 0.55) l = Math.min(0.72, l + 0.22);
+    } else {
+        // Avoid washed-out light colors on white backgrounds
+        if (l > 0.55) l = Math.max(0.35, l - 0.12);
+    }
+    const accent = _hslToHex(hsl.h, hsl.s, l);
+    const hoverL = Math.max(0, l - (isDark ? 0.06 : 0.08));
+    const hover = _hslToHex(hsl.h, hsl.s, hoverL);
+    const aRgb = _hexToRgb(accent);
+    const dim = `rgba(${aRgb.r},${aRgb.g},${aRgb.b},0.12)`;
+    return { accent, hover, dim };
+}
+
+function applyAccent(sel) {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    const accent = isDark ? c.d : c.l;
-    const hover  = isDark ? c.dh : c.lh;
-    const dim    = isDark ? c.dd : c.ld;
-    const root   = document.documentElement;
+    let accent, hover, dim;
+    if (sel === 'custom') {
+        const derived = deriveAccentFromHex(customAccentHex, isDark) || deriveAccentFromHex('#2870e8', isDark);
+        accent = derived.accent; hover = derived.hover; dim = derived.dim;
+    } else {
+        const c = COLOR_PRESETS[sel] || COLOR_PRESETS[0];
+        accent = isDark ? c.d : c.l;
+        hover  = isDark ? c.dh : c.lh;
+        dim    = isDark ? c.dd : c.ld;
+    }
+    const root = document.documentElement;
     root.style.setProperty('--accent', accent);
     root.style.setProperty('--accent-hover', hover);
     root.style.setProperty('--accent-dim', dim);
     root.style.setProperty('--verse-num', accent);
-    document.querySelectorAll('.color-swatch').forEach((sw, i) => sw.classList.toggle('active', i === idx));
+    document.querySelectorAll('.color-swatch').forEach(sw => {
+        const sIdx = sw.dataset.idx;
+        const active = (sIdx === 'custom' && sel === 'custom') || (sIdx !== 'custom' && parseInt(sIdx) === sel);
+        sw.classList.toggle('active', active);
+    });
 }
 
 function applyTheme(dark) {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
     darkToggle.innerHTML = dark ? '&#9728;' : '&#9790;';
     localStorage.setItem('theme', dark ? 'dark' : 'light');
-    applyAccent(currentAccentIdx);
+    applyAccent(currentAccent);
 }
 
-// Build color swatches
+// Build color swatches + custom hex input
 (function() {
     const picker = document.getElementById('colorPicker');
     COLOR_PRESETS.forEach((c, i) => {
         const sw = document.createElement('button');
-        sw.className = 'color-swatch' + (i === currentAccentIdx ? ' active' : '');
+        sw.className = 'color-swatch' + (i === currentAccent ? ' active' : '');
+        sw.dataset.idx = String(i);
         sw.style.background = c.l;
         sw.title = c.name;
         sw.setAttribute('aria-label', c.name + ' accent');
         sw.addEventListener('click', () => {
-            currentAccentIdx = i;
-            localStorage.setItem('accentColor', i);
+            currentAccent = i;
+            localStorage.setItem('accentColor', String(i));
             applyAccent(i);
         });
         picker.appendChild(sw);
     });
+
+    // Custom swatch — click opens color picker popup
+    const customSw = document.createElement('button');
+    customSw.className = 'color-swatch color-swatch-custom' + (currentAccent === 'custom' ? ' active' : '');
+    customSw.dataset.idx = 'custom';
+    const hasSavedCustom = !!localStorage.getItem('accentCustom');
+    if (hasSavedCustom) {
+        customSw.style.background = customAccentHex;
+        customSw.classList.add('has-color');
+    }
+    customSw.title = I18N.no['settings.customAccent'];
+    customSw.setAttribute('aria-label', 'Custom accent');
+    customSw.addEventListener('click', () => {
+        currentAccent = 'custom';
+        localStorage.setItem('accentColor', 'custom');
+        applyAccent('custom');
+        openColorPopup(customSw);
+    });
+    picker.appendChild(customSw);
+
+    // ── HSV helpers ──
+    function _hexToHsv(hex) {
+        const rgb = _hexToRgb(hex); if (!rgb) return { h: 0, s: 0, v: 1 };
+        const r = rgb.r / 255, g = rgb.g / 255, b = rgb.b / 255;
+        const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+        let h = 0;
+        if (d !== 0) {
+            switch (max) {
+                case r: h = ((g - b) / d) % 6; break;
+                case g: h = (b - r) / d + 2; break;
+                case b: h = (r - g) / d + 4; break;
+            }
+            h *= 60; if (h < 0) h += 360;
+        }
+        const s = max === 0 ? 0 : d / max;
+        return { h, s, v: max };
+    }
+    function _hsvToHex(h, s, v) {
+        const c = v * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c;
+        let r = 0, g = 0, b = 0;
+        if (h < 60) { r = c; g = x; }
+        else if (h < 120) { r = x; g = c; }
+        else if (h < 180) { g = c; b = x; }
+        else if (h < 240) { g = x; b = c; }
+        else if (h < 300) { r = x; b = c; }
+        else { r = c; b = x; }
+        const toHex = n => Math.round((n + m) * 255).toString(16).padStart(2, '0');
+        return '#' + toHex(r) + toHex(g) + toHex(b);
+    }
+
+    // ── Color picker popup (singleton) ──
+    let popupEl = null, popupState = null;
+    function buildPopup() {
+        const el = document.createElement('div');
+        el.className = 'color-popup';
+        el.innerHTML = `
+            <div class="color-sv"><div class="color-thumb"></div></div>
+            <div class="color-hue"><div class="color-thumb"></div></div>
+            <div class="color-popup-foot">
+                <div class="color-preview"></div>
+                <div class="color-hex-wrap"><span>#</span><input class="color-hex-in" maxlength="6" spellcheck="false" autocomplete="off"></div>
+            </div>`;
+        document.body.appendChild(el);
+        const sv = el.querySelector('.color-sv');
+        const svThumb = sv.querySelector('.color-thumb');
+        const hue = el.querySelector('.color-hue');
+        const hueThumb = hue.querySelector('.color-thumb');
+        const preview = el.querySelector('.color-preview');
+        const hexIn = el.querySelector('.color-hex-in');
+        const state = { h: 0, s: 1, v: 1, sv, svThumb, hue, hueThumb, preview, hexIn };
+
+        function render(updateHexField) {
+            sv.style.background = `linear-gradient(to top, #000, rgba(0,0,0,0)), linear-gradient(to right, #fff, hsl(${state.h}, 100%, 50%))`;
+            const w = sv.clientWidth || 200, h = sv.clientHeight || 140;
+            svThumb.style.left = (state.s * w) + 'px';
+            svThumb.style.top = ((1 - state.v) * h) + 'px';
+            const hw = hue.clientWidth || 200;
+            hueThumb.style.left = ((state.h / 360) * hw) + 'px';
+            const hex = _hsvToHex(state.h, state.s, state.v);
+            preview.style.background = hex;
+            if (updateHexField) hexIn.value = hex.slice(1);
+            // Live apply
+            customAccentHex = hex;
+            localStorage.setItem('accentCustom', customAccentHex);
+            customSw.style.background = customAccentHex;
+            customSw.classList.add('has-color');
+            applyAccent('custom');
+        }
+        state.render = render;
+
+        function dragHandler(target, fn) {
+            target.addEventListener('pointerdown', e => {
+                target.setPointerCapture(e.pointerId);
+                const rect = target.getBoundingClientRect();
+                const move = ev => fn(ev.clientX - rect.left, ev.clientY - rect.top, rect.width, rect.height);
+                move(e);
+                const up = ev => {
+                    target.releasePointerCapture(e.pointerId);
+                    target.removeEventListener('pointermove', move);
+                    target.removeEventListener('pointerup', up);
+                    target.removeEventListener('pointercancel', up);
+                };
+                target.addEventListener('pointermove', move);
+                target.addEventListener('pointerup', up);
+                target.addEventListener('pointercancel', up);
+                e.preventDefault();
+            });
+        }
+        dragHandler(sv, (x, y, w, h) => {
+            state.s = Math.max(0, Math.min(1, x / w));
+            state.v = Math.max(0, Math.min(1, 1 - y / h));
+            render(true);
+        });
+        dragHandler(hue, (x, y, w) => {
+            state.h = Math.max(0, Math.min(359.999, (x / w) * 360));
+            render(true);
+        });
+        hexIn.addEventListener('input', () => {
+            let v = hexIn.value.trim().replace(/^#/, '');
+            if (!/^[0-9a-fA-F]{6}$/.test(v)) return;
+            const hsv = _hexToHsv('#' + v);
+            state.h = hsv.h; state.s = hsv.s; state.v = hsv.v;
+            render(false);
+        });
+        hexIn.addEventListener('blur', () => {
+            hexIn.value = _hsvToHex(state.h, state.s, state.v).slice(1);
+        });
+        return state;
+    }
+
+    function positionPopup(anchor) {
+        const r = anchor.getBoundingClientRect();
+        const pw = 248, ph = 220;
+        let left = r.left + r.width / 2 - pw / 2;
+        let top = r.bottom + 8;
+        left = Math.max(8, Math.min(window.innerWidth - pw - 8, left));
+        if (top + ph > window.innerHeight - 8) top = r.top - ph - 8;
+        popupEl.style.left = left + 'px';
+        popupEl.style.top = top + 'px';
+    }
+
+    function onDocClick(e) {
+        if (!popupEl) return;
+        if (popupEl.contains(e.target) || customSw.contains(e.target)) return;
+        closeColorPopup();
+    }
+    function onKey(e) { if (e.key === 'Escape') closeColorPopup(); }
+
+    function openColorPopup(anchor) {
+        if (!popupEl) {
+            popupState = buildPopup();
+            popupEl = popupState.sv.closest('.color-popup');
+        }
+        const hsv = _hexToHsv(customAccentHex);
+        popupState.h = hsv.h; popupState.s = hsv.s; popupState.v = hsv.v;
+        popupEl.style.display = 'block';
+        positionPopup(anchor);
+        // Render after layout so sv.clientWidth is correct
+        requestAnimationFrame(() => popupState.render(true));
+        setTimeout(() => {
+            document.addEventListener('mousedown', onDocClick);
+            document.addEventListener('keydown', onKey);
+        }, 0);
+    }
+    function closeColorPopup() {
+        if (!popupEl) return;
+        popupEl.style.display = 'none';
+        document.removeEventListener('mousedown', onDocClick);
+        document.removeEventListener('keydown', onKey);
+    }
+    window.addEventListener('resize', () => { if (popupEl && popupEl.style.display !== 'none') positionPopup(customSw); });
 })();
 
 darkToggle.addEventListener('click', () => applyTheme(document.documentElement.getAttribute('data-theme') !== 'dark'));
@@ -3692,6 +4037,8 @@ window.goVerse = async function(bookCode, chapter, verse, bName, direction, card
 // Updates URL via history.pushState so back-button + share-link still work.
 async function navigateCardToRef(cardIdx, ref, direction, highlightKeys) {
     if (!mainData || !mainData[cardIdx]) return;
+    // Navigation — drop marked verses so MVB doesn't outlive the verses it points at.
+    clearAllMarkedVerses();
     const ver = versionSelect.value;
     try {
         const resp = await fetch(`/api/search?q=${encodeURIComponent(ref)}&version=${encodeURIComponent(ver)}`);
@@ -4492,17 +4839,19 @@ window.togglePinForBlock = function(idx) {
 };
 
 window.refreshPinButtons = function() {
-    if (!mainData) return;
-    mainData.forEach((_, idx) => {
-        const card = document.getElementById(`card-${idx}`);
-        if (!card) return;
-        const btn = card.querySelector('.pin-tray-btn');
-        if (!btn) return;
-        const pinned = window.isBlockPinned(idx);
-        btn.classList.toggle('pinned', pinned);
-        const label = btn.querySelector('.pin-label');
-        if (label) label.textContent = pinned ? 'Festet' : 'Fest';
-    });
+    if (mainData) {
+        mainData.forEach((_, idx) => {
+            const card = document.getElementById(`card-${idx}`);
+            if (!card) return;
+            const btn = card.querySelector('.pin-tray-btn');
+            if (!btn) return;
+            const pinned = window.isBlockPinned(idx);
+            btn.classList.toggle('pinned', pinned);
+            const label = btn.querySelector('.pin-label');
+            if (label) label.textContent = pinned ? 'Festet' : 'Fest';
+        });
+    }
+    if (typeof updateMvbPinButtonState === 'function') updateMvbPinButtonState();
 };
 
 // Re-observe cards whenever results re-render (covers all render paths: renderAll,

@@ -1,5 +1,5 @@
 // Bump CACHE_VERSION on each deploy to invalidate old caches.
-const CACHE_VERSION = 'v20';
+const CACHE_VERSION = 'v30';
 const CACHE_NAME = `bibelsok-${CACHE_VERSION}`;
 
 const PRECACHE = [

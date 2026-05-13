@@ -1,7 +1,6 @@
 /* AppDrawer — mobile bottom-sheet module system (≤700px only) */
 window.AppDrawer = (() => {
     const MOBILE_BP = 701;
-    const COLLAPSED_H = 64; // px visible when collapsed (handle area only)
 
     function isMobile() { return window.innerWidth < MOBILE_BP; }
 
@@ -33,26 +32,43 @@ window.AppDrawer = (() => {
     const drawerEl = () => document.getElementById('appDrawer');
     const modulesEl = () => document.getElementById('drawerModules');
 
+    function escapeHtml(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        })[c]);
+    }
+
     function mountAll() {
         const el = modulesEl();
         if (!el) return;
         el.innerHTML = '';
         state.mounted = {};
         for (const def of state.modules) {
-            const card = document.createElement('div');
-            card.className = 'drawer-module-card';
+            // Reuse sidebar-module class so styling, animations, and chevron are consistent
+            // with the desktop sidebar. drawer-module-card stays for drawer-specific tweaks.
+            const card = document.createElement('section');
+            card.className = 'sidebar-module drawer-module-card';
             card.dataset.moduleId = def.id;
+            card.dataset.collapsed = 'false';
 
             const header = document.createElement('div');
-            header.className = 'drawer-module-header';
-            header.innerHTML = `<span class="drawer-module-icon">${def.icon || ''}</span><span class="drawer-module-title">${def.title || ''}</span><span class="drawer-module-actions sidebar-module-actions"></span><span class="drawer-module-chevron">▾</span>`;
+            header.className = 'sidebar-module-header drawer-module-header';
+            header.innerHTML = `
+                ${def.icon ? `<span class="sidebar-module-icon" aria-hidden="true">${def.icon}</span>` : ''}
+                <span class="sidebar-module-title">${escapeHtml(def.title || def.id)}</span>
+                <span class="sidebar-module-actions"></span>
+                <span class="sidebar-module-collapse" aria-hidden="true">
+                    <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4 L6 8 L10 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </span>
+            `;
             header.addEventListener('click', (e) => {
-                if (e.target.closest('.drawer-module-actions, button')) return;
-                card.classList.toggle('collapsed');
+                if (e.target.closest('.sidebar-module-actions, button')) return;
+                const cur = card.dataset.collapsed === 'true';
+                card.dataset.collapsed = cur ? 'false' : 'true';
             });
 
             const body = document.createElement('div');
-            body.className = 'drawer-module-body';
+            body.className = 'sidebar-module-body drawer-module-body';
 
             card.appendChild(header);
             card.appendChild(body);
@@ -180,7 +196,9 @@ window.AppDrawer = (() => {
             return parseFloat(v) || 0;
         }
         function getCollapsedH() {
-            return document.body.classList.contains('mvb-on') ? 44 : COLLAPSED_H;
+            // Read the live CSS var so JS stays in sync with CSS (MVB-on overrides it).
+            const v = getComputedStyle(document.documentElement).getPropertyValue('--drawer-collapsed-h').trim();
+            return parseFloat(v) || 64;
         }
         function collapsedTranslatePx(h) {
             return Math.max(0, h - getCollapsedH() - getSafeAreaBottom() - getMvbH());
@@ -220,9 +238,10 @@ window.AppDrawer = (() => {
             }
         });
 
-        handle.addEventListener('pointerup', e => {
+        function endDrag(e) {
             if (!dragging) return;
             dragging = false;
+            try { handle.releasePointerCapture(e.pointerId); } catch {}
             const el = drawerEl();
             if (el) {
                 el.style.transition = ''; // restore CSS transition
@@ -242,7 +261,9 @@ window.AppDrawer = (() => {
             } else if (startPhase === 'closed') {
                 if (tap || dy < -20) open();
             }
-        });
+        }
+        handle.addEventListener('pointerup', endDrag);
+        handle.addEventListener('pointercancel', endDrag);
     }
 
     function init() {
