@@ -633,11 +633,11 @@
             position: relative;
         }
         .display-bar {
-            display: flex;
+            display: inline-flex;
             align-items: stretch;
             background: transparent;
             border: 1px solid var(--border);
-            border-radius: var(--radius);
+            border-radius: 20px;
             overflow: hidden;
             opacity: 0.72;
             transition: opacity 0.15s;
@@ -650,10 +650,9 @@
             flex-shrink: 0;
         }
         .display-bar-btn {
-            flex: 1;
             background: none;
             border: none;
-            padding: 8px 12px;
+            padding: 7px 14px;
             color: var(--text-muted);
             font-family: var(--font-ui);
             font-size: 0.82rem;
@@ -2259,7 +2258,7 @@
 
             .search-group #searchBtn { padding: 9px 10px; font-size: 0.8rem; }
 
-            .display-bar-btn { padding: 8px 6px; font-size: 0.78rem; }
+            .display-bar-btn { padding: 7px 10px; font-size: 0.78rem; }
             .display-bar-label { display: none; }
             .display-bar-icon { width: 15px; height: 15px; }
 
