@@ -1,0 +1,21 @@
+{
+  "name": "Bibelsøk",
+  "short_name": "Bibelsøk",
+  "icons": [
+    {
+      "src": "/static/images/web-app-manifest-192x192.png?v=20260514",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/static/images/web-app-manifest-512x512.png?v=20260514",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "theme_color": "#014af4",
+  "background_color": "#F5F2EE",
+  "display": "standalone"
+}

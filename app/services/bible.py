@@ -420,6 +420,9 @@ class BibleData:
 
         sql = (
             "SELECT p.id, p.name, p.aliases, p.placemark, p.kind, p.geometry, "
+            "       p.comment, p.semantic_type, p.preceding_article, "
+            "       p.wikidata_id, p.wikipedia_url, "
+            "       p.confidence, p.confidence_votes, "
             "       pv.chapter, pv.verse "
             "FROM place_verses pv JOIN places p ON p.id = pv.place_id "
             f"WHERE {' AND '.join(where)} "
@@ -428,7 +431,11 @@ class BibleData:
 
         by_id = {}
         order = []
-        for pid, name, aliases, placemark, kind, geometry, ch, vs in self.db.execute(sql, params):
+        for (pid, name, aliases, placemark, kind, geometry,
+             comment, semantic_type, preceding_article,
+             wikidata_id, wikipedia_url,
+             confidence, confidence_votes,
+             ch, vs) in self.db.execute(sql, params):
             if non_eng:
                 _, ch, vs = self.vsf.from_eng(tx_vsf, book_usfm, ch, vs)
             if pid not in by_id:
@@ -439,6 +446,13 @@ class BibleData:
                     "placemark": placemark,
                     "kind": kind,
                     "geometry": json.loads(geometry),
+                    "comment": comment,
+                    "semantic_type": semantic_type,
+                    "preceding_article": preceding_article,
+                    "wikidata_id": wikidata_id,
+                    "wikipedia_url": wikipedia_url,
+                    "confidence": confidence,
+                    "confidence_votes": confidence_votes,
                     "refs": [],
                 }
                 order.append(pid)
@@ -447,7 +461,65 @@ class BibleData:
                 by_id[pid]["refs"].append(ref)
         for entry in by_id.values():
             entry["refs"].sort(key=lambda r: (r["chapter"], r["verse"]))
+        # Add total ref count across the whole Bible (used by frontend to gate UI).
+        if by_id:
+            ids = list(by_id.keys())
+            placeholders = ",".join(["?"] * len(ids))
+            rows = self.db.execute(
+                f"SELECT place_id, COUNT(*) FROM place_verses WHERE place_id IN ({placeholders}) GROUP BY place_id",
+                ids,
+            ).fetchall()
+            counts = {pid: cnt for pid, cnt in rows}
+            for pid, entry in by_id.items():
+                entry["total_refs"] = counts.get(pid, len(entry["refs"]))
         return [by_id[pid] for pid in order]
+
+    def get_place_full(self, place_id):
+        """Full place row plus all place_verses references across the whole Bible.
+        Used by the map popup's stats button and rich details view."""
+        row = self.db.execute(
+            "SELECT id, name, aliases, placemark, kind, geometry, confidence, "
+            "       confidence_votes, comment, semantic_type, preceding_article, "
+            "       wikidata_id, wikipedia_url "
+            "FROM places WHERE id=?",
+            [place_id],
+        ).fetchone()
+        if not row:
+            return None
+        (pid, name, aliases, placemark, kind, geometry, confidence,
+         confidence_votes, comment, semantic_type, preceding_article,
+         wikidata_id, wikipedia_url) = row
+        ref_rows = self.db.execute(
+            "SELECT pv.book_usfm, pv.chapter, pv.verse "
+            "FROM place_verses pv JOIN books b ON b.usfm = pv.book_usfm "
+            "WHERE pv.place_id=? "
+            "ORDER BY b.order_num, pv.chapter, pv.verse",
+            [place_id],
+        ).fetchall()
+        refs = []
+        for book_usfm, ch, vs in ref_rows:
+            refs.append({
+                "book_usfm": book_usfm,
+                "chapter": ch,
+                "verse": vs,
+                "ref_label": f"{USFM_TO_NAME.get(book_usfm, book_usfm)} {ch}:{vs}",
+            })
+        return {
+            "id": pid,
+            "name": name,
+            "aliases": json.loads(aliases) if aliases else [],
+            "placemark": placemark,
+            "kind": kind,
+            "geometry": json.loads(geometry) if geometry else None,
+            "confidence": confidence,
+            "confidence_votes": confidence_votes,
+            "comment": comment,
+            "semantic_type": semantic_type,
+            "preceding_article": preceding_article,
+            "wikidata_id": wikidata_id,
+            "wikipedia_url": wikipedia_url,
+            "refs": refs,
+        }
 
     # ── commentaries / topics / outlines ────────────────────────────
     def get_commentary_entries(self, commentary_id, book_usfm, ch_start, vs_start=None,
