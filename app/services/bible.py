@@ -99,6 +99,24 @@ USFM_TO_ENG = {
     "REV":"Revelation",
 }
 
+USFM_TO_ABBREV_NO = {
+    "GEN":"1 Mos","EXO":"2 Mos","LEV":"3 Mos","NUM":"4 Mos","DEU":"5 Mos",
+    "JOS":"Jos","JDG":"Dom","RUT":"Rut","1SA":"1 Sam","2SA":"2 Sam",
+    "1KI":"1 Kong","2KI":"2 Kong","1CH":"1 Krøn","2CH":"2 Krøn",
+    "EZR":"Esra","NEH":"Neh","EST":"Est","JOB":"Job","PSA":"Sal",
+    "PRO":"Ord","ECC":"Fork","SNG":"Høys","ISA":"Jes",
+    "JER":"Jer","LAM":"Klag","EZK":"Esek","DAN":"Dan","HOS":"Hos",
+    "JOL":"Joel","AMO":"Amos","OBA":"Obad","JON":"Jona","MIC":"Mika",
+    "NAM":"Nah","HAB":"Hab","ZEP":"Sef","HAG":"Hag","ZEC":"Sak",
+    "MAL":"Mal","MAT":"Matt","MRK":"Mark","LUK":"Luk","JHN":"Joh",
+    "ACT":"Apg","ROM":"Rom","1CO":"1 Kor","2CO":"2 Kor",
+    "GAL":"Gal","EPH":"Ef","PHP":"Fil","COL":"Kol",
+    "1TH":"1 Tess","2TH":"2 Tess","1TI":"1 Tim","2TI":"2 Tim",
+    "TIT":"Tit","PHM":"Filem","HEB":"Heb","JAS":"Jak","1PE":"1 Pet",
+    "2PE":"2 Pet","1JN":"1 Joh","2JN":"2 Joh","3JN":"3 Joh","JUD":"Jud",
+    "REV":"Åp",
+}
+
 ALIAS_MAP = {}
 USFM_TO_NAME = {}
 USFM_TO_ORDER = {}

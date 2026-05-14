@@ -3153,7 +3153,210 @@
             padding-bottom: 0;
         }
 
-        /* Module header clear-all button */
+        /* ── Pinned-verses strip ── */
+        :root { --pin-h: 0px; }
+        .pinned-strip {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: var(--mvb-h, 0px);
+            z-index: 205;
+            background: var(--card-bg, var(--bg));
+            border-top: 1px solid var(--border);
+            box-shadow: 0 -4px 12px rgba(0,0,0,0.10);
+            transform: translateY(calc(100% + var(--mvb-h, 0px)));
+            transition: transform 0.32s cubic-bezier(.2,.8,.2,1),
+                        bottom 0.32s cubic-bezier(.2,.8,.2,1),
+                        left 0.32s cubic-bezier(0.2, 0.8, 0.3, 1),
+                        max-width 0.32s cubic-bezier(0.2, 0.8, 0.3, 1);
+            pointer-events: none;
+        }
+        .pinned-strip[data-state="open"] {
+            transform: translateY(var(--mvb-shift, 0px));
+            pointer-events: auto;
+        }
+        body.mvb-dragging .pinned-strip { transition: none !important; }
+        @media (min-width: 701px) {
+            .pinned-strip {
+                left: 50%;
+                right: auto;
+                max-width: min(960px, calc(100% - 40px));
+                width: 100%;
+                border-radius: 14px 14px 0 0;
+                transform: translate(-50%, calc(100% + var(--mvb-h, 0px)));
+            }
+            .pinned-strip[data-state="open"] {
+                transform: translate(-50%, var(--mvb-shift, 0px));
+            }
+            body.sidebar-open .pinned-strip {
+                left: calc(50% - var(--sidebar-width) / 2);
+                max-width: min(960px, calc(100% - var(--sidebar-width) - 40px));
+            }
+        }
+        @media (max-width: 700px) {
+            .pinned-strip {
+                border-radius: 14px 14px 0 0;
+            }
+        }
+        /* When MVB sits directly below the strip, fuse the seam between them
+           (drop strip's bottom rounding, drop MVB's top rounding + border + shadow,
+           and overlap by 1px to absorb sub-pixel rounding of --mvb-h). */
+        body.pin-strip-on.mvb-on .pinned-strip {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            box-shadow: none;
+            bottom: calc(var(--mvb-h, 0px) - 1px);
+        }
+        body.pin-strip-on.mvb-on .marked-verses-bar {
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+            /* Keep the border in place (preserves offsetHeight so --mvb-h stays
+               in sync via the ResizeObserver) but hide it visually. */
+            border-top-color: transparent;
+            box-shadow: none;
+        }
+        /* When module-host opens above the strip on mobile, fuse that seam too
+           (overlap module-host onto the strip by 1px to absorb sub-pixel rounding). */
+        @media (max-width: 700px) {
+            body.module-open.pin-strip-on .pinned-strip {
+                border-top-left-radius: 0;
+                border-top-right-radius: 0;
+                border-top-color: transparent;
+            }
+            body.module-open.pin-strip-on .module-host {
+                bottom: calc(var(--mvb-h, 0px) + var(--pin-h, 0px) - 1px);
+            }
+        }
+        .pinned-strip-inner {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+        }
+        /* Extend the strip's *background* past the home indicator without
+           inflating the inner padding (which would push pills upward). */
+        .pinned-strip { padding-bottom: env(safe-area-inset-bottom); }
+        body.mvb-on .pinned-strip { padding-bottom: 0; }
+        .pinned-strip-pills {
+            flex: 1 1 auto;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: thin;
+            padding: 2px 0;
+        }
+        .pinned-strip-pills::-webkit-scrollbar { height: 6px; }
+        .pinned-strip-pills::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        .pinned-pill {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 4px 4px 10px;
+            background: var(--accent-dim);
+            color: var(--accent);
+            border: 1px solid transparent;
+            border-radius: 999px;
+            font-family: var(--font-ui);
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            line-height: 1;
+            transition: border-color 0.15s ease, background 0.15s ease;
+        }
+        .pinned-pill:hover {
+            border-color: var(--accent);
+        }
+        .pinned-pill-ref { white-space: nowrap; }
+        .pinned-pill-remove {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            font-size: 0.9rem;
+            opacity: 0.6;
+            transition: all 0.15s ease;
+        }
+        .pinned-pill-remove:hover {
+            opacity: 1;
+            background: var(--error-bg);
+            color: var(--error);
+        }
+        .pinned-strip-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+        .pinned-strip-open-all {
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 5px 10px;
+            font-family: var(--font-ui);
+            font-size: 0.76rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.15s ease;
+        }
+        .pinned-strip-open-all:hover:not(:disabled) {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: var(--accent-dim);
+        }
+        .pinned-strip-open-all:disabled { opacity: 0.5; cursor: default; }
+        .pinned-strip-clear {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            width: 26px;
+            height: 26px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            font-size: 1rem;
+            line-height: 1;
+            opacity: 0.6;
+            transition: all 0.15s ease;
+        }
+        .pinned-strip-clear:hover {
+            opacity: 1;
+            background: var(--error-bg);
+            color: var(--error);
+        }
+
+        /* MVB pin button (top row) */
+        .mvb-pin-btn {
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            width: 28px;
+            height: 28px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.95rem;
+            line-height: 1;
+            cursor: pointer;
+            color: var(--text);
+            transition: all 0.15s ease;
+            flex-shrink: 0;
+        }
+        .mvb-pin-btn:hover { border-color: var(--accent); background: var(--accent-dim); }
+        .mvb-pin-btn.pinned {
+            border-color: var(--accent);
+            background: var(--accent-dim);
+        }
+
         .sidebar-module-clear-all {
             background: transparent;
             border: none;
@@ -3176,152 +3379,6 @@
             background: var(--error-bg);
             color: var(--error);
         }
-        .pinned-insert-all-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 4px 9px;
-            height: 24px;
-            background: transparent;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            color: var(--text-muted);
-            font-family: var(--font-ui);
-            font-size: 0.74rem;
-            font-weight: 600;
-            cursor: pointer;
-            line-height: 1;
-            flex-shrink: 0;
-            transition: all 0.15s ease;
-        }
-        .pinned-insert-all-btn svg { display: block; flex-shrink: 0; }
-        .pinned-insert-all-btn:hover {
-            border-color: var(--accent);
-            color: var(--accent);
-            background: var(--accent-dim);
-        }
-        .pinned-insert-all-btn:disabled { opacity: 0.5; cursor: default; }
-
-        /* Pinned-verses module */
-        .pinned-empty {
-            color: var(--text-muted);
-            font-size: 0.8rem;
-            font-style: italic;
-            padding: 4px 0;
-        }
-        .pinned-list {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        .pinned-item {
-            position: relative;
-            display: flex;
-            align-items: flex-start;
-            gap: 8px;
-            padding: 8px 10px;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            touch-action: none;
-            cursor: grab;
-            transition: border-color 0.15s ease, background 0.15s ease;
-        }
-        .pinned-item.pinned-item-new {
-            animation: pinned-item-in 0.32s cubic-bezier(0.2, 0.8, 0.3, 1);
-        }
-        @keyframes pinned-item-in {
-            from { opacity: 0; transform: translateY(-8px) scale(0.97); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        .pinned-item:hover {
-            border-color: var(--accent);
-            background: var(--accent-dim);
-        }
-        .pinned-item.dragging { opacity: 0.45; cursor: grabbing !important; }
-        /* Suppress hover highlight on all items while one is being dragged */
-        .pinned-list--dragging .pinned-item:not(.dragging):hover {
-            border-color: var(--border) !important;
-            background: var(--bg-card) !important;
-            cursor: grabbing !important;
-        }
-        .pinned-item.pinned-drop-before::before {
-            content: '';
-            position: absolute;
-            left: 8px; right: 8px;
-            top: -4px;
-            height: 2px;
-            background: var(--accent);
-            border-radius: 1px;
-            pointer-events: none;
-        }
-        .pinned-item.pinned-drop-after::after {
-            content: '';
-            position: absolute;
-            left: 8px; right: 8px;
-            bottom: -4px;
-            height: 2px;
-            background: var(--accent);
-            border-radius: 1px;
-            pointer-events: none;
-        }
-        .pinned-item-content {
-            flex: 1 1 auto;
-            min-width: 0;
-        }
-        .pinned-item-ref {
-            font-family: var(--font-ui);
-            font-size: 0.78rem;
-            color: var(--accent);
-            font-weight: 600;
-            margin-bottom: 2px;
-        }
-        .pinned-item-text {
-            font-family: var(--font-serif);
-            font-size: 0.88rem;
-            color: var(--text);
-            line-height: 1.35;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-        .pinned-item-version {
-            font-family: var(--font-ui);
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            margin-top: 2px;
-        }
-        .pinned-item-remove {
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            width: 22px;
-            height: 22px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 4px;
-            flex-shrink: 0;
-            font-size: 1rem;
-            line-height: 1;
-            opacity: 0.55;
-            transition: all 0.15s ease;
-        }
-        .pinned-item-remove:hover {
-            opacity: 1;
-            background: var(--error-bg);
-            color: var(--error);
-        }
-
-        /* Pin button in study tray */
-        .tray-btn.pin-tray-btn.pinned {
-            border-color: var(--accent);
-            color: var(--accent);
-            background: var(--accent-dim);
-        }
-
         /* In-view focus highlight on cards */
         .verse-card.sidebar-focused {
             box-shadow: 0 0 0 2px var(--accent-dim), var(--shadow);
@@ -3394,11 +3451,14 @@
                 padding: 6px 14px 16px;
                 padding-bottom: calc(16px + env(safe-area-inset-bottom));
             }
-            /* When module-host is open and merged with MVB, drop the seam between them */
+            /* When module-host is open and merged with MVB, drop the seam between them.
+               Use border-top-color: transparent (not border-top: none) so MVB's
+               offsetHeight stays constant — otherwise the ResizeObserver on its
+               content-box won't fire and --mvb-h drifts out of sync. */
             body.module-open .marked-verses-bar {
                 border-top-left-radius: 0;
                 border-top-right-radius: 0;
-                border-top: none;
+                border-top-color: transparent;
                 box-shadow: none;
             }
             /* Kill transitions during active MVB swipe so finger and bar move 1:1. */
@@ -3602,7 +3662,7 @@
                 /* top+bottom defines height dynamically so MVB never pushes the host off-screen
                    (a static 85vh would overflow when MVB sits below). */
                 top: 12vh;
-                bottom: var(--mvb-h, 0px);
+                bottom: calc(var(--mvb-h, 0px) + var(--pin-h, 0px));
                 /* Clearly below MVB (210). A small gap (209) was enough on desktop, but
                    on iOS the satellite tiles' compositing layers occasionally outranked
                    MVB during the close animation; widening the gap fixes it. */
@@ -3618,7 +3678,7 @@
                    enough since the host is anchored at bottom:var(--mvb-h) — that would park the host's
                    top edge exactly behind the MVB's top edge, which becomes visible the moment the user
                    swipes MVB down. Adding mvb-h pushes the host past the bottom of the screen. */
-                transform: translateY(calc(100% + var(--mvb-h, 0px)));
+                transform: translateY(calc(100% + var(--mvb-h, 0px) + var(--pin-h, 0px)));
                 transition: transform 0.32s cubic-bezier(.2,.8,.2,1),
                             bottom 0.32s cubic-bezier(.2,.8,.2,1);
                 will-change: transform, bottom;
