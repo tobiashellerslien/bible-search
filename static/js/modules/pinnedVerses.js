@@ -1,10 +1,11 @@
-// ── Pinned-verses sidebar module ──
-// In-memory only. Cleared whenever sidebar closes.
+// ── Pinned-verses strip ──
+// Small bottom strip with pills for each pinned verse. Auto-opens when first
+// pin is added; auto-closes when empty. In-memory only.
 // Spec shape: {book, ch_start, vs_start, ch_end, vs_end, version, label, text, ts}
 (function () {
     let _pins = [];
-    const seenKeys = new Set();
-    let listEl = null;
+    let stripEl = null, pillsEl = null, openAllBtn = null, clearBtn = null;
+    let pinHResizeObserver = null;
 
     function pinKey(p) {
         return `${p.book}|${p.ch_start}|${p.vs_start}|${p.ch_end}|${p.vs_end}|${p.version}`;
@@ -21,11 +22,6 @@
         if (_pins.some(p => pinKey(p) === key)) return false;
         _pins.unshift({ ...item, ts: Date.now() });
         notifyChange();
-        // Desktop: auto-open the sidebar so the pin is immediately visible.
-        // Mobile: Pin module is being reworked separately; no auto-open here.
-        if (window.AppSidebar && (!window.AppModuleHost || !window.AppModuleHost.isMobile())) {
-            window.AppSidebar.ensureOpen();
-        }
         return true;
     }
 
@@ -35,9 +31,6 @@
         _pins = _pins.filter(p => pinKey(p) !== key);
         if (_pins.length === before) return false;
         notifyChange();
-        if (window.AppSidebar && (!window.AppModuleHost || !window.AppModuleHost.isMobile())) {
-            window.AppSidebar.checkAutoClose();
-        }
         return true;
     }
 
@@ -46,234 +39,139 @@
         add(spec); return true;
     }
 
+    function clearAll() {
+        if (!_pins.length) return;
+        _pins = [];
+        notifyChange();
+    }
+
     function escapeHtml(s) {
         return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
             '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
         })[c]);
     }
 
-    function versionLabel(verId) {
-        if (window.allVersionsList) {
-            const v = window.allVersionsList.find(v => String(v.id) === String(verId));
-            if (v) return v.name;
+    function pillLabel(p) {
+        const abbrev = (typeof window.bookAbbrev === 'function')
+            ? window.bookAbbrev(p.book)
+            : p.book;
+        const range = (p.vs_start === p.vs_end && p.ch_start === p.ch_end)
+            ? `${p.ch_start}:${p.vs_start}`
+            : (p.ch_start === p.ch_end
+                ? `${p.ch_start}:${p.vs_start}-${p.vs_end}`
+                : `${p.ch_start}:${p.vs_start}–${p.ch_end}:${p.vs_end}`);
+        return `${abbrev} ${range}`;
+    }
+
+    function closeMobileOverlays() {
+        const onMobile = window.AppModuleHost && window.AppModuleHost.isMobile();
+        if (!onMobile) return;
+        if (window.AppModuleHost && window.AppModuleHost.isOpen()) {
+            window.AppModuleHost.closeModule();
         }
-        return verId;
+        if (typeof window.clearHighlightAndMarked === 'function') {
+            window.clearHighlightAndMarked();
+        }
     }
 
     function render() {
-        if (!listEl) return;
+        if (!pillsEl) return;
         if (_pins.length === 0) {
-            listEl.innerHTML = `<div class="pinned-empty">Ingen vers er festet ennå. Trykk 📌 i et vers for å feste det.</div>`;
+            pillsEl.innerHTML = '';
             return;
         }
-        const newKeys = [];
-        let html = '<div class="pinned-list">';
+        let html = '';
         _pins.forEach(p => {
             const key = pinKey(p);
-            const isNew = !seenKeys.has(key);
-            if (isNew) newKeys.push(key);
-            html += `<div class="pinned-item${isNew ? ' pinned-item-new' : ''}" data-key="${escapeHtml(key)}" role="button" tabindex="0">
-                <div class="pinned-item-content">
-                    <div class="pinned-item-ref">${escapeHtml(p.label || '')}</div>
-                    <div class="pinned-item-text">${escapeHtml(p.text || '')}</div>
-                    <div class="pinned-item-version">${escapeHtml(versionLabel(p.version))}</div>
-                </div>
-                <button class="pinned-item-remove" title="Fjern" aria-label="Fjern">&times;</button>
-            </div>`;
+            html += `<button class="pinned-pill" data-key="${escapeHtml(key)}" title="${escapeHtml(p.label || '')}" type="button">
+                <span class="pinned-pill-ref">${escapeHtml(pillLabel(p))}</span>
+                <span class="pinned-pill-remove" role="button" aria-label="Fjern" tabindex="-1">×</span>
+            </button>`;
         });
-        html += '</div>';
-        listEl.innerHTML = html;
-        // Update seen-keys set
-        const currentKeys = new Set(_pins.map(pinKey));
-        for (const k of [...seenKeys]) if (!currentKeys.has(k)) seenKeys.delete(k);
-        newKeys.forEach(k => seenKeys.add(k));
+        pillsEl.innerHTML = html;
 
-        listEl.querySelectorAll('.pinned-item').forEach(el => {
+        pillsEl.querySelectorAll('.pinned-pill').forEach(el => {
             const key = el.dataset.key;
             const item = _pins.find(p => pinKey(p) === key);
             if (!item) return;
-            el.querySelector('.pinned-item-remove').addEventListener('click', (e) => {
-                e.stopPropagation();
-                remove(item);
-            });
-            const openItem = () => {
-                if (typeof window.openPinnedVerse === 'function') window.openPinnedVerse(item);
-            };
-            el.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openItem(); }
-            });
-            // Combined click + drag handler via pointerdown
-            el.addEventListener('pointerdown', (e) => {
-                if (e.target.closest('.pinned-item-remove')) return;
-                if (e.pointerType === 'mouse' && e.button !== 0) return;
-                e.preventDefault(); // suppress native click so we control it in onUp
-                try { el.setPointerCapture(e.pointerId); } catch {}
-                const startY = e.clientY;
-                let moved = false;
-                let dropTarget = null, dropPos = null;
-
-                function clearMarkers() {
-                    listEl.querySelectorAll('.pinned-drop-before, .pinned-drop-after').forEach(x => {
-                        x.classList.remove('pinned-drop-before', 'pinned-drop-after');
-                    });
+            el.addEventListener('click', (e) => {
+                if (e.target.closest('.pinned-pill-remove')) {
+                    e.stopPropagation();
+                    remove(item);
+                    return;
                 }
-                function onMove(ev) {
-                    if (!moved && Math.abs(ev.clientY - startY) < 5) return;
-                    if (!moved) {
-                        moved = true;
-                        el.classList.add('dragging');
-                        document.body.style.userSelect = 'none';
-                        const list = listEl.querySelector('.pinned-list');
-                        if (list) list.classList.add('pinned-list--dragging');
-                    }
-                    clearMarkers();
-                    dropTarget = null; dropPos = null;
-                    const items = Array.from(listEl.querySelectorAll('.pinned-item'));
-                    for (const it of items) {
-                        if (it === el) continue;
-                        const r = it.getBoundingClientRect();
-                        if (ev.clientY >= r.top && ev.clientY <= r.bottom) {
-                            const mid = r.top + r.height / 2;
-                            if (ev.clientY < mid) { it.classList.add('pinned-drop-before'); dropTarget = it; dropPos = 'before'; }
-                            else { it.classList.add('pinned-drop-after'); dropTarget = it; dropPos = 'after'; }
-                            return;
-                        }
-                    }
+                closeMobileOverlays();
+                if (typeof window.openPinnedVerse === 'function') {
+                    window.openPinnedVerse(item);
                 }
-                function onUp() {
-                    window.removeEventListener('pointermove', onMove);
-                    window.removeEventListener('pointerup', onUp);
-                    window.removeEventListener('pointercancel', onUp);
-                    document.body.style.userSelect = '';
-                    el.classList.remove('dragging');
-                    const list = listEl.querySelector('.pinned-list');
-                    if (list) list.classList.remove('pinned-list--dragging');
-                    clearMarkers();
-                    if (!moved) {
-                        openItem();
-                    } else if (dropTarget && dropPos) {
-                        // FLIP: record current tops before reordering
-                        const oldTops = {};
-                        listEl.querySelectorAll('.pinned-item').forEach(item => {
-                            oldTops[item.dataset.key] = item.getBoundingClientRect().top;
-                        });
-                        // Reorder _pins
-                        const fromKey = el.dataset.key;
-                        const toKey = dropTarget.dataset.key;
-                        const fromIdx = _pins.findIndex(p => pinKey(p) === fromKey);
-                        const fromItem = _pins[fromIdx];
-                        const newPins = _pins.filter((_, i) => i !== fromIdx);
-                        const toIdxInNew = newPins.findIndex(p => pinKey(p) === toKey);
-                        const insertAt = dropPos === 'before' ? toIdxInNew : toIdxInNew + 1;
-                        newPins.splice(insertAt, 0, fromItem);
-                        _pins.length = 0;
-                        newPins.forEach(p => _pins.push(p));
-                        render();
-                        // FLIP: animate each item from its old position to its new position
-                        requestAnimationFrame(() => {
-                            listEl.querySelectorAll('.pinned-item').forEach(item => {
-                                const dy = (oldTops[item.dataset.key] ?? null);
-                                if (dy === null) return;
-                                const newTop = item.getBoundingClientRect().top;
-                                const delta = dy - newTop;
-                                if (Math.abs(delta) < 1) return;
-                                item.style.transition = 'none';
-                                item.style.transform = `translateY(${delta}px)`;
-                                requestAnimationFrame(() => {
-                                    item.style.transition = 'transform 0.22s cubic-bezier(0.2, 0.8, 0.3, 1)';
-                                    item.style.transform = '';
-                                    item.addEventListener('transitionend', () => {
-                                        item.style.transition = '';
-                                    }, { once: true });
-                                });
-                            });
-                        });
-                    }
-                }
-                window.addEventListener('pointermove', onMove);
-                window.addEventListener('pointerup', onUp);
-                window.addEventListener('pointercancel', onUp);
             });
         });
+    }
+
+    function setStripState() {
+        if (!stripEl) return;
+        const open = _pins.length > 0;
+        stripEl.setAttribute('data-state', open ? 'open' : 'closed');
+        stripEl.setAttribute('aria-hidden', open ? 'false' : 'true');
+        document.body.classList.toggle('pin-strip-on', open);
+        updatePinHeightVar();
+    }
+
+    function updatePinHeightVar() {
+        if (!stripEl) return;
+        const open = stripEl.getAttribute('data-state') === 'open';
+        const h = open ? (stripEl.offsetHeight || 0) : 0;
+        document.documentElement.style.setProperty('--pin-h', h + 'px');
     }
 
     function notifyChange() {
         render();
+        setStripState();
         if (typeof window.refreshPinButtons === 'function') window.refreshPinButtons();
     }
 
-    const moduleDef = {
-        id: 'pinnedVerses',
-        title: 'Festede vers',
-        icon: '📌',
-        mount(container, ctx) {
-            listEl = container;
-            render();
-            // Inject clear-all + insert-all into the sidebar module wrapper (desktop only).
-            const wrap = container.closest('.sidebar-module');
-            if (wrap) {
-                const actions = wrap.querySelector('.sidebar-module-actions');
-                if (actions && !actions.querySelector('.sidebar-module-clear-all')) {
-                    const clearBtn = document.createElement('button');
-                    clearBtn.className = 'sidebar-module-clear-all';
-                    clearBtn.title = 'Fjern alle festede vers';
-                    clearBtn.setAttribute('aria-label', 'Fjern alle festede vers');
-                    clearBtn.innerHTML = '&times;';
-                    clearBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        _pins = [];
-                        seenKeys.clear();
-                        notifyChange();
-                        if (window.AppSidebar) window.AppSidebar.checkAutoClose();
-                    });
-                    actions.insertBefore(clearBtn, actions.firstChild);
+    function bindStrip() {
+        stripEl = document.getElementById('pinnedStrip');
+        pillsEl = document.getElementById('pinnedStripPills');
+        openAllBtn = document.getElementById('pinnedStripOpenAll');
+        clearBtn = document.getElementById('pinnedStripClear');
+        if (!stripEl || !pillsEl) return;
 
-                    const insertBtn = document.createElement('button');
-                    insertBtn.className = 'pinned-insert-all-btn';
-                    insertBtn.title = 'Åpne alle festede vers som blokker i visningen';
-                    insertBtn.setAttribute('aria-label', 'Åpne alle festede vers i visning');
-                    insertBtn.innerHTML = `<span>Åpne alle</span>`;
-                    insertBtn.addEventListener('click', async (e) => {
-                        e.stopPropagation();
-                        if (!_pins.length) return;
-                        insertBtn.disabled = true;
-                        if (typeof window.insertBlocksIntoView === 'function') {
-                            await window.insertBlocksIntoView(_pins.slice());
-                        }
-                        insertBtn.disabled = false;
-                    });
-                    actions.insertBefore(insertBtn, clearBtn);
+        if (openAllBtn) {
+            openAllBtn.addEventListener('click', async () => {
+                if (!_pins.length) return;
+                openAllBtn.disabled = true;
+                try {
+                    closeMobileOverlays();
+                    if (typeof window.insertBlocksIntoView === 'function') {
+                        await window.insertBlocksIntoView(_pins.slice(), { replace: true });
+                    }
+                } finally {
+                    openAllBtn.disabled = false;
                 }
-            }
-        },
-        unmount() {
-            listEl = null;
-        },
-        isEmpty() { return _pins.length === 0; },
-        clearAll() {
-            _pins = [];
-            seenKeys.clear();
-            // No render here — module is being unmounted
-        },
-    };
+            });
+        }
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => clearAll());
+        }
+
+        if ('ResizeObserver' in window) {
+            pinHResizeObserver = new ResizeObserver(() => updatePinHeightVar());
+            pinHResizeObserver.observe(stripEl);
+        }
+
+        render();
+        setStripState();
+    }
 
     window.PinnedVerses = {
-        moduleDef,
-        toggle, isPinned, add, remove,
+        toggle, isPinned, add, remove, clearAll,
         list: () => _pins.slice(),
     };
 
-    function tryRegister() {
-        // Pin is desktop-sidebar-only for now; mobile pin module will be reworked separately.
-        if (window.AppSidebar && window.AppSidebar.register) {
-            window.AppSidebar.register(moduleDef);
-        } else {
-            setTimeout(tryRegister, 30);
-        }
-    }
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', tryRegister);
+        document.addEventListener('DOMContentLoaded', bindStrip);
     } else {
-        tryRegister();
+        bindStrip();
     }
 })();

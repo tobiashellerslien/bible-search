@@ -1046,7 +1046,6 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
                 <div class="study-tray-row">
                     <div class="study-tray-inner">
                         <button class="tray-btn map-tray-btn"${mapDisabled ? ' disabled aria-disabled="true"' : ` onclick="openMapForBlock(${idx},null)"`} title="${mapTitle}">${mapLabel}</button>
-                        <button class="tray-btn pin-tray-btn${isBlockPinned(idx) ? ' pinned' : ''}" onclick="togglePinForBlock(${idx})" title="Fest dette avsnittet i sidebar">📌 <span class="pin-label">${isBlockPinned(idx) ? 'Festet' : 'Fest'}</span></button>
                         ${ilUrl ? `<a class="tray-btn external" href="${ilUrl}" target="_blank" rel="noopener" title="biblehub.com"><img class="tray-btn-logo" src="/static/images/biblehub.png" alt=""><span>${escHtml(t('card.study.interlinear'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
                         ${crUrl ? `<a class="tray-btn external" href="${crUrl}" target="_blank" rel="noopener" title="bibleref.com"><img class="tray-btn-logo" src="/static/images/bibleref.png" alt=""><span>${escHtml(t('card.study.bibleref'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
                         ${yvUrl ? `<a class="tray-btn external" href="${yvUrl}" target="_blank" rel="noopener" title="bible.com"><span>${escHtml(t('card.study.source'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
@@ -1870,13 +1869,12 @@ function _getMvbPinSpecs() {
 }
 
 function updateMvbPinButtonState() {
-    const pinBtn = document.getElementById('mvbPin');
+    const pinBtn = document.getElementById('mvbPinTop');
     if (!pinBtn) return;
     const specs = _getMvbPinSpecs();
     const pinned = specs.length > 0 && !!window.PinnedVerses
         && specs.every(s => window.PinnedVerses.isPinned(s));
     pinBtn.classList.toggle('pinned', pinned);
-    pinBtn.textContent = pinned ? '📌 Festet' : '📌 Fest';
 }
 
 function _mvbActiveBlockIdx() {
@@ -2080,7 +2078,7 @@ function initMarkedVersesBar() {
         }
     });
 
-    const pinBtn = document.getElementById('mvbPin');
+    const pinBtn = document.getElementById('mvbPinTop');
     if (pinBtn) pinBtn.addEventListener('click', () => {
         if (!window.PinnedVerses) return;
         const specs = _getMvbPinSpecs();
@@ -4058,6 +4056,12 @@ function bookRefName(code) {
     return b ? b.name : code;
 }
 
+window.bookAbbrev = function (code) {
+    if (!code) return '';
+    const b = booksData.find(x => x.code === code);
+    return b && b.abbrev_no ? b.abbrev_no : (b ? b.name : code);
+};
+
 function translateLabel(label, bookCode, lang) {
     if (!bookCode) return label;
     const effectiveLang = lang || versionLang(versionSelect.value);
@@ -4522,59 +4526,7 @@ window.insertBlocksIntoView = async function(specs, opts) {
     renderAll();
 };
 
-function getBlockPinSpec(idx) {
-    if (!mainData || !mainData[idx]) return null;
-    const block = mainData[idx];
-    if (!block.book || !block.verses || !block.verses.length) return null;
-    const first = block.verses[0];
-    const last = block.verses[block.verses.length - 1];
-    const allText = block.verses.map(v => (v.text || '').replace(/<[^>]+>/g, '')).join(' ').replace(/\s+/g, ' ').trim();
-    const lang = (typeof versionLang === 'function') ? versionLang(versionSelect.value) : 'no';
-    const label = (typeof translateLabel === 'function')
-        ? translateLabel(block.label || '', block.book, lang)
-        : (block.label || '');
-    return {
-        book: block.book,
-        ch_start: first.chapter,
-        vs_start: first.num,
-        ch_end: last.chapter,
-        vs_end: last.num,
-        version: String(versionSelect ? versionSelect.value : ''),
-        label,
-        text: allText.slice(0, 400),
-    };
-}
-
-window.isBlockPinned = function(idx) {
-    if (!window.PinnedVerses) return false;
-    const spec = getBlockPinSpec(idx);
-    if (!spec) return false;
-    return window.PinnedVerses.isPinned(spec);
-};
-
-window.togglePinForBlock = function(idx) {
-    if (!window.PinnedVerses) return;
-    const spec = getBlockPinSpec(idx);
-    if (!spec) return;
-    window.PinnedVerses.toggle(spec);
-    // PinnedVerses.add() handles AppSidebar.ensureOpen() on desktop. On mobile,
-    // pin is a quick-action — no UI is opened (Pin module will be reworked separately).
-    if (typeof window.refreshPinButtons === 'function') window.refreshPinButtons();
-};
-
 window.refreshPinButtons = function() {
-    if (mainData) {
-        mainData.forEach((_, idx) => {
-            const card = document.getElementById(`card-${idx}`);
-            if (!card) return;
-            const btn = card.querySelector('.pin-tray-btn');
-            if (!btn) return;
-            const pinned = window.isBlockPinned(idx);
-            btn.classList.toggle('pinned', pinned);
-            const label = btn.querySelector('.pin-label');
-            if (label) label.textContent = pinned ? 'Festet' : 'Fest';
-        });
-    }
     if (typeof updateMvbPinButtonState === 'function') updateMvbPinButtonState();
 };
 

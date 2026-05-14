@@ -1,6 +1,7 @@
 from flask import Blueprint, current_app, jsonify, render_template, request, send_from_directory
 
 from .services.bible import (
+    USFM_TO_ABBREV_NO,
     USFM_TO_ALIASES,
     USFM_TO_ENG,
     USFM_TO_NAME,
@@ -66,6 +67,7 @@ def api_books():
             "code": code,
             "name": USFM_TO_NAME.get(code, code),
             "name_en": USFM_TO_ENG.get(code, code),
+            "abbrev_no": USFM_TO_ABBREV_NO.get(code, code),
             "testament": USFM_TO_TESTAMENT.get(code, "OT"),
             "chapters": bible_data.book_chapters.get(version_id, {}).get(code, 0),
             "verse_counts": bible_data.book_verse_counts.get(version_id, {}).get(code, {}),
