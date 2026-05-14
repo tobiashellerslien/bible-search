@@ -417,7 +417,7 @@ let showXrefs = showAnnotations;
 let showPlaces = localStorage.getItem('showPlaces') === 'true';
 const xrefCache = new Map();
 const blockPlacesRegistry = {}; // { [cardIdx]: places[] }
-const mapState = { instance: null, baseLayers: null, layerGroup: null };
+window.blockPlacesRegistry = blockPlacesRegistry;
 // Marked verses: key = `${book}.${chapter}.${verse}` → {book, chapter, verse, hasFn, hasXr, blockIdx, text}
 const markedVerses = new Map();
 
@@ -3075,6 +3075,7 @@ window.openStats = async function(query) {
         const data = await resp.json();
         if (data.error) { showToast(t('toast.statsError', data.error)); return; }
         document.getElementById('statsModeSelect').value = statsNormMode;
+        document.getElementById('statsModeSelect').style.display = '';
         renderStatsModal(data);
         document.getElementById('statsModal').classList.add('open');
     } catch { showToast(t('toast.statsFailed')); }
@@ -4389,372 +4390,24 @@ document.addEventListener('click', () => {
     _setPanel('visningPanel', 'visningBtn', false);
 });
 
-// ── Map: place visualization ─────────────────────────────────────────────────
 
-function placeStyle(kind, highlighted = false) {
-    const w = highlighted ? 4 : 2;
-    if (kind === 'water' || kind === 'waterpoint' || kind === 'waterrepresentativepoint') {
-        return { color: '#1769aa', fillColor: '#3a8fd0', fillOpacity: 0.45, weight: w, radius: 6 };
-    }
-    if (kind === 'region') {
-        return { color: highlighted ? '#ffeb3b' : '#555', fillColor: '#777', fillOpacity: highlighted ? 0.45 : 0.25, weight: highlighted ? 3 : 1, radius: 6 };
-    }
-    if (kind === 'path') {
-        return { color: '#7a5a25', weight: w, radius: 6, fillOpacity: 0.6 };
-    }
-    if (kind === 'landrepresentativepoint') {
-        return { color: '#444', fillColor: '#fff', fillOpacity: 0.95, weight: w, radius: 6 };
-    }
-    return { color: '#7a1a1a', fillColor: '#d23f3f', fillOpacity: 0.9, weight: w, radius: 6 };
-}
-
-function placeDotColor(kind) {
-    if (kind === 'water' || kind === 'waterpoint' || kind === 'waterrepresentativepoint') return '#3a8fd0';
-    if (kind === 'region') return '#777';
-    if (kind === 'path') return '#7a5a25';
-    if (kind === 'landrepresentativepoint') return '#fff';
-    return '#d23f3f';
-}
-
-function geometryCentroid(geom) {
-    if (!geom) return null;
-    if (geom.type === 'Point') return [geom.coordinates[1], geom.coordinates[0]];
-    if (geom.type === 'LineString' && geom.coordinates.length) {
-        const mid = geom.coordinates[Math.floor(geom.coordinates.length / 2)];
-        return [mid[1], mid[0]];
-    }
-    if (geom.type === 'Polygon' && geom.coordinates[0]?.length) {
-        const ring = geom.coordinates[0];
-        let sx = 0, sy = 0;
-        ring.forEach(c => { sx += c[0]; sy += c[1]; });
-        return [sy / ring.length, sx / ring.length];
-    }
-    if (geom.type === 'GeometryCollection' && geom.geometries.length) {
-        return geometryCentroid(geom.geometries[0]);
-    }
-    return null;
-}
-
-function pointInRing(lng, lat, ring) {
-    let inside = false;
-    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-        const xi = ring[i][0], yi = ring[i][1];
-        const xj = ring[j][0], yj = ring[j][1];
-        const intersect = ((yi > lat) !== (yj > lat)) &&
-            (lng < (xj - xi) * (lat - yi) / (yj - yi + 1e-12) + xi);
-        if (intersect) inside = !inside;
-    }
-    return inside;
-}
-
-function geometryContains(geom, lat, lng) {
-    if (!geom) return false;
-    if (geom.type === 'Polygon') return pointInRing(lng, lat, geom.coordinates[0]);
-    if (geom.type === 'GeometryCollection') return geom.geometries.some(g => geometryContains(g, lat, lng));
-    return false;
-}
-
-function ensureMap() {
-    if (mapState.instance) return mapState.instance;
-    const esri = L.tileLayer(
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        {
-            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
-            maxZoom: 19,
-        }
-    );
-    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19,
-    });
-    const map = L.map('mapContainer', { layers: [esri], zoomControl: true, worldCopyJump: true });
-    L.control.layers({ 'Satellite (Esri)': esri, 'Street (OSM)': osm }, {}).addTo(map);
-    map.setView([31.78, 35.22], 7);
-    // Custom panes for layer ordering: regions back, lines middle, points top.
-    map.createPane('regionsPane'); map.getPane('regionsPane').style.zIndex = 400;
-    map.createPane('linesPane');   map.getPane('linesPane').style.zIndex   = 410;
-    map.createPane('pointsPane');  map.getPane('pointsPane').style.zIndex  = 420;
-    mapState.instance = map;
-    mapState.baseLayers = { esri, osm };
-    mapState.layerGroup = L.layerGroup().addTo(map);
-    mapState.entries = [];
-    mapState.hoveredPolygonId = null;
-
-    map.on('mousemove', (e) => {
-        const { lat, lng } = e.latlng;
-        const containing = (mapState.entries || []).filter(en =>
-            en.isPolygon && geometryContains(en.place.geometry, lat, lng)
-        );
-        let targetId = null;
-        if (containing.length > 0) {
-            let smallest = Infinity;
-            containing.forEach(en => {
-                const b = en.layer.getBounds();
-                const area = (b.getEast() - b.getWest()) * (b.getNorth() - b.getSouth());
-                if (area < smallest) { smallest = area; targetId = en.place.id; }
-            });
-        }
-        if (targetId !== mapState.hoveredPolygonId) {
-            if (mapState.hoveredPolygonId !== null) {
-                const prev = (mapState.entries || []).find(en => en.place.id === mapState.hoveredPolygonId);
-                if (prev) prev.layer.setStyle(placeStyle(prev.place.kind, false));
-            }
-            if (targetId !== null) {
-                const cur = (mapState.entries || []).find(en => en.place.id === targetId);
-                if (cur) { cur.layer.setStyle(placeStyle(cur.place.kind, true)); if (cur.layer.bringToFront) cur.layer.bringToFront(); }
-            }
-            mapState.hoveredPolygonId = targetId;
-        }
-    });
-
-    map.on('mouseout', () => {
-        if (mapState.hoveredPolygonId !== null) {
-            const prev = (mapState.entries || []).find(en => en.place.id === mapState.hoveredPolygonId);
-            if (prev) prev.layer.setStyle(placeStyle(prev.place.kind, false));
-            mapState.hoveredPolygonId = null;
-        }
-    });
-
-    return map;
-}
-
-function geometryPane(geom) {
-    if (!geom) return 'pointsPane';
-    if (geom.type === 'Point') return 'pointsPane';
-    if (geom.type === 'LineString') return 'linesPane';
-    if (geom.type === 'Polygon') return 'regionsPane';
-    if (geom.type === 'GeometryCollection') {
-        const types = geom.geometries.map(g => g.type);
-        if (types.includes('Point')) return 'pointsPane';
-        if (types.includes('LineString')) return 'linesPane';
-        return 'regionsPane';
-    }
-    return 'pointsPane';
-}
-
-function buildPopupHtml(place, alsoHere = []) {
-    const center = geometryCentroid(place.geometry);
-    const aliases = (place.aliases || []).filter(a => a && a !== place.name);
-    let html = `<div class="place-popup-name"><b>${escHtml(place.name)}</b></div>`;
-    if (place.placemark && place.placemark !== place.name) {
-        html += `<div class="place-popup-aliases">${escHtml(place.placemark)}</div>`;
-    }
-    if (aliases.length) {
-        html += `<div class="place-popup-aliases">${escHtml(aliases.join(', '))}</div>`;
-    }
-    if (center) {
-        html += `<div><a class="place-popup-link" href="https://www.google.com/maps?q=${center[0]},${center[1]}" target="_blank" rel="noopener">Open in Google Maps</a></div>`;
-    }
-    if (alsoHere.length) {
-        html += `<div class="place-popup-aliases" style="margin-top:6px;">Also here:</div>`;
-        alsoHere.forEach(p => {
-            html += `<div><a class="place-popup-link" href="#" data-focus-id="${p.id}">→ ${escHtml(p.name)}</a></div>`;
-        });
-    }
-    return html;
-}
-
-function selectPlace(placeId, opts = {}) {
-    const entry = (mapState.entries || []).find(e => e.place.id === placeId);
-    if (!entry) return;
-    // Activate region outline for the selected polygon (same as mousemove hover)
-    if (mapState.hoveredPolygonId !== placeId) {
-        if (mapState.hoveredPolygonId !== null) {
-            const prev = (mapState.entries || []).find(en => en.place.id === mapState.hoveredPolygonId);
-            if (prev && prev.isPolygon) prev.layer.setStyle(placeStyle(prev.place.kind, false));
-        }
-        if (entry.isPolygon) {
-            entry.layer.setStyle(placeStyle(entry.place.kind, true));
-            if (entry.layer.bringToFront) entry.layer.bringToFront();
-        }
-        mapState.hoveredPolygonId = entry.isPolygon ? placeId : null;
-    }
-    // Reference point: click location if provided (precise), else this place's centroid (sidebar/focus)
-    const c = geometryCentroid(entry.place.geometry);
-    const probe = opts.clickLatLng ? [opts.clickLatLng.lat, opts.clickLatLng.lng] : c;
-    const alsoHere = [];
-    if (probe) {
-        (mapState.entries || []).forEach(e => {
-            if (e.place.id === placeId) return;
-            if (e.isPolygon && geometryContains(e.place.geometry, probe[0], probe[1])) {
-                alsoHere.push(e.place);
-            }
-        });
-    }
-    entry.layer.setPopupContent(buildPopupHtml(entry.place, alsoHere));
-    if (c && opts.fly !== false) {
-        const targetZoom = entry.isPolygon ? Math.max(mapState.instance.getZoom(), 9) : 12;
-        mapState.instance.flyTo(c, targetZoom, { duration: 0.5 });
-        setTimeout(() => entry.layer.openPopup(c), 550);
-    } else if (opts.clickLatLng) {
-        entry.layer.openPopup(opts.clickLatLng);
-    } else {
-        entry.layer.openPopup();
-    }
-    highlightSidebarItem(placeId);
-}
-
-function highlightSidebarItem(placeId) {
-    const sidebar = document.getElementById('mapSidebar');
-    if (!sidebar) return;
-    sidebar.querySelectorAll('.map-place-item').forEach(el => {
-        const isActive = Number(el.dataset.placeId) === placeId;
-        el.classList.toggle('active', isActive);
-        if (isActive) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    });
-}
-
-function buildSidebar(places) {
-    const sidebar = document.getElementById('mapSidebar');
-    if (!sidebar) return;
-    const sorted = [...places].sort((a, b) => a.name.localeCompare(b.name));
-    sidebar.innerHTML = sorted.map(p => {
-        const dot = `<span class="map-place-dot" style="background:${placeDotColor(p.kind)}"></span>`;
-        return `<div class="map-place-item" data-place-id="${p.id}" title="${escAttr(p.placemark || p.name)}">${dot}<span class="map-place-name">${escHtml(p.name)}</span></div>`;
-    }).join('');
-    sidebar.querySelectorAll('.map-place-item').forEach(el => {
-        el.addEventListener('click', () => selectPlace(Number(el.dataset.placeId)));
-    });
-}
-
-function attachLayerHandlers(entry) {
-    const { layer, place, isPolygon } = entry;
-    // Polygon hover is handled by the map-level mousemove in ensureMap (supports nested polygons).
-    // Keep per-layer hover only for points/circles.
-    if (!isPolygon) {
-        const baseStyle = placeStyle(place.kind, false);
-        const hoverStyle = placeStyle(place.kind, true);
-        layer.on('mouseover', () => { layer.setStyle ? layer.setStyle(hoverStyle) : null; });
-        layer.on('mouseout',  () => { layer.setStyle ? layer.setStyle(baseStyle)  : null; });
-    }
-    layer.on('click', (e) => {
-        L.DomEvent.stopPropagation(e);
-        const clickLatLng = e.latlng;
-        // When polygons overlap, pick the one with the smallest bounding box (most specific/innermost)
-        const candidates = (mapState.entries || []).filter(en =>
-            en.isPolygon && geometryContains(en.place.geometry, clickLatLng.lat, clickLatLng.lng)
-        );
-        let targetId = place.id;
-        if (candidates.length > 1) {
-            let smallest = Infinity;
-            candidates.forEach(en => {
-                const b = en.layer.getBounds();
-                const area = (b.getEast() - b.getWest()) * (b.getNorth() - b.getSouth());
-                if (area < smallest) { smallest = area; targetId = en.place.id; }
-            });
-        }
-        selectPlace(targetId, { fly: false, clickLatLng });
-    });
-}
-
-function placeToLayer(place) {
-    const style = placeStyle(place.kind);
-    const pane = geometryPane(place.geometry);
-    return L.geoJSON(place.geometry, {
-        pane,
-        pointToLayer: (_feat, latlng) => L.circleMarker(latlng, { ...style, pane: 'pointsPane' }),
-        style: () => style,
-    }).bindPopup(buildPopupHtml(place), { maxWidth: 240, autoPanPadding: [20, 20] });
-}
-
-let _mapCloseTimer = null;
-
-function openMap(places, focusId) {
-    const modal = document.getElementById('mapModal');
-    clearTimeout(_mapCloseTimer);
-    modal.style.display = 'flex';
-    // Double rAF: ensure browser paints display:flex before transition starts
-    requestAnimationFrame(() => requestAnimationFrame(() => modal.classList.add('open')));
-    setTimeout(() => {
-        if (typeof L === 'undefined') return;
-        const map = ensureMap();
-        mapState.layerGroup.clearLayers();
-        mapState.entries = [];
-
-        const layers = [];
-        places.forEach(p => {
-            const layer = placeToLayer(p);
-            layer.addTo(mapState.layerGroup);
-            const isPolygon = p.geometry.type === 'Polygon' ||
-                (p.geometry.type === 'GeometryCollection' && p.geometry.geometries.some(g => g.type === 'Polygon'));
-            const entry = { place: p, layer, isPolygon };
-            mapState.entries.push(entry);
-            attachLayerHandlers(entry);
-            layers.push(layer);
-        });
-
-        // Delegated click on popup "→ Also here" links
-        map.off('popupopen.alsoHere');
-        map.on('popupopen', (e) => {
-            const el = e.popup.getElement();
-            if (!el) return;
-            el.querySelectorAll('a[data-focus-id]').forEach(a => {
-                a.addEventListener('click', (ev) => {
-                    ev.preventDefault();
-                    selectPlace(Number(a.dataset.focusId));
-                });
-            });
-        });
-
-        buildSidebar(places);
-
-        map.invalidateSize();
-        if (focusId !== null && focusId !== undefined) {
-            const focusEntry = mapState.entries.find(e => e.place.id === focusId);
-            if (focusEntry) {
-                // First fit bounds to all (gives context), then fly to the focus
-                if (layers.length > 1) {
-                    const group = L.featureGroup(layers);
-                    if (group.getBounds().isValid()) map.fitBounds(group.getBounds(), { padding: [30, 30], maxZoom: 12, animate: false });
-                }
-                selectPlace(focusId);
-            }
-        } else if (layers.length) {
-            const group = L.featureGroup(layers);
-            if (group.getBounds().isValid()) map.fitBounds(group.getBounds(), { padding: [30, 30], maxZoom: 12 });
-        }
-
-        const titleEl = document.getElementById('mapModalTitle');
-        if (titleEl) titleEl.textContent = `// Map · ${places.length} place${places.length === 1 ? '' : 's'}`;
-    }, 50);
-}
-
+// ── Map: delegates to MapModule (see static/js/modules/mapModule.js) ─────────
 window.openMapForBlock = function(idx, focusId) {
-    const places = blockPlacesRegistry[idx] || [];
-    if (!places.length) return;
-    openMap(places, focusId);
+    if (window.MapModule && typeof window.MapModule.showForBlock === 'function') {
+        window.MapModule.showForBlock(idx, focusId);
+    }
 };
 
-function closeMapModal() {
-    const modal = document.getElementById('mapModal');
-    modal.classList.remove('open');
-    // Wait for CSS transition to finish before hiding (matches .modal-overlay transition: 0.2s)
-    _mapCloseTimer = setTimeout(() => { modal.style.display = 'none'; }, 250);
-}
-
-function toggleMapSidebar() {
-    const panel = document.querySelector('.map-modal-panel');
-    const isHidden = panel.classList.toggle('sidebar-hidden');
-    if (!isHidden && mapState.instance) mapState.instance.invalidateSize();
-}
-
-document.getElementById('mapSidebarToggle').addEventListener('click', toggleMapSidebar);
-document.getElementById('mapClose').addEventListener('click', closeMapModal);
-document.getElementById('mapModal').addEventListener('click', (e) => {
-    if (e.target === e.currentTarget) closeMapModal();
-});
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && document.getElementById('mapModal').classList.contains('open')) {
-        closeMapModal();
-        e.stopPropagation();
-    }
-}, true); // capture phase so we run before the global Escape handler
 
 // ── Sidebar integration ──
 Object.defineProperty(window, 'mainData', { get: () => mainData, configurable: true });
 Object.defineProperty(window, 'allVersionsList', { get: () => allVersionsList, configurable: true });
 
 window.bookRefName = bookRefName;
+window.versionLang = versionLang;
+window.isOTBook = isOTBook;
+window.versionSelect = versionSelect;
+Object.defineProperty(window, 'booksData', { get: () => booksData, configurable: true });
 
 window.scrollToBlockIdx = function(target) {
     // target may be a pinned-verse spec {book, ch_start, vs_start, ch_end, vs_end, version, label} or a numeric idx
@@ -4788,8 +4441,9 @@ window.openPinnedVerse = function(p) {
     window.scrollToBlockIdx(p);
 };
 
-window.insertBlocksIntoView = async function(specs) {
+window.insertBlocksIntoView = async function(specs, opts) {
     if (!specs || !specs.length) return;
+    const replace = !!(opts && opts.replace);
     const allNewBlocks = [];
     for (const spec of specs) {
         const ref = spec.label;
@@ -4804,7 +4458,7 @@ window.insertBlocksIntoView = async function(specs) {
         } catch {}
     }
     if (!allNewBlocks.length) return;
-    const existing = (currentView === 'normal' && mainData) ? mainData : [];
+    const existing = (!replace && currentView === 'normal' && mainData) ? mainData : [];
     mainData = [...existing, ...allNewBlocks];
     cardTrayOpen = {};
     cardExpandedState = {};

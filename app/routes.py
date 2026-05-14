@@ -311,6 +311,17 @@ def api_places():
     return jsonify({"places": places})
 
 
+@bp.get("/api/place/<int:place_id>")
+def api_place(place_id):
+    """Full data for a single place, including every place_verses reference
+    across the whole Bible. Used by the map popup's stats + details panels."""
+    bible_data = _bible_data()
+    place = bible_data.get_place_full(place_id)
+    if place is None:
+        return jsonify({"error": "Place not found"}), 404
+    return jsonify({"place": place})
+
+
 @bp.get("/api/commentaries")
 def api_commentaries():
     bible_data = _bible_data()
