@@ -21,9 +21,9 @@
         if (_pins.some(p => pinKey(p) === key)) return false;
         _pins.unshift({ ...item, ts: Date.now() });
         notifyChange();
-        if (window.AppDrawer && window.AppDrawer.isMobile()) {
-            window.AppDrawer.ensureOpen();
-        } else if (window.AppSidebar) {
+        // Desktop: auto-open the sidebar so the pin is immediately visible.
+        // Mobile: Pin module is being reworked separately; no auto-open here.
+        if (window.AppSidebar && (!window.AppModuleHost || !window.AppModuleHost.isMobile())) {
             window.AppSidebar.ensureOpen();
         }
         return true;
@@ -35,9 +35,7 @@
         _pins = _pins.filter(p => pinKey(p) !== key);
         if (_pins.length === before) return false;
         notifyChange();
-        if (window.AppDrawer && window.AppDrawer.isMobile()) {
-            window.AppDrawer.checkAutoClose();
-        } else if (window.AppSidebar) {
+        if (window.AppSidebar && (!window.AppModuleHost || !window.AppModuleHost.isMobile())) {
             window.AppSidebar.checkAutoClose();
         }
         return true;
@@ -100,9 +98,6 @@
             });
             const openItem = () => {
                 if (typeof window.openPinnedVerse === 'function') window.openPinnedVerse(item);
-                if (window.AppDrawer && window.AppDrawer.isMobile() && window.AppDrawer.isExpanded && window.AppDrawer.isExpanded()) {
-                    window.AppDrawer.collapse();
-                }
             };
             el.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openItem(); }
@@ -214,9 +209,8 @@
         mount(container, ctx) {
             listEl = container;
             render();
-            // Inject clear-all + insert-all into whichever module wrapper hosts us
-            // (sidebar on PC, drawer card on mobile — both expose .sidebar-module-actions).
-            const wrap = container.closest('.sidebar-module, .drawer-module-card');
+            // Inject clear-all + insert-all into the sidebar module wrapper (desktop only).
+            const wrap = container.closest('.sidebar-module');
             if (wrap) {
                 const actions = wrap.querySelector('.sidebar-module-actions');
                 if (actions && !actions.querySelector('.sidebar-module-clear-all')) {
@@ -230,8 +224,7 @@
                         _pins = [];
                         seenKeys.clear();
                         notifyChange();
-                        if (window.AppDrawer && window.AppDrawer.isMobile()) window.AppDrawer.checkAutoClose();
-                        else if (window.AppSidebar) window.AppSidebar.checkAutoClose();
+                        if (window.AppSidebar) window.AppSidebar.checkAutoClose();
                     });
                     actions.insertBefore(clearBtn, actions.firstChild);
 
@@ -248,9 +241,6 @@
                             await window.insertBlocksIntoView(_pins.slice());
                         }
                         insertBtn.disabled = false;
-                        if (window.AppDrawer && window.AppDrawer.isMobile()) {
-                            window.AppDrawer.collapse();
-                        }
                     });
                     actions.insertBefore(insertBtn, clearBtn);
                 }
@@ -274,11 +264,9 @@
     };
 
     function tryRegister() {
+        // Pin is desktop-sidebar-only for now; mobile pin module will be reworked separately.
         if (window.AppSidebar && window.AppSidebar.register) {
             window.AppSidebar.register(moduleDef);
-            if (window.AppDrawer && window.AppDrawer.register) {
-                window.AppDrawer.register(moduleDef);
-            }
         } else {
             setTimeout(tryRegister, 30);
         }

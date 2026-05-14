@@ -353,21 +353,18 @@
 <!-- Map fullscreen container (populated by MapModule when fullscreen is toggled) -->
 <div id="mapFullscreen" class="map-fullscreen" hidden></div>
 
-<!-- Mobile Drawer -->
-<div id="appDrawer" class="app-drawer">
-    <div class="drawer-handle-area" id="drawerHandleArea">
-        <div class="drawer-grab-bar"></div>
-        <div class="drawer-handle-label" id="drawerHandleLabel"></div>
+<!-- Mobile Module Host (single-module bottom sheet) -->
+<div id="moduleHost" class="module-host" data-state="closed" aria-hidden="true">
+    <div class="module-host-handle" id="moduleHostHandle">
+        <div class="module-host-grab"></div>
     </div>
-    <div class="drawer-header">
-        <button class="drawer-close-btn" id="drawerCloseBtn" title="Lukk">✕</button>
-    </div>
-    <div class="drawer-modules" id="drawerModules"></div>
+    <div class="module-host-body" id="moduleHostBody"></div>
 </div>
 
 <!-- Marked Verses Bar -->
 <div id="markedVersesBar" class="marked-verses-bar">
     <div class="mvb-inner">
+        <div class="mvb-handle" id="mvbHandle" aria-hidden="true"><div class="mvb-grab"></div></div>
         <div class="mvb-row mvb-row-top">
             <span class="mvb-ref" id="mvbRef"></span>
             <div class="mvb-top-actions">
@@ -385,6 +382,7 @@
         <div class="mvb-row mvb-row-actions">
             <div class="mvb-actions-scroll" id="mvbActionsScroll">
                 <button class="mvb-action-btn" id="mvbCompare" aria-pressed="false"><svg style="width:14px;height:14px;flex-shrink:0;vertical-align:middle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9H21M17 6L21 9L17 12M21 15H3M7 18L3 15L7 12"/></svg> Sammenlign</button>
+                <button class="mvb-action-btn" id="mvbMap" style="display:none;">🗺️ Kart</button>
                 <button class="mvb-action-btn" id="mvbPin">📌 Fest</button>
                 <a class="mvb-action-btn" id="mvbInterlinear" href="#" target="_blank" rel="noopener" style="display:none;"><img src="{{ url_for('static', filename='images/biblehub.png') }}" alt="" style="height:12px;"> Grunntekst <span style="font-size:0.7rem;opacity:0.7">↗</span></a>
                 <a class="mvb-action-btn" id="mvbBibleref" href="#" target="_blank" rel="noopener" style="display:none;"><img src="{{ url_for('static', filename='images/bibleref.png') }}" alt="" style="height:12px;"> BibleRef <span style="font-size:0.7rem;opacity:0.7">↗</span></a>
@@ -401,7 +399,7 @@
 </div>
 
 <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
-<script src="{{ url_for('static', filename='js/drawer.js') }}"></script>
+<script src="{{ url_for('static', filename='js/moduleHost.js') }}"></script>
 <script src="{{ url_for('static', filename='js/modules/pinnedVerses.js') }}"></script>
 <script src="{{ url_for('static', filename='js/modules/mapModule.js') }}"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>

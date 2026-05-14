@@ -76,6 +76,7 @@
                 <span class="sidebar-module-collapse" aria-hidden="true">
                     <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4 L6 8 L10 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </span>
+                <button class="sidebar-module-close" type="button" title="Lukk modul" aria-label="Lukk modul">&times;</button>
             </span>
         `;
         const body = document.createElement('div');
@@ -83,12 +84,25 @@
         wrap.appendChild(header);
         wrap.appendChild(body);
 
-        // Header click toggles collapse (except on drag handle).
+        // Header click toggles collapse (except on drag handle / close button).
         header.addEventListener('click', (e) => {
             if (e.target.closest('.sidebar-module-drag')) return;
+            if (e.target.closest('.sidebar-module-close')) return;
             entry.collapsed = !entry.collapsed;
             wrap.dataset.collapsed = entry.collapsed ? 'true' : 'false';
         });
+
+        // Per-module close X — clears the module's data and lets the sidebar
+        // auto-close if every remaining module is empty.
+        const closeBtn = header.querySelector('.sidebar-module-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                try { entry.def.clearAll && entry.def.clearAll(); } catch (err) { console.error(err); }
+                try { window.refreshPinButtons && window.refreshPinButtons(); } catch {}
+                checkAutoClose();
+            });
+        }
 
         // Drag handle starts pointer-based reorder.
         const handle = header.querySelector('.sidebar-module-drag');
