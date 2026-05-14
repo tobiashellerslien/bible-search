@@ -1747,9 +1747,9 @@ window.openSingleVerse = async function(bookCode, chapter, verse, bName, verToSw
 };
 
 // ── Marked verses & Marked Verses Bar (MVB) ──────────────────────────────────
-// MVB is positioned via CSS using body.drawer-* classes (set by AppDrawer).
-// It sits at the bottom on desktop, lifts above the collapsed-drawer handle
-// on mobile, and hides while the drawer is fully expanded.
+// MVB sits at the bottom on both desktop and mobile. On mobile a module-host
+// (AppModuleHost) can expand on top of MVB to show ONE module at a time, with
+// a shared swipe-down dismiss: first swipe closes the module, then MVB.
 
 function updateMvbHighlightChip() {
     const chip = document.getElementById('mvbHighlightChip');
@@ -1879,6 +1879,27 @@ function updateMvbPinButtonState() {
     pinBtn.textContent = pinned ? '📌 Festet' : '📌 Fest';
 }
 
+function _mvbActiveBlockIdx() {
+    if (!markedVerses.size) return null;
+    // Use the first marked verse's blockIdx — places are scoped per block.
+    const first = markedVerses.values().next().value;
+    return first && Number.isFinite(first.blockIdx) ? first.blockIdx : null;
+}
+
+function updateMvbMapButtonState() {
+    const btn = document.getElementById('mvbMap');
+    if (!btn) return;
+    const idx = _mvbActiveBlockIdx();
+    const reg = window.blockPlacesRegistry || {};
+    const places = (idx != null) ? (reg[idx] || []) : [];
+    // Show only when one of the marked verses actually mentions a place —
+    // otherwise the map would open with every place hidden (verseFilter empty).
+    const verseSet = new Set([...markedVerses.values()].map(v => `${v.chapter}:${v.verse}`));
+    const hasPlacesForMarked = places.some(p => (p.refs || []).some(r => verseSet.has(`${r.chapter}:${r.verse}`)));
+    btn.style.display = hasPlacesForMarked ? '' : 'none';
+    btn.dataset.blockIdx = String(idx ?? '');
+}
+
 function updateMvbExternalLinks() {
     const groups = getMarkedVersesGroups();
     const first = groups[0];
@@ -1918,6 +1939,10 @@ function updateMarkedVersesBar() {
         document.body.classList.remove('mvb-on');
         document.documentElement.style.setProperty('--mvb-h', '0px');
         updateMvbHighlightChip();
+        // MVB context is gone — any module pinned to those verses should close too.
+        if (window.AppModuleHost && window.AppModuleHost.isOpen()) {
+            window.AppModuleHost.closeModule();
+        }
         return;
     }
 
@@ -1946,7 +1971,7 @@ function updateMarkedVersesBar() {
     if (actionsRow) actionsRow.style.display = hasVerses ? '' : 'none';
     if (topRow) topRow.style.display = hasVerses ? '' : 'none';
 
-    if (hasVerses) { updateMvbExternalLinks(); updateMvbPinButtonState(); }
+    if (hasVerses) { updateMvbExternalLinks(); updateMvbPinButtonState(); updateMvbMapButtonState(); }
 
     // Measure AFTER content is laid out — first activation populates mvbRef and
     // toggles row visibility, so measuring before would yield a too-small height
@@ -1989,7 +2014,7 @@ function initMarkedVersesBar() {
 
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape') return;
-        if (window.innerWidth <= 700) return; // mobile uses drawer, not Esc
+        if (window.innerWidth <= 700) return; // mobile dismisses via swipe, not Esc
         if (document.body.classList.contains('mvb-on')) {
             clearAllMarkedVerses();
             e.preventDefault();
@@ -2000,6 +2025,10 @@ function initMarkedVersesBar() {
     if (openBtn) openBtn.addEventListener('click', async () => {
         const q = buildMvbQuery();
         if (!q) return;
+        // Per UX spec: opening the marked verse closes the active module.
+        if (window.AppModuleHost && window.AppModuleHost.isOpen()) {
+            window.AppModuleHost.closeModule();
+        }
         const markedVersions = [...markedVerses.values()].map(v => v.version).filter(Boolean);
         const uniqueVersions = [...new Set(markedVersions)];
         if (uniqueVersions.length === 1 && uniqueVersions[0] !== versionSelect.value
@@ -2028,6 +2057,26 @@ function initMarkedVersesBar() {
             await doSearch();
         } else {
             if (mainData) mainData.forEach((_, idx) => toggleCardCompare(idx));
+        }
+    });
+
+    const mapBtn = document.getElementById('mvbMap');
+    if (mapBtn) mapBtn.addEventListener('click', () => {
+        // Mobile: second tap on Kart closes the map.
+        if (window.AppModuleHost && window.AppModuleHost.isMobile()
+            && window.AppModuleHost.getActiveId() === 'map') {
+            window.AppModuleHost.closeModule();
+            return;
+        }
+        const idx = _mvbActiveBlockIdx();
+        if (idx == null) return;
+        if (window.MapModule && typeof window.MapModule.showForBlock === 'function') {
+            // Filter visible places to only those referenced by the marked verses,
+            // not the whole block. Study-tray Kart button continues to show all.
+            const verseFilter = [...markedVerses.values()].map(v => ({
+                chapter: v.chapter, verse: v.verse
+            }));
+            window.MapModule.showForBlock(idx, null, { verseFilter });
         }
     });
 
@@ -2107,6 +2156,9 @@ function initMarkedVersesBar() {
         bar.addEventListener('pointerdown', (e) => {
             if (e.target.closest('button, a, .mvb-actions-scroll')) return;
             if (e.pointerType === 'mouse' && e.button !== 0) return;
+            // When a module is open on top of MVB, only the module-host handle can
+            // dismiss things — first swipe closes module, then user can swipe MVB.
+            if (document.body.classList.contains('module-open')) return;
             dragging = true;
             startY = e.clientY;
             startX = e.clientX;
@@ -2132,7 +2184,6 @@ function initMarkedVersesBar() {
             lastDy = Math.max(0, dy);
             // Drive both MVB and the collapsed drawer via shared CSS var so they move as one unit.
             document.documentElement.style.setProperty('--mvb-shift', lastDy + 'px');
-            bar.style.opacity = String(Math.max(0.3, 1 - lastDy / 200));
         });
         function endDrag() {
             if (!dragging) return;
@@ -2950,6 +3001,10 @@ window.goHome = function(pushHistory = true) {
     currentHighlightVerses = null;
     clearAllMarkedVerses();
     Object.keys(cardCompare).forEach(k => delete cardCompare[k]);
+    // Empty state should leave no overlays behind — close any open module
+    // host (mobile) and sidebar (PC), which also clears each module's data.
+    if (window.AppModuleHost && window.AppModuleHost.isOpen()) window.AppModuleHost.closeModule();
+    if (window.AppSidebar && window.AppSidebar.isOpen && window.AppSidebar.isOpen()) window.AppSidebar.close();
     searchInput.value = '';
     updateSearchHighlight();
     setPageTitle(null);
@@ -4501,15 +4556,9 @@ window.togglePinForBlock = function(idx) {
     if (!window.PinnedVerses) return;
     const spec = getBlockPinSpec(idx);
     if (!spec) return;
-    const wasPinned = window.PinnedVerses.isPinned(spec);
     window.PinnedVerses.toggle(spec);
-    if (!wasPinned) {
-        // Pin was added: open correct container
-        if (window.AppDrawer && window.AppDrawer.isMobile()) {
-            window.AppDrawer.ensureOpen();
-        }
-        // AppSidebar.ensureOpen is handled inside PinnedVerses.add() for desktop
-    }
+    // PinnedVerses.add() handles AppSidebar.ensureOpen() on desktop. On mobile,
+    // pin is a quick-action — no UI is opened (Pin module will be reworked separately).
     if (typeof window.refreshPinButtons === 'function') window.refreshPinButtons();
 };
 

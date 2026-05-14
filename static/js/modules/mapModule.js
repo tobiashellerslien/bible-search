@@ -1,9 +1,9 @@
 // ── Map sidebar/drawer module ──
-// Registers as both an AppSidebar module (PC) and AppDrawer module (mobile).
+// Registers as an AppSidebar module (PC) and AppModuleHost module (mobile).
 // One Leaflet instance, lazily created. DOM lives inside .map-module-root,
 // which can be moved into #mapFullscreen for the fullscreen experience.
 (function () {
-    const FOCUS_MAX_ZOOM = 6;        // ≈ "see all of Israel"
+    const FOCUS_MAX_ZOOM = 8;
     // 20-colour palette: medium-bright hues (HSL L≈58, S≈70) that stay readable
     // when overlapping translucent fills stack on satellite imagery.
     const PALETTE = [
@@ -181,17 +181,10 @@
         }
         if (typeof L === 'undefined') return null;
         _map = L.map(canvasEl, {
-            zoomSnap: 0,
-            zoomDelta: 0.5,
-            // Tuned to feel like a "normal" map: one notch of mouse-wheel
-            // advances ~half a zoom level. Trackpads accumulate the smaller
-            // deltas naturally via the debounce window.
-            wheelDebounceTime: 40,
-            wheelPxPerZoomLevel: 100,
             minZoom: 2,
-            maxZoom: 14,
-            worldCopyJump: true,
+            maxZoom: 19,
             zoomControl: true,
+            scrollWheelZoom: true,
         });
         L.tileLayer(
             'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -202,9 +195,14 @@
             { attribution: '', maxZoom: 19, opacity: 0.95 }
         ).addTo(_map);
 
-        _map.createPane('regionsPane'); _map.getPane('regionsPane').style.zIndex = 400;
-        _map.createPane('linesPane');   _map.getPane('linesPane').style.zIndex   = 410;
-        _map.createPane('pointsPane');  _map.getPane('pointsPane').style.zIndex  = 420;
+        // All paths share Leaflet's default overlayPane + default renderer.
+        // Custom panes for paths trigger a zoom-animation transform bug where
+        // polygons visually fly away from their map position during flyTo and
+        // snap back when the animation ends. Markers go to the default
+        // markerPane (z=600), which sits above overlayPane (z=400), so points
+        // stay above polygons/lines without any extra pane setup. Z-order
+        // between regions and lines is controlled by render order in
+        // renderLayers() (regions added first, lines second).
 
         _map.setView([31.78, 35.22], 7);
         _layerGroup = L.layerGroup().addTo(_map);
@@ -254,6 +252,7 @@
                     const cur = mainEntry(targetId);
                     if (cur) applyHoverStyle(cur);
                 }
+                reassertSelectionFront();
             }
         });
         _map.on('mouseout', () => {
@@ -262,6 +261,7 @@
                 if (prev) resetStyle(prev);
             }
             _hoveredId = null;
+            reassertSelectionFront();
         });
 
         return _map;
@@ -269,14 +269,24 @@
 
     function mainEntry(id) { return _entries.find(e => e.role === 'main' && e.place.id === id); }
 
+    // Selected polygon/line lost its top-of-stack position whenever a different
+    // region was brought to front on hover. Call this whenever hover clears so
+    // the selected outline stays on top while no other region is being hovered.
+    function reassertSelectionFront() {
+        if (_selectedId === null) return;
+        if (_hoveredId !== null && _hoveredId !== _selectedId) return;
+        const sel = mainEntry(_selectedId);
+        if (sel && sel.layer && sel.layer.bringToFront) sel.layer.bringToFront();
+    }
+
     // ── styles (note: weight is what creates "thickness"; no scale transforms on geometry) ──
-    function stylePolyBase(place)     { const c = colorForPlace(place); return { pane:'regionsPane', color:c, weight:2, fillColor:c, fillOpacity:0.22 }; }
-    function stylePolyHover(place)    { const c = colorForPlace(place); return { pane:'regionsPane', color:c, weight:3, fillColor:c, fillOpacity:0.32 }; }
-    function stylePolySelected(place) { const c = colorForPlace(place); return { pane:'regionsPane', color:c, weight:4, fillColor:c, fillOpacity:0.45 }; }
-    function styleLineBase(place)     { const c = colorForPlace(place); return { pane:'linesPane', color:c, weight:4, opacity:0.95 }; }
-    function styleLineHover(place)    { const c = colorForPlace(place); return { pane:'linesPane', color:c, weight:6, opacity:1 }; }
-    function styleLineSelected(place) { const c = colorForPlace(place); return { pane:'linesPane', color:c, weight:7, opacity:1 }; }
-    function styleHitLine()           { return { pane:'linesPane', color:'#000', weight:18, opacity:0, interactive:true }; }
+    function stylePolyBase(place)     { const c = colorForPlace(place); return { color:c, weight:2, fillColor:c, fillOpacity:0.22 }; }
+    function stylePolyHover(place)    { const c = colorForPlace(place); return { color:c, weight:3, fillColor:c, fillOpacity:0.32 }; }
+    function stylePolySelected(place) { const c = colorForPlace(place); return { color:c, weight:4, fillColor:c, fillOpacity:0.45 }; }
+    function styleLineBase(place)     { const c = colorForPlace(place); return { color:c, weight:4, opacity:0.95 }; }
+    function styleLineHover(place)    { const c = colorForPlace(place); return { color:c, weight:6, opacity:1 }; }
+    function styleLineSelected(place) { const c = colorForPlace(place); return { color:c, weight:7, opacity:1 }; }
+    function styleHitLine()           { return { color:'#000', weight:18, opacity:0, interactive:true }; }
 
     function applySelectionStyle(entry) {
         if (entry.isPolygon && entry.layer.setStyle) {
@@ -314,7 +324,9 @@
     // ── popup ──
     function buildPopupHtml(place) {
         const c = colorForPlace(place);
-        const namePart = place.preceding_article ? `${esc(place.preceding_article)} ${esc(place.name)}` : esc(place.name);
+        const rawArticle = place.preceding_article || '';
+        const article = rawArticle ? rawArticle.charAt(0).toUpperCase() + rawArticle.slice(1) : '';
+        const namePart = article ? `${esc(article)} ${esc(place.name)}` : esc(place.name);
 
         let html = `<div class="map-popup" data-place-id="${place.id}" style="--place-color:${c}">`;
         html += `<div class="popup-header">
@@ -343,17 +355,19 @@
 
         const dis = (cond) => cond ? '' : ' disabled aria-disabled="true"';
         html += `<div class="popup-actions">`;
-        html += `<button class="popup-pill" data-act="stats" type="button"${dis(hasStats)}>📊 Statistikk</button>`;
+        html += `<button class="popup-pill" data-act="stats" type="button"${dis(hasStats)}>📊 Andre bibelsteder</button>`;
         html += `<button class="popup-pill" data-act="details" type="button"${dis(hasDetails)}>ℹ️ Detaljer</button>`;
         html += `<button class="popup-pill" data-act="links" type="button"${dis(hasLinks)}>🔗 Lenker</button>`;
         html += `</div>`;
 
-        // Refs within current block
+        // Refs within current block — each ref is a button so the user can jump to that verse.
         if (place.refs && place.refs.length) {
             const maxShown = 12;
             html += `<div class="popup-refs"><span class="popup-label">Nevnt:</span> `;
-            const labels = place.refs.slice(0, maxShown).map(r => `${r.chapter}:${r.verse}`);
-            html += esc(labels.join(', '));
+            const btns = place.refs.slice(0, maxShown).map(r =>
+                `<button class="popup-ref" type="button" data-act="goto-ref" data-chapter="${r.chapter}" data-verse="${r.verse}">${r.chapter}:${r.verse}</button>`
+            );
+            html += btns.join(', ');
             if (place.refs.length > maxShown) html += ` <span class="popup-refs-more">+${place.refs.length - maxShown}</span>`;
             html += `</div>`;
         }
@@ -379,6 +393,34 @@
         if (act === 'stats')   { openPlaceStats(id); return; }
         if (act === 'details') { openSubPopup('details', place, btn); return; }
         if (act === 'links')   { openSubPopup('links',   place, btn); return; }
+    });
+
+    // Clicking a verse ref inside the "Nevnt:" row jumps to that verse:
+    // close map (on mobile) + clear current marks, then mark the target verse so MVB reopens around it.
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest && e.target.closest('.popup-ref');
+        if (!btn) return;
+        const root = btn.closest('.map-popup');
+        if (!root) return;
+        e.stopPropagation();
+        const chapter = parseInt(btn.dataset.chapter, 10);
+        const verse = parseInt(btn.dataset.verse, 10);
+        const book = _activeBook;
+        if (!book || !Number.isFinite(chapter) || !Number.isFinite(verse)) return;
+        if (window.AppModuleHost && window.AppModuleHost.isMobile() && window.AppModuleHost.isOpen()) {
+            window.AppModuleHost.closeModule();
+        }
+        if (typeof window.clearHighlightAndMarked === 'function') window.clearHighlightAndMarked();
+        // Wait for module-host slide-out + MVB clear before scrolling + re-marking, so
+        // layout (mvb-h, body padding) is settled when scrollIntoView fires.
+        setTimeout(() => {
+            const sel = `.verse-text-clickable[data-book="${CSS.escape(book)}"][data-chapter="${chapter}"][data-verse="${verse}"]`;
+            const el = document.querySelector(sel);
+            if (!el) return;
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Click to mark — small delay so the scroll settles first.
+            setTimeout(() => el.click(), 220);
+        }, 140);
     });
 
     // ── sub-popup (floating mini panel near the action pill) ──
@@ -435,19 +477,35 @@
         }
         inner += `</div>`;
         div.innerHTML = inner;
-        document.body.appendChild(div);
-        // Position near the pill button
-        const r = anchorEl.getBoundingClientRect();
+        // Attach inside the parent leaflet popup so the sub-popup inherits the
+        // popup's transform — it then follows the map on drag/zoom instead of
+        // detaching to viewport coordinates. Fallback to <body> if not found.
+        const popup = anchorEl.closest('.leaflet-popup');
         const pw = 260;
-        const left = Math.max(8, Math.min(window.innerWidth - pw - 8, r.left));
-        div.style.left = left + 'px';
-        div.style.top = (r.bottom + window.scrollY + 6) + 'px';
+        const a = anchorEl.getBoundingClientRect();
+        if (popup) {
+            popup.appendChild(div);
+            const p = popup.getBoundingClientRect();
+            // Clamp the would-be screen-space left into the viewport, then
+            // express as offset from the popup's local origin (transforms on
+            // popup are translate-only, so screen-space delta == local delta).
+            const absLeft = Math.max(8, Math.min(window.innerWidth - pw - 8, a.left));
+            div.style.left = (absLeft - p.left) + 'px';
+            div.style.top  = (a.bottom - p.top + 6) + 'px';
+        } else {
+            document.body.appendChild(div);
+            const left = Math.max(8, Math.min(window.innerWidth - pw - 8, a.left));
+            div.style.left = left + 'px';
+            div.style.top  = (a.bottom + window.scrollY + 6) + 'px';
+        }
         _activeSubPopup = div;
         div.querySelector('.map-subpopup-close').addEventListener('click', closeSubPopup);
-        // Sub-popup lives on <body>, so clicks must not bubble to the map and
-        // close the parent leaflet popup.
+        // Stop pointer events so they don't bubble to the map (which would close
+        // the parent leaflet popup or start a pan).
         div.addEventListener('mousedown', (ev) => ev.stopPropagation());
         div.addEventListener('click', (ev) => ev.stopPropagation());
+        div.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+        div.addEventListener('touchstart', (ev) => ev.stopPropagation(), { passive: true });
         // Defer outside-click handler until after this click finishes bubbling
         setTimeout(() => document.addEventListener('mousedown', _onSubPopupOutside, true), 0);
     }
@@ -502,15 +560,15 @@
         if (type === 'Point') {
             const c = geometryCentroid(place.geometry);
             if (!c) return out;
-            const m = L.marker(c, { pane:'pointsPane', icon: buildPinIcon(place) });
+            const m = L.marker(c, { icon: buildPinIcon(place) });
             out.push({ layer: m, role:'main', isPoint: true });
         } else if (type === 'LineString') {
-            const main = L.geoJSON(place.geometry, { pane:'linesPane', style: () => styleLineBase(place) });
-            const hit  = L.geoJSON(place.geometry, { pane:'linesPane', style: styleHitLine });
+            const main = L.geoJSON(place.geometry, { style: () => styleLineBase(place) });
+            const hit  = L.geoJSON(place.geometry, { style: styleHitLine });
             out.push({ layer: main, role:'main', isLine: true });
             out.push({ layer: hit,  role:'hit',  isLine: true });
         } else if (type === 'Polygon') {
-            const poly = L.geoJSON(place.geometry, { pane:'regionsPane', style: () => stylePolyBase(place) });
+            const poly = L.geoJSON(place.geometry, { style: () => stylePolyBase(place) });
             out.push({ layer: poly, role:'main', isPolygon: true });
         } else if (place.geometry.type === 'GeometryCollection') {
             place.geometry.geometries.forEach(sub => {
@@ -568,11 +626,12 @@
                             }
                         });
                     }
-                    // bindPopup already auto-opens on click; tell selectPlace
-                    // not to re-open via setTimeout (the double-open would tear
-                    // down the popup DOM mid-interaction and silently break the
-                    // action buttons on subsequent re-opens).
-                    selectPlace(targetId, { fromLatLng: ev?.latlng, openPopup: false });
+                    // selectPlace opens the popup itself after the camera
+                    // animation finishes (see finish() in selectPlace). We
+                    // suppress bindPopup's own click-open below so the popup
+                    // doesn't open mid-animation and trigger autoPan that
+                    // fights our fitBounds.
+                    selectPlace(targetId, { fromLatLng: ev?.latlng, openPopup: true });
                 });
 
                 // Point hover handlers — points are not detected by map mousemove
@@ -586,6 +645,7 @@
                         if (_hoveredId === p.id && _selectedId !== p.id) {
                             _hoveredId = null;
                             resetStyle(entry);
+                            reassertSelectionFront();
                         }
                     });
                 }
@@ -601,6 +661,7 @@
                             const main = mainEntry(p.id);
                             if (main) { resetStyle(main); }
                             _hoveredId = null;
+                            reassertSelectionFront();
                         }
                     });
                 }
@@ -608,10 +669,23 @@
                 if (spec.role === 'main') {
                     spec.layer.bindPopup(buildPopupHtml(p), {
                         maxWidth: 300,
-                        autoPanPadding: [20, 20],
+                        // Tall popups (header + pills + refs) need generous top padding
+                        // so autoPan keeps the whole popup inside the viewport, not just
+                        // the anchor point.
+                        autoPanPaddingTopLeft: [24, 80],
+                        autoPanPaddingBottomRight: [24, 24],
                         className: 'map-popup-wrap',
                     });
+                    // bindPopup adds an internal click handler that auto-opens
+                    // the popup. We want to control timing (open only after
+                    // camera animation finishes), so disable the auto-open.
+                    if (spec.layer._openPopup) {
+                        spec.layer.off('click', spec.layer._openPopup, spec.layer);
+                    }
                     spec.layer.on('popupopen', () => {
+                        // On mobile the map covers the text anyway — skip the underline + auto-scroll
+                        // and let the user jump explicitly via the "Nevnt:" ref buttons in the popup.
+                        if (window.AppModuleHost && window.AppModuleHost.isMobile()) return;
                         highlightVerses(p);
                     });
                 }
@@ -639,25 +713,74 @@
             _hoveredId = null;
         }
         _selectedId = placeId;
-        applySelectionStyle(entry);
         highlightMenu(placeId);
 
         const bounds = entry.layer.getBounds && entry.layer.getBounds();
         const center = geometryCentroid(entry.place.geometry);
+        const popupLatLng = opts.fromLatLng || center;
+
+        // Defer style + popup until the camera animation finishes. Calling
+        // setStyle / bringToFront / openPopup before or during flyToBounds is
+        // what causes the polygon to visually drift during the zoom: re-styling
+        // or DOM-reordering a path while the renderer is mid-zoom-animation
+        // forces the path to re-render against an intermediate transform that
+        // doesn't match its true map position.
+        const finish = () => {
+            applySelectionStyle(entry);
+            if (opts.openPopup !== false && popupLatLng) {
+                entry.layer.openPopup(popupLatLng);
+            }
+        };
+
+        // fitBounds / setView use the standard single-step zoom animation that
+        // applies a CSS transform to the renderer's SVG container once and
+        // snaps paths to new coords at zoomend. flyTo runs frame-by-frame
+        // with per-frame transform updates, which empirically causes polygons
+        // to visually drift / scale incorrectly mid-animation.
+        //
+        // To leave room for the popup without disturbing the zoom level,
+        // compute a normal zoom that fits bounds (symmetric padding), then
+        // shift the target center DOWN in pixel space by half the popup
+        // reserve. Result: same zoom as a normal fit, region sits in the
+        // lower half of the viewport, popup appears above without needing
+        // its own autoPan animation.
+        const mapSize = _map.getSize();
+        const POPUP_RESERVE = Math.min(260, Math.max(60, mapSize.y * 0.45));
+        const shift = POPUP_RESERVE / 2;
+
+        // Cap zoom lower on mobile / small viewports. On larger maps,
+        // getBoundsZoom returns a higher value (more pixels to fill), so the
+        // same region zooms in further than on a PC sidebar. Bring the cap
+        // down so mobile feels comparable to PC.
+        const isMobile = !!(window.AppModuleHost && window.AppModuleHost.isMobile());
+        const effectiveMaxZoom = isMobile ? Math.max(2, FOCUS_MAX_ZOOM - 2) : FOCUS_MAX_ZOOM;
+
+        let animated = false;
+        let targetZoom = _map.getZoom();
+        let targetCenter = null;
 
         if (entry.isPolygon || entry.isLine) {
             if (bounds && bounds.isValid()) {
-                _map.flyToBounds(bounds, { maxZoom: FOCUS_MAX_ZOOM, padding: [40,40], duration: 0.5 });
+                targetZoom = Math.min(
+                    effectiveMaxZoom,
+                    _map.getBoundsZoom(bounds, false, L.point(40, 40))
+                );
+                targetCenter = bounds.getCenter();
             }
         } else if (center) {
-            const z = Math.min(_map.getZoom(), FOCUS_MAX_ZOOM);
-            _map.flyTo(center, z, { duration: 0.5 });
+            targetZoom = Math.max(_map.getZoom(), effectiveMaxZoom);
+            targetCenter = L.latLng(center[0], center[1]);
         }
 
-        const popupLatLng = opts.fromLatLng || center;
-        if (opts.openPopup !== false && popupLatLng) {
-            setTimeout(() => entry.layer.openPopup(popupLatLng), 480);
+        if (targetCenter) {
+            const pt = _map.project(targetCenter, targetZoom);
+            const offsetCenter = _map.unproject(pt.subtract([0, shift]), targetZoom);
+            _map.setView(offsetCenter, targetZoom, { animate: true });
+            animated = true;
         }
+
+        if (animated) _map.once('moveend', finish);
+        else finish();
     }
 
     function highlightMenu(placeId) {
@@ -686,6 +809,7 @@
         const entry = mainEntry(placeId);
         if (entry) resetStyle(entry);
         _hoveredId = null;
+        reassertSelectionFront();
     }
 
     // ── menu ──
@@ -720,8 +844,8 @@
                         <span class="map-menu-item-name">${esc(p.name)}</span>
                         ${sub}
                     </span>
-                    <button class="map-menu-eye" type="button" data-eye="${p.id}" title="${visible?'Skjul':'Vis'}" aria-label="${visible?'Skjul':'Vis'}">
-                        ${visible ? '👁' : '🚫'}
+                    <button class="map-menu-eye${visible ? '' : ' map-menu-eye-off'}" type="button" data-eye="${p.id}" title="${visible?'Skjul':'Vis'}" aria-label="${visible?'Skjul':'Vis'}">
+                        ${visible ? ICON_EYE_OPEN : ICON_EYE_OFF}
                     </button>
                 </div>`;
             });
@@ -729,6 +853,14 @@
         });
         if (!html) html = `<div class="map-menu-empty">Ingen steder.</div>`;
         listEl.innerHTML = html;
+
+        const bulk = _rootEl.querySelector('[data-act="toggle-all"]');
+        if (bulk) {
+            const anyVisible = _places.some(p => _visibility.get(p.id) !== false);
+            bulk.innerHTML = anyVisible ? ICON_EYE_OPEN : ICON_EYE_OFF;
+            bulk.title = anyVisible ? 'Skjul alle' : 'Vis alle';
+            bulk.classList.toggle('map-menu-action-off', !anyVisible);
+        }
 
         listEl.querySelectorAll('.map-menu-item').forEach(el => {
             const id = Number(el.dataset.placeId);
@@ -829,6 +961,7 @@
             <div class="stats-card"><div class="stats-card-label">GT</div><div class="stats-card-value">${ot}</div></div>
             <div class="stats-card"><div class="stats-card-label">NT</div><div class="stats-card-value">${nt}</div></div>
         </div>`;
+        html += `<div class="place-stats-section-label">Bøker <span class="place-stats-section-hint">— åpner alle versene i boken</span></div>`;
         html += `<div class="place-stats-books">`;
         bookOrder.forEach(code => {
             const cnt = perBook.get(code) || 0;
@@ -841,7 +974,7 @@
         html += `</div>`;
 
         if (perChap.size) {
-            html += `<div class="place-stats-distribution"><div class="place-stats-section-label">Per kapittel</div>`;
+            html += `<div class="place-stats-distribution"><div class="place-stats-section-label">Per kapittel <span class="place-stats-section-hint">— åpner ett kapittel</span></div>`;
             bookOrder.forEach(code => {
                 if (!perBook.get(code)) return;
                 const items = [];
@@ -863,6 +996,7 @@
                 btn.addEventListener('click', async () => {
                     const code = btn.dataset.book;
                     document.getElementById('statsModal').classList.remove('open');
+                    if (_isFullscreen) exitFullscreen();
                     const version = window.versionSelect ? window.versionSelect.value : null;
                     const bookRefs = refs.filter(r => r.book_usfm === code);
                     if (window.insertBlocksIntoView && bookRefs.length) {
@@ -886,6 +1020,7 @@
                     const code = btn.dataset.book;
                     const ch = Number(btn.dataset.chapter);
                     document.getElementById('statsModal').classList.remove('open');
+                    if (_isFullscreen) exitFullscreen();
                     // Highlight the verses in this chapter that mention the place
                     // (same mechanism as the verse→chapter expand path).
                     const keys = refs
@@ -948,7 +1083,22 @@
             fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"
             transform="scale(-1,1) translate(-16,0)"/>
     </svg>`;
-    // (Same outline shape — feels consistent in both states.)
+    const ICON_EYE_OPEN = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+        <circle cx="12" cy="12" r="3"/>
+    </svg>`;
+    const ICON_EYE_OFF = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+        <line x1="1" y1="1" x2="23" y2="23"/>
+    </svg>`;
+    const ICON_FIT = `<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+        <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 5 L8 1 M8 1 L5.5 3.5 M8 1 L10.5 3.5"/>
+            <path d="M8 11 L8 15 M8 15 L5.5 12.5 M8 15 L10.5 12.5"/>
+            <path d="M5 8 L1 8 M1 8 L3.5 5.5 M1 8 L3.5 10.5"/>
+            <path d="M11 8 L15 8 M15 8 L12.5 5.5 M15 8 L12.5 10.5"/>
+        </g>
+    </svg>`;
 
     function buildRoot() {
         const root = document.createElement('div');
@@ -958,20 +1108,11 @@
             <div class="map-menu" data-collapsed="false">
                 <div class="map-menu-header" role="button" tabindex="0" aria-label="Vis/skjul stedsliste">
                     <span class="map-menu-title">Steder</span>
-                    <button class="map-menu-action" type="button" data-act="toggle-all" title="Vis/skjul alle">👁</button>
-                    <button class="map-menu-action" type="button" data-act="fit" title="Tilpass til alle">
-                        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-                            <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M8 5 L8 1 M8 1 L5.5 3.5 M8 1 L10.5 3.5"/>
-                                <path d="M8 11 L8 15 M8 15 L5.5 12.5 M8 15 L10.5 12.5"/>
-                                <path d="M5 8 L1 8 M1 8 L3.5 5.5 M1 8 L3.5 10.5"/>
-                                <path d="M11 8 L15 8 M15 8 L12.5 5.5 M15 8 L12.5 10.5"/>
-                            </g>
-                        </svg>
-                    </button>
+                    <button class="map-menu-action" type="button" data-act="toggle-all" title="Vis/skjul alle">${ICON_EYE_OPEN}</button>
                     <span class="map-menu-chevron" aria-hidden="true">
                         <svg viewBox="0 0 12 12"><path d="M2 4 L6 8 L10 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     </span>
+                    <button class="map-menu-close" type="button" data-act="close-module" title="Lukk kart" aria-label="Lukk kart">✕</button>
                 </div>
                 <div class="map-menu-body">
                     <div class="map-menu-list"></div>
@@ -983,23 +1124,26 @@
                 <div class="map-canvas-tools">
                     <button class="map-tool-btn" type="button" data-act="fullscreen" title="Fullskjerm">⛶</button>
                     <button class="map-tool-btn map-tool-btn-back" type="button" data-act="exit-fullscreen" title="Minimer">${ICON_MINIMIZE}</button>
+                    <button class="map-tool-btn" type="button" data-act="fit" title="Tilpass til alle">${ICON_FIT}</button>
                 </div>
             </div>
         `;
 
         const menu = root.querySelector('.map-menu');
         const header = menu.querySelector('.map-menu-header');
+        // Collapse allowed everywhere EXCEPT desktop fullscreen (the desktop
+        // fullscreen layout uses the menu as a permanent left rail).
+        const canCollapse = () => !(root.dataset.fullscreen === 'true' && root.dataset.desktop === 'true');
         header.addEventListener('click', (e) => {
             if (e.target.closest('button')) return;
-            // disabled in fullscreen
-            if (root.dataset.fullscreen === 'true') return;
+            if (!canCollapse()) return;
             menu.dataset.collapsed = menu.dataset.collapsed === 'true' ? 'false' : 'true';
         });
         header.addEventListener('keydown', (e) => {
             if (e.target.closest('button')) return;
             if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                if (root.dataset.fullscreen === 'true') return;
+                if (!canCollapse()) return;
                 menu.dataset.collapsed = menu.dataset.collapsed === 'true' ? 'false' : 'true';
             }
         });
@@ -1008,14 +1152,19 @@
             const anyVisible = _places.some(p => _visibility.get(p.id) !== false);
             setAllVisibility(!anyVisible);
         });
-        menu.querySelector('[data-act="fit"]').addEventListener('click', (e) => {
+        const closeBtn = menu.querySelector('[data-act="close-module"]');
+        if (closeBtn) closeBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            fitAll();
+            if (_isFullscreen) exitFullscreen();
+            if (window.AppModuleHost && window.AppModuleHost.isOpen()) {
+                window.AppModuleHost.closeModule();
+            }
         });
 
         const tools = root.querySelector('.map-canvas-tools');
         tools.querySelector('[data-act="fullscreen"]').addEventListener('click', enterFullscreen);
         tools.querySelector('[data-act="exit-fullscreen"]').addEventListener('click', exitFullscreen);
+        tools.querySelector('[data-act="fit"]').addEventListener('click', fitAll);
 
         // Pointer-drag resize for the menu sidebar — only active in PC fullscreen.
         const handle = root.querySelector('.map-menu-resize');
@@ -1055,7 +1204,9 @@
     }
 
     // ── public entry ──
-    function showForBlock(blockIdx, focusId) {
+    // opts.verseFilter = [{chapter, verse}, ...] → load all places for the block but only
+    // show those whose refs hit one of the listed verses. focusId still wins if provided.
+    function showForBlock(blockIdx, focusId, opts) {
         const reg = window.blockPlacesRegistry || {};
         const places = reg[blockIdx] || [];
         if (!places.length) return;
@@ -1066,9 +1217,18 @@
 
         _places = places.slice();
         _visibility = new Map();
+        const verseFilter = opts && Array.isArray(opts.verseFilter) ? opts.verseFilter : null;
         if (focusId != null) {
             _places.forEach(p => _visibility.set(p.id, p.id === focusId));
             _focusId = focusId;
+        } else if (verseFilter && verseFilter.length) {
+            const filterSet = new Set(verseFilter.map(v => `${v.chapter}:${v.verse}`));
+            _places.forEach(p => {
+                const refs = p.refs || [];
+                const visible = refs.some(r => filterSet.has(`${r.chapter}:${r.verse}`));
+                _visibility.set(p.id, visible);
+            });
+            _focusId = null;
         } else {
             _places.forEach(p => _visibility.set(p.id, true));
             _focusId = null;
@@ -1076,8 +1236,8 @@
         _selectedId = null;
         _hoveredId = null;
 
-        if (window.AppDrawer && window.AppDrawer.isMobile()) {
-            window.AppDrawer.ensureOpen();
+        if (window.AppModuleHost && window.AppModuleHost.isMobile()) {
+            window.AppModuleHost.openModule('map');
         } else if (window.AppSidebar) {
             window.AppSidebar.ensureOpen();
         }
@@ -1137,7 +1297,7 @@
     function tryRegister() {
         if (window.AppSidebar && window.AppSidebar.register) {
             window.AppSidebar.register(moduleDef);
-            if (window.AppDrawer && window.AppDrawer.register) window.AppDrawer.register(moduleDef);
+            if (window.AppModuleHost && window.AppModuleHost.register) window.AppModuleHost.register(moduleDef);
         } else {
             setTimeout(tryRegister, 30);
         }

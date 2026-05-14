@@ -1898,7 +1898,8 @@
         .modal-overlay {
             position: fixed; inset: 0;
             background: rgba(0,0,0,0.5);
-            z-index: 900;
+            /* Above .map-fullscreen (z-index: 2000) so stats opens on top of fullscreen map. */
+            z-index: 2200;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -2389,9 +2390,10 @@
             transition: background 0.15s ease;
         }
         .map-menu-header:hover { background: var(--accent-dim); }
-        .map-module-root[data-fullscreen="true"] .map-menu-header { cursor: default; }
-        .map-module-root[data-fullscreen="true"] .map-menu-header:hover { background: transparent; }
-        .map-module-root[data-fullscreen="true"] .map-menu-chevron { display: none; }
+        /* Desktop fullscreen uses the menu as a permanent rail — disable collapse there only. */
+        .map-module-root[data-fullscreen="true"][data-desktop="true"] .map-menu-header { cursor: default; }
+        .map-module-root[data-fullscreen="true"][data-desktop="true"] .map-menu-header:hover { background: transparent; }
+        .map-module-root[data-fullscreen="true"][data-desktop="true"] .map-menu-chevron { display: none; }
         .map-menu-title { flex: 1; min-width: 0; }
         .map-menu-action {
             background: none;
@@ -2414,6 +2416,26 @@
         }
         .map-menu-chevron svg { width: 12px; height: 12px; transition: transform 0.22s ease; }
         .map-menu[data-collapsed="true"] .map-menu-chevron svg { transform: rotate(-90deg); }
+        /* Close-module button in the Steder header — mobile only, since desktop has the sidebar X. */
+        .map-menu-close { display: none; }
+        @media (max-width: 700px) {
+            .map-menu-close {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                background: none;
+                border: none;
+                color: var(--text-muted);
+                font-size: 1.15rem;
+                line-height: 1;
+                cursor: pointer;
+                padding: 4px 8px;
+                margin-left: 4px;
+                border-radius: 6px;
+            }
+            .map-menu-close:hover,
+            .map-menu-close:active { color: var(--error); background: var(--error-bg); }
+        }
         .map-menu-body {
             overflow: hidden;
             max-height: 80vh;
@@ -2428,8 +2450,9 @@
             max-height: 0;
             opacity: 0;
         }
-        .map-module-root[data-fullscreen="true"] .map-menu[data-collapsed="true"] .map-menu-body {
-            /* override — always visible in fullscreen */
+        .map-module-root[data-fullscreen="true"][data-desktop="true"] .map-menu[data-collapsed="true"] .map-menu-body {
+            /* override — always visible in DESKTOP fullscreen (left rail).
+               Mobile fullscreen keeps normal collapse behavior. */
             max-height: 100vh;
             opacity: 1;
         }
@@ -2513,14 +2536,22 @@
             background: none;
             border: none;
             cursor: pointer;
-            padding: 2px 4px;
-            font-size: 0.85rem;
-            line-height: 1;
+            padding: 4px 6px;
+            line-height: 0;
             color: var(--text-muted);
             border-radius: 4px;
-            opacity: 0.7;
+            opacity: 0.75;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
-        .map-menu-eye:hover { opacity: 1; background: var(--hover-bg); }
+        .map-menu-eye svg { display: block; }
+        .map-menu-eye:hover { opacity: 1; background: var(--hover-bg); color: var(--text); }
+        .map-menu-eye-off { opacity: 0.45; }
+        .map-menu-eye-off:hover { opacity: 0.85; }
+        .map-menu-action svg { display: block; }
+        .map-menu-action-off { opacity: 0.55; }
+        .map-menu-action-off:hover { opacity: 0.9; }
         .map-menu-empty {
             padding: 16px;
             text-align: center;
@@ -2642,7 +2673,37 @@
             max-width: 300px;
         }
         .map-popup-wrap .leaflet-popup-content-wrapper { border-radius: 8px; }
+        /* Theme Leaflet's white popup chrome so themed text (pills, comment,
+           muted labels) stays readable in dark mode. */
+        .map-popup-wrap .leaflet-popup-content-wrapper,
+        .map-popup-wrap .leaflet-popup-tip {
+            background: var(--card-bg);
+            color: var(--text);
+            box-shadow: 0 3px 14px rgba(0,0,0,0.35);
+        }
+        .map-popup-wrap .leaflet-popup-close-button { color: var(--text-muted); }
+        .map-popup-wrap .leaflet-popup-close-button:hover { color: var(--text); }
         .map-popup { --place-color: var(--accent); }
+
+        /* Mobile: let touch drags pass through the popup body to the map so the
+           user can pan/zoom without first dismissing the popup. Interactive
+           children opt back in to pointer events. */
+        @media (max-width: 700px) {
+            .map-popup-wrap .leaflet-popup-content-wrapper,
+            .map-popup-wrap .leaflet-popup-tip-container,
+            .map-popup-wrap .leaflet-popup-tip,
+            .map-popup-wrap .leaflet-popup-content,
+            .map-popup {
+                pointer-events: none;
+            }
+            .map-popup-wrap .leaflet-popup-close-button,
+            .map-popup .popup-pill,
+            .map-popup .popup-ref,
+            .map-subpopup,
+            .map-subpopup * {
+                pointer-events: auto;
+            }
+        }
         .map-popup .popup-header {
             display: flex;
             align-items: center;
@@ -2704,6 +2765,20 @@
         }
         .map-popup .popup-label { color: var(--text-muted); font-weight: 600; }
         .map-popup .popup-refs-more { color: var(--text-muted); }
+        .map-popup .popup-ref {
+            background: none;
+            border: none;
+            color: var(--accent);
+            font: inherit;
+            padding: 0 2px;
+            cursor: pointer;
+            border-radius: 3px;
+            text-decoration: underline;
+            text-decoration-thickness: 1px;
+            text-underline-offset: 2px;
+        }
+        .map-popup .popup-ref:hover,
+        .map-popup .popup-ref:active { background: var(--accent-dim); }
 
         /* Floating sub-popup launched from popup pills (details / links) */
         .map-subpopup {
@@ -2718,6 +2793,10 @@
             color: var(--text);
             width: 260px;
             border-top: 3px solid var(--place-color, var(--accent));
+            /* Leaflet popups set text-align:center; sub-popup is parented to the
+               popup now so it inherits that. Force left so the Detaljer rows read
+               correctly. */
+            text-align: left;
         }
         .map-subpopup-header {
             display: flex;
@@ -2818,6 +2897,14 @@
             color: var(--text-muted);
             margin: 12px 0 6px;
         }
+        .place-stats-section-hint {
+            text-transform: none;
+            font-family: var(--font-ui);
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            opacity: 0.8;
+            letter-spacing: 0;
+        }
         .place-stats-dist-row {
             display: flex;
             gap: 10px;
@@ -2852,6 +2939,18 @@
             /* Hide chapter/verse nav buttons on mobile — swipe handles it instead */
             .chapter-nav { display: none; }
             .map-module-root { height: 65vh; max-height: 70vh; }
+            /* Stats summary: 2x2 grid so all 4 cards stay aligned and NT doesn't
+               overflow to its own full-width row. */
+            .stats-summary {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }
+            .stats-card {
+                min-width: 0;
+                padding: 8px 10px;
+            }
+            .stats-card-label { font-size: 0.65rem; }
         }
 
         /* ── Sidebar foundation (PC) ── */
@@ -3021,6 +3120,23 @@
         }
         .sidebar-module[data-collapsed="true"] .sidebar-module-collapse svg {
             transform: rotate(-90deg);
+        }
+        .sidebar-module-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1.1rem;
+            line-height: 1;
+            padding: 2px 6px;
+            margin-left: 2px;
+            border-radius: 4px;
+            transition: color 0.15s ease, background 0.15s ease;
+        }
+        .sidebar-module-close:hover,
+        .sidebar-module-close:active {
+            color: var(--error);
+            background: var(--error-bg);
         }
 
         .sidebar-module-body {
@@ -3229,7 +3345,7 @@
         .verse-panel-close:hover { opacity: 1; color: var(--error); background: var(--error-bg); }
 
         /* ── Marked verses bar (MVB) ── */
-        :root { --drawer-collapsed-h: 84px; --mvb-h: 0px; --mvb-shift: 0px; --safe-area-bottom: env(safe-area-inset-bottom, 0px); }
+        :root { --mvb-h: 0px; --mvb-shift: 0px; --safe-area-bottom: env(safe-area-inset-bottom, 0px); }
         .marked-verses-bar {
             position: fixed;
             bottom: 0;
@@ -3268,20 +3384,25 @@
         @media (max-width: 700px) {
             .marked-verses-bar {
                 bottom: 0;
-                left: 4px;
-                right: 4px;
-                border: 1px solid var(--border);
+                left: 0;
+                right: 0;
+                border-left: none;
+                border-right: none;
+                border-top: 1px solid var(--border);
                 border-radius: 14px 14px 0 0;
                 box-shadow: 0 -6px 18px rgba(0,0,0,0.18);
-                padding: 12px 16px 16px;
+                padding: 6px 14px 16px;
                 padding-bottom: calc(16px + env(safe-area-inset-bottom));
             }
-            /* When drawer is fully expanded, hide MVB */
-            body.drawer-expanded .marked-verses-bar {
-                transform: translateY(110%) !important;
-                opacity: 0;
-                pointer-events: none;
+            /* When module-host is open and merged with MVB, drop the seam between them */
+            body.module-open .marked-verses-bar {
+                border-top-left-radius: 0;
+                border-top-right-radius: 0;
+                border-top: none;
+                box-shadow: none;
             }
+            /* Kill transitions during active MVB swipe so finger and bar move 1:1. */
+            body.mvb-dragging .marked-verses-bar { transition: none !important; }
         }
         /* Studie label above the bottom action row */
         .mvb-study-label {
@@ -3447,145 +3568,106 @@
             .mvb-actions-scroll { gap: 11px; }
         }
 
-        /* ── Mobile Drawer ── */
-        .app-drawer {
-            display: none;
-        }
+        /* ── MVB swipe handle (mobile only) ── */
+        .mvb-handle { display: none; }
         @media (max-width: 700px) {
-            .app-drawer {
+            .mvb-handle {
                 display: flex;
-                flex-direction: column;
-                position: fixed;
-                bottom: 0;
-                left: 4px;
-                right: 4px;
-                /* Below MVB (210) so MVB visually covers the drawer's lower portion as it slides up */
-                z-index: 200;
-                background: var(--card-bg, var(--bg));
-                border: 1px solid var(--border);
-                border-radius: 14px 14px 0 0;
-                box-shadow: 0 -8px 18px -8px rgba(0,0,0,0.22);
-                /* Always full target height so the visible portion is controlled by translateY only —
-                   gives a clean "drawer pulled up" slide instead of growing in both directions. */
-                height: 92vh;
-                /* Default = closed (fully off below). drawer-collapsed/expanded override transform. */
-                transform: translateY(100%);
-                transition: transform 0.32s cubic-bezier(.2,.8,.2,1);
-                will-change: transform;
-            }
-            /* When MVB is visible, the *closed* drawer parks just behind MVB instead of fully off-screen.
-               That way opening it from this state is a short, clean 44 px slide above MVB instead of a
-               long slide-up that's mostly hidden behind MVB. Same trick reversed for closing. */
-            body.mvb-on .app-drawer:not(.drawer-collapsed):not(.drawer-expanded) {
-                transform: translateY(calc(100% - var(--mvb-h, 0px) + var(--mvb-shift, 0px)));
-            }
-            /* Collapsed: drawer slides up so only its top 44px sits just above MVB (or the screen bottom).
-               --mvb-shift mirrors any active MVB swipe so the collapsed drawer rides along with MVB as one unit. */
-            .app-drawer.drawer-collapsed {
-                transform: translateY(calc(100% - var(--drawer-collapsed-h) - var(--safe-area-bottom, 0px) - var(--mvb-h, 0px) + var(--mvb-shift, 0px)));
-            }
-            /* During an active MVB drag, kill the drawer's transform transition so it follows the finger 1:1. */
-            body.mvb-dragging .app-drawer,
-            body.mvb-dragging .marked-verses-bar { transition: none !important; }
-            /* Expanded: fully visible */
-            .app-drawer.drawer-expanded {
-                transform: translateY(0);
-            }
-            /* When the drawer is collapsed, MVB merges visually with the handle into ONE element:
-               square top, no top border, no upward shadow. We keep this rule active even after
-               mvb-on is removed (during MVB close) so the slide-down doesn't suddenly grow a
-               shadow/border halfway through. The rule is harmless when MVB is hidden. */
-            body.drawer-collapsed .marked-verses-bar,
-            body.drawer-expanded .marked-verses-bar {
-                border-top-left-radius: 0;
-                border-top-right-radius: 0;
-                border-top: none;
-                box-shadow: none;
-            }
-            /* Drawer's own bottom seam is invisible behind MVB; kill its bottom border too. */
-            .app-drawer.drawer-collapsed,
-            .app-drawer.drawer-expanded {
-                border-bottom: none;
-            }
-            /* When MVB is open, the collapsed drawer sits just above MVB — 44px is enough there.
-               Reset safe-area offset too since MVB already handles bottom spacing. */
-            body.mvb-on {
-                --drawer-collapsed-h: 44px;
-                --safe-area-bottom: 0px;
-            }
-            body.mvb-on .drawer-handle-area {
-                padding-bottom: 6px;
-            }
-            /* Hide close-X when collapsed; only the handle bar shows */
-            .app-drawer:not(.drawer-expanded) .drawer-header { display: none; }
-            /* Hide module body when collapsed so nothing pokes through the visible 44 px */
-            .drawer-modules {
-                opacity: 0;
-                transition: opacity 0.18s ease;
-            }
-            .app-drawer.drawer-expanded .drawer-modules { opacity: 1; }
-            .drawer-handle-area {
-                min-height: var(--drawer-collapsed-h);
-                box-sizing: border-box;
-                padding: 6px 14px;
-                padding-bottom: calc(6px + var(--safe-area-bottom, 0px));
-                display: flex;
-                flex-direction: column;
-                align-items: center;
                 justify-content: center;
-                gap: 3px;
+                align-items: center;
+                padding: 6px 0 2px;
                 cursor: grab;
                 touch-action: none;
-                flex-shrink: 0;
             }
-            .drawer-grab-bar {
+            .mvb-grab {
                 width: 36px;
                 height: 4px;
                 border-radius: 2px;
                 background: var(--border);
             }
-            .drawer-handle-label {
-                font-size: 0.72rem;
-                color: var(--text-muted);
-                font-family: var(--font-ui);
-                line-height: 1.1;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                max-width: 90%;
-            }
-            .app-drawer.drawer-expanded .drawer-handle-label { display: none; }
-            .drawer-header {
+            /* When a module is open above MVB, hide MVB's own handle — the module-host
+               handle on top of the module owns the swipe-down gesture. */
+            body.module-open .mvb-handle { display: none; }
+        }
+
+        /* ── Mobile Module Host ── */
+        .module-host { display: none; }
+        @media (max-width: 700px) {
+            .module-host {
                 display: flex;
-                justify-content: flex-end;
-                gap: 8px;
-                padding: 0 12px 6px;
+                flex-direction: column;
+                position: fixed;
+                left: 0;
+                right: 0;
+                /* top+bottom defines height dynamically so MVB never pushes the host off-screen
+                   (a static 85vh would overflow when MVB sits below). */
+                top: 12vh;
+                bottom: var(--mvb-h, 0px);
+                /* Clearly below MVB (210). A small gap (209) was enough on desktop, but
+                   on iOS the satellite tiles' compositing layers occasionally outranked
+                   MVB during the close animation; widening the gap fixes it. */
+                z-index: 100;
+                background: var(--card-bg, var(--bg));
+                border-top: 1px solid var(--border);
+                border-radius: 14px 14px 0 0;
+                box-shadow: 0 -8px 18px -8px rgba(0,0,0,0.22);
+                /* Clip everything (especially the satellite tiles) to the host's box
+                   so nothing paints into MVB's area when the host slides past it. */
+                overflow: hidden;
+                /* When closed, slide the host fully below the viewport. translateY(100%) alone is not
+                   enough since the host is anchored at bottom:var(--mvb-h) — that would park the host's
+                   top edge exactly behind the MVB's top edge, which becomes visible the moment the user
+                   swipes MVB down. Adding mvb-h pushes the host past the bottom of the screen. */
+                transform: translateY(calc(100% + var(--mvb-h, 0px)));
+                transition: transform 0.32s cubic-bezier(.2,.8,.2,1),
+                            bottom 0.32s cubic-bezier(.2,.8,.2,1);
+                will-change: transform, bottom;
+                pointer-events: none;
+            }
+            .module-host[data-state="open"] {
+                transform: translateY(0);
+                pointer-events: auto;
+            }
+            /* When MVB sits directly below the host, they should look like one panel: drop the
+               host's bottom rounded corners (no rounding on the side touching MVB) and let MVB
+               drop its top corners (handled in MVB block). */
+            body.module-open.mvb-on .module-host { box-shadow: 0 -8px 18px -8px rgba(0,0,0,0.22); }
+            .module-host-handle {
                 flex-shrink: 0;
+                /* Bigger touch target so the swipe-down gesture is easy to hit. */
+                padding: 14px 14px 12px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                cursor: grab;
+                touch-action: none;
+                position: relative;
             }
-            .drawer-close-btn {
-                background: none;
-                border: none;
-                color: var(--text-muted);
-                cursor: pointer;
-                font-size: 0.85rem;
-                padding: 2px 5px;
-                border-radius: 5px;
-                font-family: var(--font-ui);
-                transition: all 0.15s;
+            .module-host-grab {
+                width: 44px;
+                height: 5px;
+                border-radius: 3px;
+                background: var(--border);
             }
-            .drawer-close-btn:hover { color: var(--error); background: var(--error-bg); }
-            .drawer-modules {
+            .module-host-body {
                 flex: 1;
-                overflow-y: auto;
-                overscroll-behavior: contain;
-                padding: 0 12px 16px;
+                min-height: 0;
+                overflow: hidden;
+                padding: 0 12px 12px;
+                padding-bottom: calc(12px + var(--safe-area-bottom, 0px));
+                display: flex;
+                flex-direction: column;
             }
-            /* Module card in drawer: inherits .sidebar-module look (animation, header, chevron, body).
-               Only drawer-specific spacing tweaks live here. */
-            .drawer-module-card { margin-bottom: 10px; }
+            /* Module content fills the body so map etc. takes the whole expanded area. */
+            .module-host-body > * { flex: 1; min-height: 0; }
+            .module-host-body .map-module-root {
+                height: auto;
+                max-height: none;
+                min-height: 0;
+            }
         }
         @media (min-width: 701px) {
-            .app-drawer { display: none !important; }
+            .module-host { display: none !important; }
         }
 
         /* ── Reduced motion ── */
