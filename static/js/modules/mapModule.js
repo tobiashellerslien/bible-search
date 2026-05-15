@@ -32,6 +32,9 @@
     let _container = null;
     let _rootEl = null;
     let _moduleHost = null;
+    let _unsubMainBlock = null;    // teardown for ctx.subscribe('mainBlockChanged')
+    let _hasBeenShown = false;     // true once showForBlock has run; controls auto-close vs empty-state
+    let _selectToken = 0;          // increments on each selectPlace; finish() bails if its token is stale
 
     // ── helpers ──
     function esc(s) {
@@ -56,6 +59,29 @@
         if (!m) return hex;
         const r = parseInt(m[1],16), g = parseInt(m[2],16), b = parseInt(m[3],16);
         return `rgba(${r},${g},${b},${alpha})`;
+    }
+    // darkened version for text on light backgrounds — clamps HSL lightness to 42%
+    function darkenForText(hex) {
+        const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        if (!m) return hex;
+        let r = parseInt(m[1],16)/255, g = parseInt(m[2],16)/255, b = parseInt(m[3],16)/255;
+        const max = Math.max(r,g,b), min = Math.min(r,g,b);
+        let h = 0, s = 0, l = (max+min)/2;
+        if (max !== min) {
+            const d = max-min;
+            s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+            switch(max) {
+                case r: h = ((g-b)/d + (g<b?6:0))/6; break;
+                case g: h = ((b-r)/d + 2)/6; break;
+                case b: h = ((r-g)/d + 4)/6; break;
+            }
+        }
+        if (l <= 0.55) return hex;
+        l = 0.42;
+        const hue2rgb = (p,q,t) => { if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p; };
+        const q2 = l < 0.5 ? l*(1+s) : l+s-l*s, p2 = 2*l-q2;
+        const toHex = x => Math.round(x*255).toString(16).padStart(2,'0');
+        return `#${toHex(hue2rgb(p2,q2,h+1/3))}${toHex(hue2rgb(p2,q2,h))}${toHex(hue2rgb(p2,q2,h-1/3))}`;
     }
 
     function kindGroup(kind) {
@@ -207,27 +233,55 @@
         _map.setView([31.78, 35.22], 7);
         _layerGroup = L.layerGroup().addTo(_map);
 
-        _map.on('popupclose', () => {
-            if (_selectedId !== null) {
+        _map.on('popupclose', (ev) => {
+            // Identify which place's popup just closed. When the user clicks
+            // a new place while another popup is open, Leaflet closes the OLD
+            // popup before opening the new one — so popupclose fires for the
+            // previous place after _selectedId has already been moved to the
+            // new place. If we blindly reset state on _selectedId we'd wipe
+            // the freshly-applied selection style (visible as the pin snapping
+            // back to base size right as the popup opens).
+            const closedLayer = ev && ev.popup && ev.popup._source;
+            let closedId = null;
+            if (closedLayer) {
+                const closedEntry = _entries.find(e => e.role === 'main' && e.layer === closedLayer);
+                if (closedEntry) closedId = closedEntry.place.id;
+            }
+            const ownedByCurrentSelection = closedId !== null && closedId === _selectedId;
+
+            // Always clear the verse highlight tied to the closed popup.
+            // Tying this to ownedByCurrentSelection alone leaked the highlight
+            // when re-clicking the same place: the old popup closes inside
+            // openPopup, which nulls _selectedId; popupopen then re-applies
+            // the highlight, but the next outside-click popupclose no longer
+            // matches and the highlight gets stranded.
+            if (closedId !== null) clearVerseHighlight(closedId);
+            else if (ownedByCurrentSelection) clearVerseHighlight(null);
+
+            if (ownedByCurrentSelection) {
                 const e = mainEntry(_selectedId);
                 if (e) {
                     resetStyle(e);
                     setMarkerState(e, '');
                 }
                 _selectedId = null;
+                highlightMenu(null);
             }
-            // Always purge every map-highlight from the text — popupclose fires
-            // before the next popupopen, so we won't drop a fresh highlight.
-            clearVerseHighlight(null);
-            highlightMenu(null);
-            // Sub-popup is anchored to the popup; closing the popup must close it too,
-            // otherwise it lingers and its outside-click listener leaks across opens.
-            closeSubPopup();
+            // Sub-popup is anchored to whichever popup just closed — always close
+            // it so its outside-click listener doesn't leak across opens.
+            closeSubPopup({ silent: true });
         });
 
         // Map-level mousemove for nested-region hover-through.
         _map.on('mousemove', (e) => {
             if (!_entries.length) return;
+            // Non-polygon hover (point/line) is managed by per-layer
+            // mouseover/mouseout handlers. Bail so this handler doesn't
+            // clobber that state on every pixel of movement.
+            if (_hoveredId !== null) {
+                const cur = mainEntry(_hoveredId);
+                if (cur && !cur.isPolygon) return;
+            }
             const { lat, lng } = e.latlng;
             const candidates = _entries.filter(en =>
                 en.role === 'main' && en.isPolygon &&
@@ -285,7 +339,7 @@
     function stylePolySelected(place) { const c = colorForPlace(place); return { color:c, weight:4, fillColor:c, fillOpacity:0.45 }; }
     function styleLineBase(place)     { const c = colorForPlace(place); return { color:c, weight:4, opacity:0.95 }; }
     function styleLineHover(place)    { const c = colorForPlace(place); return { color:c, weight:6, opacity:1 }; }
-    function styleLineSelected(place) { const c = colorForPlace(place); return { color:c, weight:7, opacity:1 }; }
+    function styleLineSelected(place) { const c = colorForPlace(place); return { color:c, weight:6, opacity:1 }; }
     function styleHitLine()           { return { color:'#000', weight:18, opacity:0, interactive:true }; }
 
     function applySelectionStyle(entry) {
@@ -328,7 +382,7 @@
         const article = rawArticle ? rawArticle.charAt(0).toUpperCase() + rawArticle.slice(1) : '';
         const namePart = article ? `${esc(article)} ${esc(place.name)}` : esc(place.name);
 
-        let html = `<div class="map-popup" data-place-id="${place.id}" style="--place-color:${c}">`;
+        let html = `<div class="map-popup" data-place-id="${place.id}" style="--place-color:${c};--place-color-text:${darkenForText(c)}">`;
         html += `<div class="popup-header">
             <span class="popup-kind-icon">${placeIconHtml(place, 20)}</span>
             <div class="popup-header-text">
@@ -374,6 +428,15 @@
 
         html += `</div>`;
         return html;
+    }
+
+    // ── tooltip (hover preview: icon + name) ──
+    function buildTooltipHtml(place) {
+        const c = colorForPlace(place);
+        return `<span class="map-tooltip-inner" style="--place-color:${c}">`
+             + `<span class="map-tooltip-icon">${placeIconHtml(place, 16)}</span>`
+             + `<span class="map-tooltip-name">${esc(place.name)}</span>`
+             + `</span>`;
     }
 
     // Delegated click handler — one listener for all popup pills, attached once.
@@ -425,11 +488,16 @@
 
     // ── sub-popup (floating mini panel near the action pill) ──
     let _activeSubPopup = null;
-    function closeSubPopup() {
+    function closeSubPopup(opts) {
         if (_activeSubPopup) {
             _activeSubPopup.remove();
             _activeSubPopup = null;
-            document.removeEventListener('mousedown', _onSubPopupOutside, true);
+            document.removeEventListener('click', _onSubPopupOutside, true);
+            // After the details panel is dismissed by user action (X click,
+            // outside-click, or main-popup click), pan the map so the main
+            // popup is fully visible again. Skip when called from teardown
+            // paths (popupclose, rebind) where opts.silent=true.
+            if (!(opts && opts.silent)) recenterMainPopup();
         }
     }
     function _onSubPopupOutside(e) {
@@ -439,13 +507,57 @@
         if (e.target.closest('.popup-pill')) return;
         closeSubPopup();
     }
+
+    // Pan the map so the currently-open main popup is fully visible.
+    // No-op if no popup or it's already in view (within padding).
+    function recenterMainPopup() {
+        if (!_map || _selectedId == null) return;
+        const entry = mainEntry(_selectedId);
+        if (!entry || !entry.layer || !entry.layer._popup) return;
+        const popupEl = entry.layer._popup.getElement && entry.layer._popup.getElement();
+        if (!popupEl) return;
+        const mapRect = _map.getContainer().getBoundingClientRect();
+        const pr = popupEl.getBoundingClientRect();
+        const pad = 16;
+        let dx = 0, dy = 0;
+        if (pr.right > mapRect.right - pad) dx = pr.right - (mapRect.right - pad);
+        else if (pr.left < mapRect.left + pad) dx = pr.left - (mapRect.left + pad);
+        if (pr.bottom > mapRect.bottom - pad) dy = pr.bottom - (mapRect.bottom - pad);
+        else if (pr.top < mapRect.top + pad) dy = pr.top - (mapRect.top + pad);
+        if (dx !== 0 || dy !== 0) _map.panBy([dx, dy], { animate: true });
+    }
+
+    // Pan the map so the combined bbox of the main popup + sub-popup fits
+    // inside the map viewport. Called after the sub-popup is positioned.
+    function fitSubPopupIntoView() {
+        if (!_map || !_activeSubPopup) return;
+        const mapRect = _map.getContainer().getBoundingClientRect();
+        const subRect = _activeSubPopup.getBoundingClientRect();
+        const popupEl = _activeSubPopup.closest('.leaflet-popup');
+        let minX = subRect.left, minY = subRect.top, maxX = subRect.right, maxY = subRect.bottom;
+        if (popupEl) {
+            const pr = popupEl.getBoundingClientRect();
+            minX = Math.min(minX, pr.left);
+            minY = Math.min(minY, pr.top);
+            maxX = Math.max(maxX, pr.right);
+            maxY = Math.max(maxY, pr.bottom);
+        }
+        const pad = 16;
+        let dx = 0, dy = 0;
+        if (maxX > mapRect.right - pad) dx = maxX - (mapRect.right - pad);
+        else if (minX < mapRect.left + pad) dx = minX - (mapRect.left + pad);
+        if (maxY > mapRect.bottom - pad) dy = maxY - (mapRect.bottom - pad);
+        else if (minY < mapRect.top + pad) dy = minY - (mapRect.top + pad);
+        if (dx !== 0 || dy !== 0) _map.panBy([dx, dy], { animate: true });
+    }
     function openSubPopup(kind, place, anchorEl) {
-        closeSubPopup();
+        closeSubPopup({ silent: true });
         const c = colorForPlace(place);
         const aliases = (place.aliases || []).filter(a => a && a !== place.name);
         const div = document.createElement('div');
         div.className = 'map-subpopup';
         div.style.setProperty('--place-color', c);
+        div.style.setProperty('--place-color-text', darkenForText(c));
         let inner = `<div class="map-subpopup-header">
             <span class="map-subpopup-title">${kind === 'details' ? 'Detaljer' : 'Lenker'}</span>
             <button class="map-subpopup-close" type="button" aria-label="Lukk">&times;</button>
@@ -499,15 +611,21 @@
             div.style.top  = (a.bottom + window.scrollY + 6) + 'px';
         }
         _activeSubPopup = div;
-        div.querySelector('.map-subpopup-close').addEventListener('click', closeSubPopup);
+        div.querySelector('.map-subpopup-close').addEventListener('click', () => closeSubPopup());
         // Stop pointer events so they don't bubble to the map (which would close
         // the parent leaflet popup or start a pan).
         div.addEventListener('mousedown', (ev) => ev.stopPropagation());
         div.addEventListener('click', (ev) => ev.stopPropagation());
         div.addEventListener('pointerdown', (ev) => ev.stopPropagation());
         div.addEventListener('touchstart', (ev) => ev.stopPropagation(), { passive: true });
-        // Defer outside-click handler until after this click finishes bubbling
-        setTimeout(() => document.addEventListener('mousedown', _onSubPopupOutside, true), 0);
+        // Outside-close listener uses 'click' (not 'mousedown') so dragging the
+        // map to see the rest of a tall details panel doesn't dismiss it —
+        // click only fires when the mouse didn't move significantly between
+        // down and up. Deferred so the originating click finishes bubbling.
+        setTimeout(() => document.addEventListener('click', _onSubPopupOutside, true), 0);
+        // Pan the map so the sub-popup + main popup are fully visible. rAF lets
+        // the browser commit the new layout before we measure.
+        requestAnimationFrame(() => fitSubPopupIntoView());
     }
 
     // ── verse highlight in text while popup open ──
@@ -634,7 +752,7 @@
                     selectPlace(targetId, { fromLatLng: ev?.latlng, openPopup: true });
                 });
 
-                // Point hover handlers — points are not detected by map mousemove
+                // Point hover handlers — points are not detected by map mousemove.
                 if (entry.isPoint) {
                     spec.layer.on('mouseover', () => {
                         if (_selectedId === p.id) return;
@@ -649,7 +767,7 @@
                         }
                     });
                 }
-                // Line hover handlers (the hit layer triggers them via main below)
+                // Line hover handlers (the hit layer triggers them via main below).
                 if (entry.isLine && spec.role === 'hit') {
                     spec.layer.on('mouseover', () => {
                         if (_selectedId === p.id) return;
@@ -683,10 +801,35 @@
                         spec.layer.off('click', spec.layer._openPopup, spec.layer);
                     }
                     spec.layer.on('popupopen', () => {
+                        // Tooltip and popup must not coexist on the same place.
+                        spec.layer.closeTooltip && spec.layer.closeTooltip();
+                        if (entry.isLine) {
+                            const hit = _entries.find(en => en.role === 'hit' && en.place.id === p.id);
+                            if (hit && hit.layer.closeTooltip) hit.layer.closeTooltip();
+                        }
                         // On mobile the map covers the text anyway — skip the underline + auto-scroll
                         // and let the user jump explicitly via the "Nevnt:" ref buttons in the popup.
                         if (window.AppModuleHost && window.AppModuleHost.isMobile()) return;
                         highlightVerses(p);
+                    });
+                }
+
+                // Hover tooltip — bound on whichever layer actually receives
+                // hover events: main for points/polygons, hit for lines.
+                const tooltipHere =
+                    (spec.role === 'main' && (entry.isPoint || entry.isPolygon)) ||
+                    (entry.isLine && spec.role === 'hit');
+                if (tooltipHere) {
+                    spec.layer.bindTooltip(buildTooltipHtml(p), {
+                        direction: entry.isPoint ? 'top' : 'auto',
+                        sticky: !entry.isPoint,
+                        className: 'map-tooltip',
+                        opacity: 1,
+                        offset: entry.isPoint ? L.point(0, -28) : L.point(0, 0),
+                    });
+                    // Suppress tooltip while this place's popup is open.
+                    spec.layer.on('tooltipopen', () => {
+                        if (_selectedId === p.id) spec.layer.closeTooltip();
                     });
                 }
 
@@ -699,6 +842,7 @@
     function selectPlace(placeId, opts = {}) {
         const entry = mainEntry(placeId);
         if (!entry) return;
+        const myToken = ++_selectToken;
 
         // Reset previous
         if (_selectedId !== null && _selectedId !== placeId) {
@@ -715,6 +859,12 @@
         _selectedId = placeId;
         highlightMenu(placeId);
 
+        // Apply marker-only selection style immediately so the click gives
+        // instant visual feedback (scale 1.35). Polygon/line setStyle stays
+        // deferred to `finish()` since restyling a path mid-animation causes
+        // the visual-drift bug documented below.
+        if (entry.isPoint) setMarkerState(entry, 'selected');
+
         const bounds = entry.layer.getBounds && entry.layer.getBounds();
         const center = geometryCentroid(entry.place.geometry);
         const popupLatLng = opts.fromLatLng || center;
@@ -726,6 +876,12 @@
         // forces the path to re-render against an intermediate transform that
         // doesn't match its true map position.
         const finish = () => {
+            // Stale-callback guard: if rebindToMainBlock or another selectPlace ran
+            // before this animation's moveend fired, our entry's layer was destroyed
+            // by _layerGroup.clearLayers() and we'd be applying state to a detached
+            // layer / opening a popup that's no longer wired to anything.
+            if (myToken !== _selectToken) return;
+            if (!_entries.includes(entry)) return;
             applySelectionStyle(entry);
             if (opts.openPopup !== false && popupLatLng) {
                 entry.layer.openPopup(popupLatLng);
@@ -775,12 +931,39 @@
         if (targetCenter) {
             const pt = _map.project(targetCenter, targetZoom);
             const offsetCenter = _map.unproject(pt.subtract([0, shift]), targetZoom);
-            _map.setView(offsetCenter, targetZoom, { animate: true });
-            animated = true;
+
+            // If the requested view is essentially identical to the current one,
+            // Leaflet's setView is a no-op and never fires `moveend`. That used to
+            // leave `finish()` stranded — the old popup never closed, the new one
+            // never opened, and a later user drag would fire the stale callback,
+            // making the popup pop in only after panning. Detect the no-op case
+            // and skip the listener entirely.
+            const curPt = _map.project(_map.getCenter(), targetZoom);
+            const tgtPt = _map.project(offsetCenter, targetZoom);
+            const noMoveNeeded = _map.getZoom() === targetZoom
+                && Math.abs(curPt.x - tgtPt.x) < 2
+                && Math.abs(curPt.y - tgtPt.y) < 2;
+
+            if (noMoveNeeded) {
+                animated = false;
+            } else {
+                _map.setView(offsetCenter, targetZoom, { animate: true });
+                animated = true;
+            }
         }
 
-        if (animated) _map.once('moveend', finish);
-        else finish();
+        if (animated) {
+            // Belt-and-suspenders: register `moveend` for the normal animated
+            // path, but also schedule a timeout in case Leaflet never fires it
+            // (interrupted animation, reduced-motion, etc.). Both routes share
+            // a `done` flag so `finish()` runs exactly once.
+            let done = false;
+            const runOnce = () => { if (done) return; done = true; finish(); };
+            _map.once('moveend', runOnce);
+            setTimeout(runOnce, 450);
+        } else {
+            finish();
+        }
     }
 
     function highlightMenu(placeId) {
@@ -921,7 +1104,7 @@
             const data = await resp.json();
             if (!data.place) return;
             renderPlaceStats(data.place);
-            closeSubPopup();
+            closeSubPopup({ silent: true });
             const modal = document.getElementById('statsModal');
             if (modal) modal.classList.add('open');
         } catch {}
@@ -1206,7 +1389,16 @@
     // ── public entry ──
     // opts.verseFilter = [{chapter, verse}, ...] → load all places for the block but only
     // show those whose refs hit one of the listed verses. focusId still wins if provided.
-    function showForBlock(blockIdx, focusId, opts) {
+    //
+    // Module binding rule: modules always operate on mainData[0]. If a caller
+    // requests a non-top block, we isolate that block first (replacing the
+    // view), then proceed with the now-top block. This keeps the rule simple
+    // and avoids per-card module state.
+    async function showForBlock(blockIdx, focusId, opts) {
+        if (blockIdx !== 0 && typeof window.isolateToBlock === 'function') {
+            await window.isolateToBlock(blockIdx);
+            blockIdx = 0;
+        }
         const reg = window.blockPlacesRegistry || {};
         const places = reg[blockIdx] || [];
         if (!places.length) return;
@@ -1235,6 +1427,8 @@
         }
         _selectedId = null;
         _hoveredId = null;
+        _hasBeenShown = true;
+        clearEmptyState();
 
         if (window.AppModuleHost && window.AppModuleHost.isMobile()) {
             window.AppModuleHost.openModule('map');
@@ -1252,6 +1446,78 @@
         });
     }
 
+    // Re-bind module content to the current mainData[0]. Called when the
+    // user navigates/expands/collapses card-0, or when isolation promotes a
+    // new block to the top. Loads all places for the new block (no
+    // verseFilter — marked verses are cleared by navigation anyway). If the
+    // new block has no places, swaps the module to an empty state instead
+    // of auto-closing — _hasBeenShown keeps the sidebar open.
+    function rebindToMainBlock() {
+        const md = window.mainData;
+        const newBlock = (md && md.length) ? md[0] : null;
+        const reg = window.blockPlacesRegistry || {};
+        const places = newBlock ? (reg[0] || []) : [];
+
+        // Invalidate any pending selectPlace finish() callback before tearing down
+        // layers — its captured entry would otherwise apply style / openPopup on a
+        // detached layer when the next moveend fires.
+        _selectToken++;
+        closeSubPopup({ silent: true });
+        clearVerseHighlight(null);
+
+        if (!places.length) {
+            // Empty new block — keep the module mounted but show empty state.
+            // (Per request: don't auto-close the sidebar; let the user see that
+            // the current text has no places.)
+            _places = [];
+            _visibility = new Map();
+            _focusId = null;
+            _selectedId = null;
+            _hoveredId = null;
+            _activeBook = newBlock && (newBlock.book || newBlock.book_usfm) || null;
+            if (_layerGroup) _layerGroup.clearLayers();
+            _entries = [];
+            renderEmptyState();
+            return;
+        }
+
+        _activeBook = newBlock && (newBlock.book || newBlock.book_usfm) || null;
+        _places = places.slice();
+        _visibility = new Map();
+        _places.forEach(p => _visibility.set(p.id, true));
+        _focusId = null;
+        _selectedId = null;
+        _hoveredId = null;
+        _hasBeenShown = true;
+
+        clearEmptyState();
+        if (_layerGroup) {
+            renderLayers();
+            renderMenu();
+            setTimeout(fitAll, 60);
+        }
+    }
+
+    // Empty state rendered when the active text has no places. Replaces both
+    // the menu list and overlays the canvas with a centered message.
+    function renderEmptyState() {
+        if (!_rootEl) return;
+        const list = _rootEl.querySelector('.map-menu-list');
+        if (list) list.innerHTML = `<div class="map-menu-empty">Ingen steder å vise i denne teksten.</div>`;
+        const wrap = _rootEl.querySelector('.map-canvas-wrap');
+        if (wrap && !wrap.querySelector('.map-empty-overlay')) {
+            const overlay = document.createElement('div');
+            overlay.className = 'map-empty-overlay';
+            overlay.innerHTML = `<div class="map-empty-overlay-inner">Ingen steder å vise i denne teksten.</div>`;
+            wrap.appendChild(overlay);
+        }
+    }
+    function clearEmptyState() {
+        if (!_rootEl) return;
+        const overlay = _rootEl.querySelector('.map-empty-overlay');
+        if (overlay) overlay.remove();
+    }
+
     const moduleDef = {
         id: 'map',
         title: 'Kart',
@@ -1264,28 +1530,41 @@
                     setTimeout(() => { if (_map) _map.invalidateSize(); }, 50);
                     setTimeout(() => { if (_map) _map.invalidateSize(); }, 380);
                 });
+                // Re-bind whenever the top text block changes. Stored on the
+                // entry so unmount can detach it.
+                _unsubMainBlock = ctx.subscribe('mainBlockChanged', () => {
+                    if (!_places.length && !(window.blockPlacesRegistry && window.blockPlacesRegistry[0])) return;
+                    rebindToMainBlock();
+                });
             }
             setTimeout(() => { if (_map) _map.invalidateSize(); }, 380);
             if (_places.length) { renderLayers(); renderMenu(); }
         },
         unmount() {
+            if (_unsubMainBlock) { try { _unsubMainBlock(); } catch {} _unsubMainBlock = null; }
             if (!_isFullscreen && _rootEl && _rootEl.parentNode) {
                 _rootEl.parentNode.removeChild(_rootEl);
             }
             _container = null;
         },
-        isEmpty() { return _places.length === 0; },
+        // _hasBeenShown gates auto-close: once the user has opened the map,
+        // the module stays mounted (with an empty state) when navigating to
+        // texts without places, instead of collapsing the sidebar.
+        isEmpty() { return !_hasBeenShown; },
         clearAll() {
+            _selectToken++;
             _places = [];
             _visibility = new Map();
             _focusId = null;
             _selectedId = null;
             _hoveredId = null;
             _activeBook = null;
+            _hasBeenShown = false;
             if (_layerGroup) _layerGroup.clearLayers();
             _entries = [];
             clearVerseHighlight(null);
-            closeSubPopup();
+            closeSubPopup({ silent: true });
+            clearEmptyState();
             if (_isFullscreen) exitFullscreen();
             const list = _rootEl && _rootEl.querySelector('.map-menu-list');
             if (list) list.innerHTML = '';

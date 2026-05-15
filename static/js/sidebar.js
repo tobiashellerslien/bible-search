@@ -12,7 +12,10 @@
 //     isEmpty?(): boolean,    // used for auto-close detection
 //     clearAll?()             // called on sidebar close to wipe module's data
 //   }
-// ctx: { jumpToVerse(target), getBlock(idx), getFocus(), subscribe(event, fn) }
+// ctx: { jumpToVerse(target), getBlock(idx), getMainBlock(), getFocus(), subscribe(event, fn) }
+//
+// Modules should subscribe to 'mainBlockChanged' to re-bind their content
+// whenever mainData[0] changes (navigation, expand/collapse, fresh search).
 (function () {
     const DESKTOP_BP = 701;
     const DEFAULT_WIDTH_VW = 40;
@@ -41,6 +44,11 @@
                 if (typeof window.scrollToBlockIdx === 'function') window.scrollToBlockIdx(target);
             },
             getBlock(idx) { return (window.mainData && window.mainData[idx]) || null; },
+            getMainBlock() {
+                const md = window.mainData;
+                if (!md || !md.length) return null;
+                return { blockIdx: 0, block: md[0] };
+            },
             getFocus() { return state.focus; },
             subscribe(event, fn) {
                 if (!state.listeners.has(event)) state.listeners.set(event, new Set());
@@ -349,6 +357,19 @@
 
     function refreshObserver() { if (state.open) setupObserver(); }
 
+    // Broadcast that mainData[0] has changed. Modules subscribed to
+    // 'mainBlockChanged' re-bind their content; this is the canonical signal
+    // that the text the user is reading has changed (navigation, expand/
+    // collapse, fresh search, isolation). Fires regardless of sidebar open
+    // state so future modules with persistent state can stay in sync.
+    function notifyMainBlockChanged() {
+        const md = window.mainData;
+        const payload = (md && md.length)
+            ? { blockIdx: 0, block: md[0] }
+            : { blockIdx: 0, block: null };
+        emit('mainBlockChanged', payload);
+    }
+
     function notifyStateChange(appState) {
         state.modules.forEach(entry => {
             if (entry.mounted && entry.def.onStateChange) {
@@ -383,10 +404,20 @@
         init();
     }
 
+    // Public subscribe — used by AppModuleHost (mobile) so its modules get
+    // the same 'mainBlockChanged' / 'opened' / 'closed' events the desktop
+    // sidebar ctx exposes. Returns a teardown function.
+    function subscribe(event, fn) {
+        if (!state.listeners.has(event)) state.listeners.set(event, new Set());
+        state.listeners.get(event).add(fn);
+        return () => state.listeners.get(event).delete(fn);
+    }
+
     window.AppSidebar = {
         register, unregister,
         open, close, toggle, ensureOpen, checkAutoClose,
-        setFocus, refreshObserver, notifyStateChange,
+        setFocus, refreshObserver, notifyStateChange, notifyMainBlockChanged,
+        subscribe,
         getState: () => ({ open: state.open, focus: state.focus }),
         isOpen: () => state.open,
     };
