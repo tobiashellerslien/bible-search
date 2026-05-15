@@ -434,6 +434,8 @@
             <div class="mvb-actions-scroll" id="mvbActionsScroll">
                 <button class="mvb-action-btn" id="mvbCompare" aria-pressed="false"><svg style="width:14px;height:14px;flex-shrink:0;vertical-align:middle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9H21M17 6L21 9L17 12M21 15H3M7 18L3 15L7 12"/></svg> Sammenlign</button>
                 <button class="mvb-action-btn" id="mvbMap" style="display:none;">🗺️ Kart</button>
+                <button class="mvb-action-btn" id="mvbCommentary" title="Kommentar til markerte vers">✒️ Kommentar</button>
+                <button class="mvb-action-btn" id="mvbOutline" title="Outline for markerte vers">📜 Outline</button>
                 <a class="mvb-action-btn" id="mvbInterlinear" href="#" target="_blank" rel="noopener" style="display:none;"><img src="{{ url_for('static', filename='images/biblehub.png') }}" alt="" style="height:12px;"> Grunntekst <span style="font-size:0.7rem;opacity:0.7">↗</span></a>
                 <a class="mvb-action-btn" id="mvbBibleref" href="#" target="_blank" rel="noopener" style="display:none;"><img src="{{ url_for('static', filename='images/bibleref.png') }}" alt="" style="height:12px;"> BibleRef <span style="font-size:0.7rem;opacity:0.7">↗</span></a>
                 <a class="mvb-action-btn" id="mvbSource" href="#" target="_blank" rel="noopener" style="display:none;">Kilde <span style="font-size:0.7rem;opacity:0.7">↗</span></a>
@@ -463,6 +465,9 @@
 <script src="{{ url_for('static', filename='js/moduleHost.js') }}"></script>
 <script src="{{ url_for('static', filename='js/modules/pinnedVerses.js') }}"></script>
 <script src="{{ url_for('static', filename='js/modules/mapModule.js') }}"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="{{ url_for('static', filename='js/modules/commentaryModule.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modules/outlineModule.js') }}"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 <script>
 if ('serviceWorker' in navigator) {

@@ -388,7 +388,13 @@ def api_commentary():
     entries = bible_data.get_commentary_entries(
         cid, q_book, q_ch, q_vs, q_ch_end, q_vs_end
     )
-    return jsonify({"commentary": bible_data.commentaries[cid], "entries": entries})
+    payload = {"commentary": bible_data.commentaries[cid], "entries": entries}
+    if request.args.get("include_intro") in ("1", "true", "yes"):
+        # Books in the queried range — commentary range stays within a single
+        # book here (the API always queries by `book`), but keep the list shape
+        # so we can extend later for cross-book requests.
+        payload["intros"] = bible_data.get_commentary_intros(cid, [q_book])
+    return jsonify(payload)
 
 
 @bp.get("/api/topics")

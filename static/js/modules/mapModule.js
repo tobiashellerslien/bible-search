@@ -1433,7 +1433,12 @@
         if (window.AppModuleHost && window.AppModuleHost.isMobile()) {
             window.AppModuleHost.openModule('map');
         } else if (window.AppSidebar) {
-            window.AppSidebar.ensureOpen();
+            // Mount-on-demand: only this module mounts, not every registered one.
+            if (typeof window.AppSidebar.openModule === 'function') {
+                window.AppSidebar.openModule('map');
+            } else {
+                window.AppSidebar.ensureOpen();
+            }
         }
 
         requestAnimationFrame(() => {

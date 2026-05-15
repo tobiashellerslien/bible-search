@@ -100,13 +100,14 @@
             wrap.dataset.collapsed = entry.collapsed ? 'true' : 'false';
         });
 
-        // Per-module close X — clears the module's data and lets the sidebar
-        // auto-close if every remaining module is empty.
+        // Per-module close X — clears the module's data, removes its DOM, and
+        // closes the sidebar if no modules remain mounted.
         const closeBtn = header.querySelector('.sidebar-module-close');
         if (closeBtn) {
             closeBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 try { entry.def.clearAll && entry.def.clearAll(); } catch (err) { console.error(err); }
+                unmountModuleDOM(entry);
                 try { window.refreshPinButtons && window.refreshPinButtons(); } catch {}
                 checkAutoClose();
             });
@@ -142,54 +143,165 @@
     }
 
     // ── Drag-to-reorder ──
+    // While dragging: the picked-up module follows the cursor (position:fixed),
+    // a placeholder reserves its slot in the list, all modules collapse so the
+    // list is compact, and the other modules animate (FLIP) as the placeholder
+    // moves between them. On drop, each module's previous collapsed state is
+    // restored — which plays the normal expand transition.
     function startDrag(startEvent, entry, wrap) {
         const list = $('sidebarModules');
         if (!list) return;
         const startY = startEvent.clientY;
+        const startX = startEvent.clientX;
         let moved = false;
-        let dropTarget = null, dropPos = null;
+        let placeholder = null;
+        let pointerOffsetY = 0;
+        let pointerOffsetX = 0;
+        const savedCollapsed = new Map(); // entry -> bool
+        const oldRects = new Map();       // wrap el -> DOMRect (captured before each reorder)
 
-        function clearMarkers() {
-            list.querySelectorAll('.drop-before, .drop-after').forEach(el => {
-                el.classList.remove('drop-before', 'drop-after');
+        function captureRects() {
+            oldRects.clear();
+            state.modules.forEach(en => {
+                if (en.wrap && en.wrap !== wrap) {
+                    oldRects.set(en.wrap, en.wrap.getBoundingClientRect());
+                }
             });
         }
-        function onMove(e) {
-            const dy = Math.abs(e.clientY - startY);
-            if (!moved && dy < 5) return;
-            if (!moved) {
-                moved = true;
-                wrap.classList.add('dragging');
-                document.body.style.userSelect = 'none';
-            }
-            clearMarkers();
+
+        function playFlip() {
+            state.modules.forEach(en => {
+                const el = en.wrap;
+                if (!el || el === wrap) return;
+                const oldR = oldRects.get(el);
+                if (!oldR) return;
+                const newR = el.getBoundingClientRect();
+                const dy = oldR.top - newR.top;
+                if (Math.abs(dy) < 0.5) return;
+                el.style.transition = 'none';
+                el.style.transform = `translateY(${dy}px)`;
+                requestAnimationFrame(() => {
+                    el.style.transition = 'transform 0.22s cubic-bezier(0.2, 0.8, 0.3, 1)';
+                    el.style.transform = '';
+                });
+            });
+        }
+
+        function clearFlipStyles() {
+            state.modules.forEach(en => {
+                if (!en.wrap) return;
+                en.wrap.style.transition = '';
+                en.wrap.style.transform = '';
+            });
+        }
+
+        function beginDrag(e) {
+            moved = true;
+            const wrapRect = wrap.getBoundingClientRect();
+            pointerOffsetY = startY - wrapRect.top;
+            pointerOffsetX = startX - wrapRect.left;
+            const width = wrapRect.width;
+
+            // Save each module's collapsed state, then force-collapse all visually.
+            state.modules.forEach(en => {
+                savedCollapsed.set(en, en.collapsed);
+                if (en.wrap) en.wrap.dataset.collapsed = 'true';
+            });
+
+            // Placeholder reserves the dragged module's slot. Size it to the
+            // collapsed header height (read after the force-collapse above).
+            placeholder = document.createElement('div');
+            placeholder.className = 'sidebar-module-placeholder';
+            const headerH = wrap.querySelector('.sidebar-module-header').offsetHeight;
+            placeholder.style.height = headerH + 'px';
+            list.insertBefore(placeholder, wrap);
+
+            // Detach the dragged module to fixed positioning so it follows the cursor.
+            document.body.appendChild(wrap);
+            wrap.classList.add('dragging');
+            wrap.style.position = 'fixed';
+            wrap.style.width = width + 'px';
+            wrap.style.left = (e.clientX - pointerOffsetX) + 'px';
+            wrap.style.top = (e.clientY - pointerOffsetY) + 'px';
+            wrap.style.zIndex = '9999';
+            wrap.style.pointerEvents = 'none';
+            document.body.style.userSelect = 'none';
+        }
+
+        function updatePlaceholderPosition(e) {
             const items = Array.from(list.querySelectorAll('.sidebar-module'));
-            for (const item of items) {
-                if (item === wrap) continue;
-                const r = item.getBoundingClientRect();
-                if (e.clientY >= r.top && e.clientY <= r.bottom) {
-                    const mid = r.top + r.height / 2;
-                    if (e.clientY < mid) { item.classList.add('drop-before'); dropTarget = item; dropPos = 'before'; }
-                    else { item.classList.add('drop-after'); dropTarget = item; dropPos = 'after'; }
-                    return;
+            if (!items.length) return;
+            let desiredNext = null; // sibling that placeholder should sit before; null = end
+            const firstR = items[0].getBoundingClientRect();
+            const lastR = items[items.length - 1].getBoundingClientRect();
+            if (e.clientY < firstR.top) {
+                desiredNext = items[0];
+            } else if (e.clientY > lastR.bottom) {
+                desiredNext = null; // append
+            } else {
+                for (const item of items) {
+                    const r = item.getBoundingClientRect();
+                    if (e.clientY >= r.top && e.clientY <= r.bottom) {
+                        const mid = r.top + r.height / 2;
+                        desiredNext = (e.clientY < mid) ? item : item.nextSibling;
+                        break;
+                    }
                 }
             }
-            dropTarget = null; dropPos = null;
+            if (placeholder.nextSibling === desiredNext) return;
+
+            captureRects();
+            if (desiredNext) list.insertBefore(placeholder, desiredNext);
+            else list.appendChild(placeholder);
+            playFlip();
         }
+
+        function onMove(e) {
+            if (!moved) {
+                const dy = Math.abs(e.clientY - startY);
+                if (dy < 5) return;
+                beginDrag(e);
+            }
+            wrap.style.left = (e.clientX - pointerOffsetX) + 'px';
+            wrap.style.top = (e.clientY - pointerOffsetY) + 'px';
+            updatePlaceholderPosition(e);
+        }
+
         function onUp() {
             window.removeEventListener('pointermove', onMove);
             window.removeEventListener('pointerup', onUp);
             window.removeEventListener('pointercancel', onUp);
+            if (!moved) return;
             document.body.style.userSelect = '';
+
+            // Re-insert the dragged wrap where the placeholder ended up.
+            placeholder.parentNode.insertBefore(wrap, placeholder);
+            placeholder.parentNode.removeChild(placeholder);
+            placeholder = null;
+
             wrap.classList.remove('dragging');
-            clearMarkers();
-            if (moved && dropTarget && dropPos) {
-                if (dropPos === 'before') list.insertBefore(wrap, dropTarget);
-                else list.insertBefore(wrap, dropTarget.nextSibling);
-                const newOrder = Array.from(list.querySelectorAll('.sidebar-module')).map(el => el.dataset.moduleId);
-                state.modules.sort((a, b) => newOrder.indexOf(a.def.id) - newOrder.indexOf(b.def.id));
-            }
+            wrap.style.position = '';
+            wrap.style.left = '';
+            wrap.style.top = '';
+            wrap.style.width = '';
+            wrap.style.zIndex = '';
+            wrap.style.pointerEvents = '';
+
+            clearFlipStyles();
+
+            // Restore each module's collapsed state — the CSS body transition
+            // plays an expand animation for those that were expanded before.
+            state.modules.forEach(en => {
+                const prev = !!savedCollapsed.get(en);
+                en.collapsed = prev;
+                if (en.wrap) en.wrap.dataset.collapsed = prev ? 'true' : 'false';
+            });
+
+            // Persist new order in state.modules.
+            const newOrder = Array.from(list.querySelectorAll('.sidebar-module')).map(el => el.dataset.moduleId);
+            state.modules.sort((a, b) => newOrder.indexOf(a.def.id) - newOrder.indexOf(b.def.id));
         }
+
         window.addEventListener('pointermove', onMove);
         window.addEventListener('pointerup', onUp);
         window.addEventListener('pointercancel', onUp);
@@ -275,19 +387,46 @@
     }
 
     // ── Open / close ──
+    // Mount-on-demand: only modules whose isEmpty() reports false (i.e. that
+    // have content to show) get mounted. Modules without isEmpty default to
+    // mounted, so legacy modules keep their old behavior.
+    function hasContent(entry) {
+        const fn = entry.def.isEmpty;
+        if (typeof fn !== 'function') return true;
+        try { return !fn(); } catch { return true; }
+    }
+
     function open() {
         if (!isDesktop()) return;
         if (state.open) return;
         state.open = true;
         setSidebarWidth(sidebarDefaultWidth());
-        // Mount any registered modules
-        state.modules.forEach(mountModuleDOM);
+        // Mount only modules that have content right now. Triggering code
+        // (e.g. MapModule.showForBlock, CommentaryModule.showForBlock) is
+        // expected to set the module's _hasBeenShown flag before calling
+        // openModule/ensureOpen so the module appears.
+        state.modules.forEach(entry => {
+            if (hasContent(entry)) mountModuleDOM(entry);
+        });
         // Trigger transition on next frame so layout is ready
         requestAnimationFrame(() => {
             document.body.classList.add('sidebar-open');
             setupObserver();
         });
         emit('opened');
+    }
+
+    // Open sidebar (if needed) and ensure a specific module is mounted.
+    // Callers should have set the module's "has content" state first.
+    function openModule(id) {
+        if (!isDesktop()) return;
+        const entry = state.modules.find(m => m.def.id === id);
+        if (!entry) return;
+        if (!state.open) {
+            open();
+            // open() mounts modules with content; this one should now be mounted.
+        }
+        if (!entry.mounted) mountModuleDOM(entry);
     }
 
     function close() {
@@ -324,12 +463,15 @@
 
     function toggle() { state.open ? close() : open(); }
 
-    // Auto-close: called by modules after their content shrinks.
-    // If every module reports isEmpty, close the sidebar.
+    // Auto-close: called after a module's data shrinks or is dismissed.
+    // Treats unmounted modules as empty. Closes the sidebar when nothing is
+    // currently mounted (or every mounted module is reporting empty).
     function checkAutoClose() {
         if (!state.open) return;
-        if (state.modules.length === 0) { close(); return; }
+        const someMounted = state.modules.some(entry => entry.mounted);
+        if (!someMounted) { close(); return; }
         const allEmpty = state.modules.every(entry => {
+            if (!entry.mounted) return true;
             const fn = entry.def.isEmpty;
             return typeof fn === 'function' ? !!fn() : false;
         });
@@ -415,7 +557,7 @@
 
     window.AppSidebar = {
         register, unregister,
-        open, close, toggle, ensureOpen, checkAutoClose,
+        open, close, toggle, ensureOpen, openModule, checkAutoClose,
         setFocus, refreshObserver, notifyStateChange, notifyMainBlockChanged,
         subscribe,
         getState: () => ({ open: state.open, focus: state.focus }),
