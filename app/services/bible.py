@@ -2,6 +2,7 @@ import re
 import os
 import json
 import sqlite3
+import threading
 from pathlib import Path
 
 _db_env = os.getenv("BIBLE_DB_PATH")
@@ -217,11 +218,93 @@ SORTED_GROUPS = sorted(BOOK_GROUPS.keys(), key=len, reverse=True)
 
 # ── Bible data (SQLite-backed) ────────────────────────────────────────────────
 
+class _LockedConnection:
+    """Wraps a sqlite3.Connection so .execute() / .executemany() / .cursor()
+    are serialized through a single re-entrant lock. The Flask dev server is
+    threaded; the previous setup (one shared connection, check_same_thread=False)
+    raced cursors across threads and caused intermittent "bad parameter" /
+    short-row unpack errors in routes that fire many concurrent fetches."""
+    def __init__(self, conn, lock):
+        self._conn = conn
+        self._lock = lock
+
+    def execute(self, *args, **kwargs):
+        with self._lock:
+            cur = self._conn.execute(*args, **kwargs)
+            # Materialize into a list so the underlying cursor is no longer
+            # in-flight when we release the lock (callers may iterate later).
+            try:
+                rows = cur.fetchall()
+            except sqlite3.ProgrammingError:
+                # Statement returned no result set (DDL, PRAGMA write, etc.) —
+                # return the cursor itself as before.
+                return cur
+            return _MaterializedCursor(rows, cur.description, cur.lastrowid, cur.rowcount)
+
+    def executemany(self, *args, **kwargs):
+        with self._lock:
+            return self._conn.executemany(*args, **kwargs)
+
+    def executescript(self, *args, **kwargs):
+        with self._lock:
+            return self._conn.executescript(*args, **kwargs)
+
+    def cursor(self, *args, **kwargs):
+        with self._lock:
+            return self._conn.cursor(*args, **kwargs)
+
+    def commit(self):
+        with self._lock:
+            return self._conn.commit()
+
+    def rollback(self):
+        with self._lock:
+            return self._conn.rollback()
+
+    def close(self):
+        with self._lock:
+            return self._conn.close()
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+
+class _MaterializedCursor:
+    """Stand-in for a sqlite3.Cursor that has already had .fetchall() drained.
+    Supports the access patterns used in this codebase (iteration, .fetchall(),
+    .fetchone(), .description, .lastrowid, .rowcount)."""
+    def __init__(self, rows, description, lastrowid, rowcount):
+        self._rows = rows
+        self.description = description
+        self.lastrowid = lastrowid
+        self.rowcount = rowcount
+
+    def __iter__(self):
+        return iter(self._rows)
+
+    def fetchall(self):
+        return list(self._rows)
+
+    def fetchone(self):
+        return self._rows[0] if self._rows else None
+
+    def fetchmany(self, size=None):
+        if size is None or size >= len(self._rows):
+            out = list(self._rows)
+            self._rows = []
+            return out
+        out = self._rows[:size]
+        self._rows = self._rows[size:]
+        return out
+
+
 class BibleData:
     def __init__(self, db_path=None):
-        self.db = sqlite3.connect(str(db_path or DB_PATH), check_same_thread=False)
-        self.db.execute("PRAGMA journal_mode=WAL")
-        self.db.execute("PRAGMA foreign_keys=ON")
+        raw = sqlite3.connect(str(db_path or DB_PATH), check_same_thread=False)
+        raw.execute("PRAGMA journal_mode=WAL")
+        raw.execute("PRAGMA foreign_keys=ON")
+        self._db_lock = threading.RLock()
+        self.db = _LockedConnection(raw, self._db_lock)
         self._load_metadata()
         # Lazy import to avoid circulars at module-load time.
         from .versification import Versifier
@@ -637,6 +720,198 @@ class BibleData:
             cur = row[1]
         return list(reversed(names))
 
+    # ── Topics: range aggregation for the Topics module ──────────────
+    def _ensure_topic_own_counts(self):
+        """Lazy-build {topic_id: rows_in_topic_verses_directly_on_this_topic}.
+        Used as the displayed badge so the number matches what a user sees when
+        they expand the topic."""
+        if getattr(self, "_topic_own_counts", None) is not None:
+            return self._topic_own_counts
+        own = {}
+        for tid, n in self.db.execute(
+            "SELECT topic_id, COUNT(*) FROM topic_verses GROUP BY topic_id"
+        ):
+            own[tid] = n
+        self._topic_own_counts = own
+        return own
+
+    def _ensure_topic_counts(self):
+        """Lazy-build {topic_id: total_verse_rows_in_subtree}. Cached for the
+        process lifetime — topics tree is static."""
+        if getattr(self, "_topic_counts", None) is not None:
+            return self._topic_counts
+        # Direct verse counts per topic.
+        own = {}
+        for tid, n in self.db.execute(
+            "SELECT topic_id, COUNT(*) FROM topic_verses GROUP BY topic_id"
+        ):
+            own[tid] = n
+        # Parent map + collect all topic ids.
+        parent = {}
+        for tid, pid in self.db.execute("SELECT id, parent_id FROM topics"):
+            parent[tid] = pid
+        # Aggregate upward: for each leaf, walk to root adding its own count
+        # to every ancestor. Counts include self.
+        totals = {tid: own.get(tid, 0) for tid in parent}
+        for tid, n in own.items():
+            cur = parent.get(tid)
+            while cur is not None:
+                totals[cur] = totals.get(cur, 0) + n
+                cur = parent.get(cur)
+        self._topic_counts = totals
+        return totals
+
+    def _topic_range_where(self, book_usfm, ch_start, vs_start, ch_end, vs_end):
+        """Build the WHERE-clause + params for a topic_verses range overlap.
+        topic_verses rows are within a single chapter, so multi-chapter ranges
+        decompose into: middle chapters (no verse filter) ∪ start-chapter rows
+        with verse_end>=vs_start ∪ end-chapter rows with verse_start<=vs_end.
+        Single-chapter case needs both sides AND'd against each other."""
+        if vs_start is None:
+            vs_start = 1
+        end_open = (vs_end is None)
+        if ch_start == ch_end:
+            if end_open:
+                sql = (" WHERE tv.book_usfm=? AND tv.chapter=?"
+                       "   AND COALESCE(tv.verse_end, tv.verse_start) >= ?")
+                params = [book_usfm, ch_start, vs_start]
+            else:
+                sql = (" WHERE tv.book_usfm=? AND tv.chapter=?"
+                       "   AND COALESCE(tv.verse_end, tv.verse_start) >= ?"
+                       "   AND tv.verse_start <= ?")
+                params = [book_usfm, ch_start, vs_start, vs_end]
+            return sql, params
+        # Multi-chapter range
+        if end_open:
+            sql = (" WHERE tv.book_usfm=? AND tv.chapter BETWEEN ? AND ?"
+                   "   AND ((tv.chapter > ? AND tv.chapter <= ?)"
+                   "        OR (tv.chapter = ? AND COALESCE(tv.verse_end, tv.verse_start) >= ?))")
+            params = [book_usfm, ch_start, ch_end, ch_start, ch_end, ch_start, vs_start]
+        else:
+            sql = (" WHERE tv.book_usfm=? AND tv.chapter BETWEEN ? AND ?"
+                   "   AND ((tv.chapter > ? AND tv.chapter < ?)"
+                   "        OR (tv.chapter = ? AND COALESCE(tv.verse_end, tv.verse_start) >= ?)"
+                   "        OR (tv.chapter = ? AND tv.verse_start <= ?))")
+            params = [book_usfm, ch_start, ch_end,
+                      ch_start, ch_end,
+                      ch_start, vs_start,
+                      ch_end, vs_end]
+        return sql, params
+
+    def get_topics_for_range(self, book_usfm, ch_start, vs_start, ch_end, vs_end):
+        """All distinct topics whose verse range overlaps the given passage.
+        Returns rows with parent path + the verse(s) inside the passage that hit
+        each topic ('triggered_by'). Versification: assumes eng input."""
+        sql, params = self._topic_range_where(book_usfm, ch_start, vs_start, ch_end, vs_end)
+        sql = ("SELECT tv.topic_id, tv.chapter, tv.verse_start, tv.verse_end,"
+               "       t.name, t.parent_id, t.source"
+               " FROM topic_verses tv JOIN topics t ON t.id = tv.topic_id"
+               + sql)
+
+        by_topic = {}
+        for tid, ch, vs_s, vs_e, name, parent_id, source in self.db.execute(sql, params):
+            entry = by_topic.get(tid)
+            if entry is None:
+                entry = {
+                    "id": tid, "name": name, "source": source,
+                    "parent_id": parent_id,
+                    "triggered_by": [],
+                }
+                by_topic[tid] = entry
+            entry["triggered_by"].append({
+                "chapter": ch, "verse_start": vs_s, "verse_end": vs_e,
+            })
+        return by_topic  # {topic_id: {...}}
+
+    def aggregate_topics_for_range(self, book_usfm, ch_start, vs_start, ch_end, vs_end):
+        """Build a tree of matched topics for the range. Each matched topic
+        plus all its ancestors (so the user sees parent context) are nodes;
+        only matched leaves carry 'triggered_by'. Sorted at every level by
+        total descendant verse-count (incl. self) descending."""
+        matched = self.get_topics_for_range(book_usfm, ch_start, vs_start, ch_end, vs_end)
+        if not matched:
+            return []
+        counts = self._ensure_topic_counts()
+        own_counts = self._ensure_topic_own_counts()
+
+        # Walk each matched topic up to root collecting all needed nodes.
+        # Read the parent + name for any ancestor we haven't already seen.
+        nodes = {}  # tid -> {id, name, source, parent_id, verse_count, triggered_by, children:[]}
+        def _ensure_node(tid):
+            if tid in nodes:
+                return nodes[tid]
+            row = self.db.execute(
+                "SELECT name, parent_id, source FROM topics WHERE id=?", [tid]
+            ).fetchone()
+            if not row:
+                return None
+            name, parent_id, source = row
+            n = {
+                "id": tid, "name": name, "source": source,
+                "parent_id": parent_id,
+                "verse_count": counts.get(tid, 0),
+                "own_count": own_counts.get(tid, 0),
+                "triggered_by": [],
+                "children": [],
+            }
+            nodes[tid] = n
+            return n
+
+        for tid, m in matched.items():
+            node = _ensure_node(tid)
+            if node is None:
+                continue
+            node["triggered_by"] = m["triggered_by"]
+            cur = node["parent_id"]
+            while cur is not None:
+                p = _ensure_node(cur)
+                if p is None:
+                    break
+                cur = p["parent_id"]
+
+        # Build path for each node (root → leaf names).
+        for n in nodes.values():
+            path = []
+            cur = n["id"]
+            while cur is not None and cur in nodes:
+                path.append(nodes[cur]["name"])
+                cur = nodes[cur]["parent_id"]
+            # If we ran off the tree of collected nodes but still have ancestors
+            # in the DB, walk the rest via _topic_path for completeness.
+            if cur is not None:
+                rest = self._topic_path(cur)
+                path.extend(reversed(rest))
+            n["path"] = list(reversed(path))
+
+        # Wire children relationships among collected nodes.
+        roots = []
+        for tid, n in nodes.items():
+            pid = n["parent_id"]
+            if pid in nodes:
+                nodes[pid]["children"].append(n)
+            else:
+                roots.append(n)
+
+        def _sort_tree(lst):
+            lst.sort(key=lambda x: (-x["verse_count"], x["name"]))
+            for c in lst:
+                _sort_tree(c["children"])
+        _sort_tree(roots)
+
+        # Drop parent_id from output (internal-only).
+        def _strip(lst):
+            for n in lst:
+                n.pop("parent_id", None)
+                _strip(n["children"])
+        _strip(roots)
+        return roots
+
+    def has_topics_for_range(self, book_usfm, ch_start, vs_start, ch_end, vs_end):
+        """Cheap existence check used to grey-out the Temaer button."""
+        where, params = self._topic_range_where(book_usfm, ch_start, vs_start, ch_end, vs_end)
+        sql = "SELECT 1 FROM topic_verses tv" + where + " LIMIT 1"
+        return self.db.execute(sql, params).fetchone() is not None
+
     def get_topic(self, topic_id):
         row = self.db.execute(
             "SELECT id, name, parent_id, source FROM topics WHERE id=?", [topic_id]
@@ -825,7 +1100,7 @@ def _annotate_xrefs(bible_data, version_id, book, verses):
         v["has_xrefs"] = (kjv[1], kjv[2]) in xref_set
 
 
-def resolve_block(bible_data, version_id, block):
+def _resolve_block_core(bible_data, version_id, block):
     if "error" in block:
         return {"label": "Error", "error": block["error"], "verses": [], "headings": [], "footnotes": [], "xrefs": [], "places": []}
     book = block["book"]
@@ -918,6 +1193,64 @@ def resolve_block(bible_data, version_id, block):
         return {**base, "verses": result_verses, "headings": headings, "footnotes": footnotes, "places": places}
 
     return {"label": block.get("label", "?"), "error": "Unknown block type", "verses": [], "headings": [], "footnotes": [], "xrefs": [], "places": []}
+
+
+def _block_eng_range(bible_data, version_id, block):
+    """Return (book, ch_start, vs_start, ch_end, vs_end) in eng vsf for a parsed
+    block, or None if the block has no usable shape. Used to attach lookup-flags
+    (currently `has_topics`) that hit eng-vsf-indexed tables."""
+    book = block.get("book")
+    btype = block.get("type")
+    if not book or not btype:
+        return None
+    if btype == "single_verse":
+        ch_s, vs_s, ch_e, vs_e = block.get("chapter"), block.get("verse"), block.get("chapter"), block.get("verse")
+    elif btype == "verse_range":
+        ch_s, vs_s, ch_e, vs_e = block.get("chapter"), block.get("vs_start"), block.get("chapter"), block.get("vs_end")
+    elif btype == "verse_range_to_end":
+        ch_s, vs_s = block.get("chapter"), block.get("vs_start")
+        ch_e, vs_e = block.get("chapter"), None
+    elif btype == "whole_chapter":
+        ch_s, vs_s, ch_e, vs_e = block.get("chapter"), None, block.get("chapter"), None
+    elif btype == "chapter_range":
+        ch_s, vs_s, ch_e, vs_e = block.get("ch_start"), None, block.get("ch_end"), None
+    elif btype == "cross_chapter":
+        ch_s, vs_s, ch_e, vs_e = block.get("ch_start"), block.get("vs_start"), block.get("ch_end"), block.get("vs_end")
+    else:
+        return None
+    if ch_s is None or ch_e is None:
+        return None
+    eb, ec_s, ev_s = book, ch_s, vs_s
+    ec_e, ev_e = ch_e, vs_e
+    try:
+        if vs_s is not None and version_id is not None:
+            eb, ec_s, ev_s = bible_data.vsf.translation_to_eng(version_id, book, ch_s, vs_s)
+        if vs_e is not None and version_id is not None:
+            _eb2, ec_e, ev_e = bible_data.vsf.translation_to_eng(version_id, book, ch_e, vs_e)
+    except Exception:
+        # Fall back to passing through unchanged if vsf mapping fails.
+        pass
+    return (eb, ec_s, ev_s, ec_e, ev_e)
+
+
+def resolve_block(bible_data, version_id, block):
+    """Wrapper around _resolve_block_core that also attaches lightweight per-block
+    lookup flags (currently `has_topics`) so the frontend can grey out study-tray
+    buttons without an extra round-trip."""
+    result = _resolve_block_core(bible_data, version_id, block)
+    if "error" not in result:
+        try:
+            rng = _block_eng_range(bible_data, version_id, block)
+            if rng is not None:
+                eb, ec_s, ev_s, ec_e, ev_e = rng
+                result["has_topics"] = bible_data.has_topics_for_range(eb, ec_s, ev_s, ec_e, ev_e)
+            else:
+                result["has_topics"] = False
+        except Exception:
+            result["has_topics"] = False
+    else:
+        result["has_topics"] = False
+    return result
 
 
 def is_reference_query(query):

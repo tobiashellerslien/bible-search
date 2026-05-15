@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Lora:wght@700&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Lora:wght@600&family=Inter:wght@400;500;600;700&display=swap');
 
         :root {
             --bg: #f5f2ee;
@@ -126,7 +126,7 @@
             width: 0.9rem;
             height: 0.9rem;
             display: block;
-            filter: brightness(0) saturate(100%) invert(45%) opacity(80%);
+            filter: brightness(0) saturate(100%) invert(45%);
             transition: filter 0.15s;
             pointer-events: none;
         }
@@ -1077,8 +1077,6 @@
             .verse-card.compare-active .card-compare-section > .card-compare-header {
                 display: none;
             }
-            /* Hide old footer chapter-nav on PC — replaced by outside side-nav arrows */
-            .verse-card-footer .chapter-nav { display: none; }
         }
         .verse-card-header-left {
             display: flex;
@@ -1128,19 +1126,6 @@
         .study-toggle.open .study-icon { filter: brightness(0) opacity(1); }
         [data-theme="dark"] .study-toggle.open .study-icon { filter: brightness(0) invert(1) opacity(1); }
 
-        /* Highlight dismiss chip — sits in mvb-annot row, matches annot-btn height */
-        .highlight-dismiss-btn {
-            background: var(--accent-dim) !important;
-            border-color: var(--accent) !important;
-            color: var(--accent) !important;
-            padding: 3px 8px !important;
-            font-size: 0.85rem !important;
-        }
-        .highlight-dismiss-btn:hover {
-            background: var(--accent) !important;
-            color: white !important;
-        }
-
         /* Continuous highlighter mark across one or more verses */
         .verse-highlight-wrap {
             background: var(--accent-dim);
@@ -1152,13 +1137,6 @@
             transition: background-color 0.18s ease;
         }
         .verse-highlight-wrap.fading-out { background: transparent; }
-        .highlight-dismiss-btn {
-            transition: opacity 0.18s ease, transform 0.18s ease;
-        }
-        .highlight-dismiss-btn.fading-out {
-            opacity: 0;
-            transform: scale(0.9);
-        }
 
 
 
@@ -1307,13 +1285,6 @@
             font-style: italic;
         }
 
-        /* ── Card footer ── */
-        .verse-card-footer {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-            align-items: center;
-        }
         .card-action-btn {
             padding: 4px 10px;
             font-size: 0.75rem;
@@ -1334,9 +1305,6 @@
 
         
         /* ── Study tray ── */
-        .verse-card-footer {
-            display: block;
-        }
         .study-toggle {
             font-size: 0.9rem;
         }
@@ -1345,47 +1313,28 @@
             color: var(--accent);
             border-color: var(--accent);
         }
+        /* Tray sits between header and body; expands with animation when opened.
+           Header already provides a bottom border, so no border-top here. */
         .study-tray {
             max-height: 0;
             overflow: hidden;
             opacity: 0;
-            margin-top: 0;
             width: 100%;
             min-width: 0;
             max-width: 100%;
-            transition: max-height 0.25s ease, opacity 0.18s ease, margin-top 0.2s ease;
+            transition: max-height 0.25s ease, opacity 0.18s ease, margin 0.2s ease, padding 0.2s ease;
         }
         .study-tray[data-open="true"] {
             max-height: 200px;
             opacity: 1;
-            margin-top: 8px;
-            padding-top: 8px;
-            padding-bottom: 4px;
-            border-top: 1px solid var(--border);
-            scroll-margin-bottom: 60px;
+            padding-top: 4px;
+            padding-bottom: 6px;
+            margin-bottom: 6px;
         }
         .study-tray-row {
             display: flex;
             align-items: center;
-            position: relative;
         }
-        .study-tray-close {
-            position: absolute;
-            right: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            z-index: 2;
-            padding: 2px 5px;
-            font-size: 0.65rem;
-            line-height: 1;
-            background: transparent;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            color: var(--text-muted);
-            transition: color 0.15s, background 0.15s;
-        }
-        .study-tray-close:hover { color: #e05; background: #ff002208; }
         .study-tray-inner {
             flex: 1 1 0;
             min-width: 0;
@@ -2123,8 +2072,8 @@
             overflow-wrap: break-word;
         }
         .stats-btn {
-            padding: 4px 12px;
-            font-size: 0.8rem;
+            padding: 4px 10px;
+            font-size: 0.75rem;
             font-family: var(--font-ui);
             background: var(--accent-dim);
             border: 1px solid var(--accent);
@@ -2133,7 +2082,6 @@
             color: var(--accent);
             transition: all 0.15s;
             white-space: nowrap;
-            font-weight: 500;
         }
         .stats-btn:hover { background: var(--accent); color: white; }
 
@@ -3112,7 +3060,7 @@
             min-height: 0;
             overflow-y: auto;
             overflow-x: hidden;
-            padding: 44px 12px 24px;
+            padding: 44px 18px 24px 12px;
             display: flex;
             flex-direction: column;
             gap: 10px;
@@ -3259,12 +3207,23 @@
                         bottom 0.32s cubic-bezier(.2,.8,.2,1),
                         left 0.32s cubic-bezier(0.2, 0.8, 0.3, 1),
                         max-width 0.32s cubic-bezier(0.2, 0.8, 0.3, 1),
-                        box-shadow 0s linear 0.32s;
+                        box-shadow 0s linear 0.32s,
+                        visibility 0s linear 0.32s;
             pointer-events: none;
+            /* Hide the compositor layer when closed to prevent iOS Safari from
+               painting the strip's card-bg behind MVB during a swipe-dismiss. */
+            visibility: hidden;
         }
         .pinned-strip[data-state="open"] {
             transform: translateY(var(--mvb-shift, 0px));
             pointer-events: auto;
+            visibility: visible;
+            transition: transform 0.32s cubic-bezier(.2,.8,.2,1),
+                        bottom 0.32s cubic-bezier(.2,.8,.2,1),
+                        left 0.32s cubic-bezier(0.2, 0.8, 0.3, 1),
+                        max-width 0.32s cubic-bezier(0.2, 0.8, 0.3, 1),
+                        box-shadow 0s linear 0s,
+                        visibility 0s linear 0s;
         }
         body.mvb-dragging .pinned-strip { transition: none !important; }
         @media (min-width: 701px) {
@@ -3641,27 +3600,6 @@
         }
         .mvb-annot-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
         .mvb-annot-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
-        /* Highlight chip in MVB annot row matches annot-btn dimensions.
-           Must override .copy-btn's fixed 28×28 square AND .marked-verses-bar
-           .copy-btn's aspect-ratio:1 (which would otherwise force it square).
-           NOTE: never set `display` with !important here — JS toggles the chip
-           via inline `style.display = 'none'`, and !important would defeat that. */
-        .marked-verses-bar .highlight-dismiss-btn {
-            width: auto !important;
-            height: auto !important;
-            aspect-ratio: auto !important;
-            padding: 5px 12px !important;
-            font-size: 0.92rem !important;
-            border-radius: 6px !important;
-            line-height: 1.15 !important;
-            white-space: nowrap;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-        }
-        .marked-verses-bar .highlight-dismiss-btn .hl-dismiss-label { display: inline-block; }
-        .marked-verses-bar .highlight-dismiss-btn .hl-dismiss-x { flex-shrink: 0; }
         .mvb-row-actions { overflow: hidden; }
         .mvb-actions-scroll {
             display: flex;
@@ -3710,23 +3648,8 @@
             .marked-verses-bar .copy-btn { font-size: 0.95rem; padding: 7px; width: auto; height: auto; aspect-ratio: 1; }
             .marked-verses-bar .copy-icon { width: 17px; height: 17px; }
             .mvb-close-btn { font-size: 1.05rem; padding: 6px 10px; }
-            /* Annot row buttons wrap to 2 lines on narrow screens; stretch so the
-               dismiss chip matches their height instead of sticking off-screen. */
             .mvb-row-annot { align-items: stretch; }
-            .mvb-annot-btn,
-            .marked-verses-bar .highlight-dismiss-btn { font-size: 0.98rem !important; padding: 7px 14px !important; }
-            .marked-verses-bar .highlight-dismiss-btn {
-                text-align: center;
-                flex-shrink: 1;
-                min-width: 0;
-            }
-            /* Label wraps internally; × stays vertically centered next to it
-               because it lives in a sibling span that flex-aligns to center. */
-            .marked-verses-bar .highlight-dismiss-btn .hl-dismiss-label {
-                white-space: normal;
-                word-break: break-word;
-                min-width: 0;
-            }
+            .mvb-annot-btn { font-size: 0.98rem !important; padding: 7px 14px !important; }
             .mvb-action-btn { font-size: 0.95rem; padding: 8px 15px; }
             .mvb-actions-scroll { gap: 11px; }
         }
@@ -3783,13 +3706,23 @@
                    swipes MVB down. Adding mvb-h pushes the host past the bottom of the screen. */
                 transform: translateY(calc(100% + var(--mvb-h, 0px) + var(--pin-h, 0px)));
                 transition: transform 0.32s cubic-bezier(.2,.8,.2,1),
-                            bottom 0.32s cubic-bezier(.2,.8,.2,1);
+                            bottom 0.32s cubic-bezier(.2,.8,.2,1),
+                            visibility 0s linear 0.32s;
                 will-change: transform, bottom;
                 pointer-events: none;
+                /* When closed, take the host fully out of the compositor so iOS
+                   Safari doesn't paint its (white card-bg) layer through MVB
+                   while MVB is being swiped. visibility flips after the slide-out
+                   transition completes, so opening animation isn't broken. */
+                visibility: hidden;
             }
             .module-host[data-state="open"] {
                 transform: translateY(0);
                 pointer-events: auto;
+                visibility: visible;
+                transition: transform 0.32s cubic-bezier(.2,.8,.2,1),
+                            bottom 0.32s cubic-bezier(.2,.8,.2,1),
+                            visibility 0s linear 0s;
             }
             /* When MVB sits directly below the host, they should look like one panel: drop the
                host's bottom rounded corners (no rounding on the side touching MVB) and let MVB
@@ -4052,6 +3985,187 @@
         .commentary-ref-preview:empty { display: none; }
 
 
+        /* ── Topics module ── */
+        .sidebar-module[data-module-id="topics"]:not([data-collapsed="true"]) .sidebar-module-body {
+            max-height: none;
+        }
+        .topics-module {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            font-family: var(--font-ui);
+            min-height: 0;
+        }
+        .topics-scope-label {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            padding: 0 2px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            flex: 0 0 auto;
+        }
+        .topics-scope-label:empty { display: none; }
+        .topics-scope-text { min-width: 0; }
+        .topics-expand-btn {
+            flex-shrink: 0;
+            font-family: inherit;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 2px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .topics-expand-btn:hover {
+            color: var(--text);
+            border-color: var(--text-muted);
+        }
+        .topics-tree {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .topics-loading,
+        .topics-empty {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 14px 4px;
+            flex: 0 0 auto;
+        }
+        details.topic-node {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            flex: 0 0 auto;
+        }
+        details.topic-node[data-depth="1"],
+        details.topic-node[data-depth="2"],
+        details.topic-node[data-depth="3"] {
+            background: transparent;
+            border: 1px solid var(--border);
+        }
+        details.topic-node > summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 7px 11px;
+            font-size: 0.86rem;
+            color: var(--text);
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        details.topic-node > summary::-webkit-details-marker { display: none; }
+        details.topic-node > summary::before {
+            content: '';
+            width: 0;
+            height: 0;
+            border-left: 5px solid currentColor;
+            border-top: 4px solid transparent;
+            border-bottom: 4px solid transparent;
+            opacity: 0.55;
+            transform: rotate(0deg);
+            transition: transform 0.18s ease;
+            flex-shrink: 0;
+        }
+        details.topic-node[open] > summary::before { transform: rotate(90deg); }
+        details.topic-node > summary:hover { background: var(--accent-dim); }
+        .topic-name {
+            font-weight: 600;
+            min-width: 0;
+            flex: 0 1 auto;
+            word-break: break-word;
+        }
+        .topic-count {
+            font-size: 0.72rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            background: var(--accent-dim);
+            border-radius: 999px;
+            padding: 1px 7px;
+            flex-shrink: 0;
+        }
+        .topic-trigger-chips {
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin-left: auto;
+        }
+        .topic-trigger-chip {
+            font-family: inherit;
+            font-size: 0.72rem;
+            color: var(--accent);
+            background: transparent;
+            border: 1px solid var(--accent);
+            border-radius: 999px;
+            padding: 1px 8px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .topic-trigger-chip:hover {
+            color: var(--card-bg);
+            background: var(--accent);
+        }
+        .topic-body {
+            padding: 4px 11px 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .topic-verses:empty { display: none; }
+        .topic-children {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            padding-left: 6px;
+            border-left: 2px solid var(--border);
+        }
+        @keyframes topicTriggerFlash {
+            0%   { background-color: var(--accent-dim); box-shadow: 0 0 0 4px var(--accent-dim); }
+            100% { background-color: transparent; box-shadow: 0 0 0 4px transparent; }
+        }
+        .topic-trigger-flash {
+            animation: topicTriggerFlash 1.6s ease-out;
+            border-radius: 3px;
+        }
+        .topic-parent-badge {
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 0 7px;
+            flex-shrink: 0;
+        }
+        details.topic-node.has-children > summary .topic-name {
+            color: var(--accent);
+        }
+        .topics-show-all {
+            font-family: inherit;
+            font-size: 0.78rem;
+            color: var(--accent);
+            background: transparent;
+            border: 1px dashed var(--border);
+            border-radius: 6px;
+            padding: 5px 10px;
+            margin-top: 4px;
+            cursor: pointer;
+            align-self: flex-start;
+        }
+        .topics-show-all:hover {
+            border-style: solid;
+            background: var(--accent-dim);
+        }
+
+
         /* ── Outline module ── */
         .sidebar-module[data-module-id="outline"]:not([data-collapsed="true"]) .sidebar-module-body {
             max-height: none;
@@ -4236,6 +4350,27 @@
                 flex: none;
             }
             .module-host-body .commentary-entries {
+                flex: 1 1 0;
+                min-height: 0;
+                overflow-y: auto;
+                overscroll-behavior: contain;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 8px;
+            }
+            .module-host-body .topics-module {
+                position: absolute;
+                top: 0;
+                right: 0;
+                bottom: 0;
+                left: 0;
+                padding: 0 12px var(--safe-area-bottom, 0px);
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                min-height: 0;
+                flex: none;
+            }
+            .module-host-body .topics-tree {
                 flex: 1 1 0;
                 min-height: 0;
                 overflow-y: auto;
