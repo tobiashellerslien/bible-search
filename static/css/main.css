@@ -96,15 +96,6 @@
             transform: translateY(2px);
         }
         .header h1:hover { opacity: 0.8; }
-        /* .logo-icon {
-            display: inline-block;
-            width: 24px;
-            height: 24px;
-            flex-shrink: 0;
-            background-color: currentColor;
-            -webkit-mask: url('/static/images/icon.svg') no-repeat center / contain;
-            mask: url('/static/images/icon.svg') no-repeat center / contain;
-        } */
 
         .header-right {
             display: flex;
@@ -131,6 +122,17 @@
         .header-btn:hover { border-color: var(--accent); color: var(--accent); }
         .header-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
         #darkToggle, #helpToggle, #settingsToggle { width: 2rem; height: 2rem; padding: 0; }
+        .header-btn-icon {
+            width: 0.9rem;
+            height: 0.9rem;
+            display: block;
+            filter: brightness(0) saturate(100%) invert(45%) opacity(80%);
+            transition: filter 0.15s;
+            pointer-events: none;
+        }
+        .header-btn:hover .header-btn-icon { filter: none; }
+        [data-theme="dark"] .header-btn-icon { filter: brightness(0) invert(1) opacity(0.7); }
+        [data-theme="dark"] .header-btn:hover .header-btn-icon { filter: brightness(0) invert(1) opacity(1); }
 
         .font-size-ctrl {
             display: flex;
@@ -877,6 +879,15 @@
             margin: 10px auto;
             padding: 0 20px 120px;
         }
+        /* When MVB (and optionally the pinned strip) is open, reserve extra space
+           below so the bottom verse can scroll above the bar instead of being
+           hidden behind it. */
+        body.mvb-on .results-wrapper {
+            padding-bottom: calc(120px + var(--mvb-h, 0px) + var(--pin-h, 0px));
+        }
+        body.pin-strip-on:not(.mvb-on) .results-wrapper {
+            padding-bottom: calc(120px + var(--pin-h, 0px));
+        }
         .results-wrapper > .verse-card,
         .results-wrapper > .card-swipe-wrap,
         .results-wrapper > .search-controls,
@@ -982,8 +993,10 @@
                 width: 36px;
                 font-size: 1.4rem;
             }
-            body.sidebar-open .side-nav-prev { left: -36px; }
-            body.sidebar-open .side-nav-next { right: -36px; }
+            /* Add a small gap between the card and the hover area so the arrows
+               don't sit flush against the card edge when the sidebar is open. */
+            body.sidebar-open .side-nav-prev { left: -44px; }
+            body.sidebar-open .side-nav-next { right: -44px; }
         }
         @media (max-width: 700px) {
             /* Mobile: arrows sit in .card-swipe-wrap behind the card (z-index 0 vs card z-index 1).
@@ -2283,6 +2296,12 @@
             .header { padding: 10px 14px; }
             .controls, .display-area { padding: 0 14px; }
             .results-wrapper { padding: 0 14px 160px; }
+            body.mvb-on .results-wrapper {
+                padding-bottom: calc(160px + var(--mvb-h, 0px) + var(--pin-h, 0px));
+            }
+            body.pin-strip-on:not(.mvb-on) .results-wrapper {
+                padding-bottom: calc(160px + var(--pin-h, 0px));
+            }
             .verse-card { padding: 14px 16px; }
             .empty-state { padding: 40px 16px 24px; }
             .empty-verse { padding: 14px 16px; }
@@ -2304,7 +2323,7 @@
             font-size: 0.7em;
             line-height: 1.4;
             cursor: pointer;
-            vertical-align: baseline;
+            vertical-align: middle;
             user-select: none;
             transition: background 0.12s, color 0.12s;
         }
@@ -2576,6 +2595,26 @@
             height: 100%;
             background: #0a121e;
         }
+        .map-empty-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(10, 18, 30, 0.78);
+            backdrop-filter: blur(2px);
+            pointer-events: none;
+            z-index: 500;
+        }
+        .map-empty-overlay-inner {
+            padding: 10px 16px;
+            border-radius: 8px;
+            background: var(--card-bg);
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+        }
         .map-canvas-tools {
             position: absolute;
             top: 10px;
@@ -2647,9 +2686,42 @@
             filter: drop-shadow(0 1px 2px rgba(0,0,0,0.45));
         }
         .map-pin-marker .place-icon-pin { transform-origin: 14px 34px; }
-        .map-pin-marker:hover .place-icon-pin,
+        /* Hover scaling is driven only by the JS-applied .map-pin-hovered class.
+           A native :hover rule used to coexist here, but when two pins overlap
+           the scaled hit area would oscillate :hover between them on every
+           sub-pixel mouse jitter, causing visible flicker between the two pins. */
         .map-pin-marker.map-pin-hovered .place-icon-pin { transform: scale(1.25); }
         .map-pin-marker.map-pin-selected .place-icon-pin { transform: scale(1.35); }
+
+        /* Suppress the browser's default focus ring on Leaflet's interactive SVG
+           paths — clicking a region was drawing a black rectangle around the
+           polygon's bounding box on both desktop and mobile. */
+        .leaflet-interactive:focus { outline: none; }
+        .leaflet-container svg.leaflet-zoom-animated:focus,
+        .leaflet-container path.leaflet-interactive:focus { outline: none; }
+
+        /* Hover tooltip — small chip with the place's symbol + name. */
+        .leaflet-tooltip.map-tooltip {
+            background: var(--card-bg);
+            color: var(--text);
+            border: 1px solid var(--border, rgba(0,0,0,0.18));
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-family: var(--font-ui);
+            font-size: 0.82rem;
+            font-weight: 500;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            white-space: nowrap;
+            pointer-events: none;
+        }
+        .leaflet-tooltip.map-tooltip::before { display: none; }
+        .map-tooltip-inner {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .map-tooltip-icon { display: inline-flex; align-items: center; }
+        .map-tooltip-name { color: var(--text); }
 
         /* Fullscreen container */
         .map-fullscreen {
@@ -2717,8 +2789,11 @@
         .map-popup .popup-name {
             font-weight: 600;
             font-size: 1rem;
-            color: var(--place-color);
+            color: var(--place-color-text, var(--place-color));
             overflow: hidden; text-overflow: ellipsis;
+        }
+        [data-theme="dark"] .map-popup .popup-name {
+            color: var(--place-color);
         }
         .map-popup .popup-semantic {
             font-size: 0.7rem;
@@ -3168,7 +3243,8 @@
             transition: transform 0.32s cubic-bezier(.2,.8,.2,1),
                         bottom 0.32s cubic-bezier(.2,.8,.2,1),
                         left 0.32s cubic-bezier(0.2, 0.8, 0.3, 1),
-                        max-width 0.32s cubic-bezier(0.2, 0.8, 0.3, 1);
+                        max-width 0.32s cubic-bezier(0.2, 0.8, 0.3, 1),
+                        box-shadow 0s linear 0.32s;
             pointer-events: none;
         }
         .pinned-strip[data-state="open"] {
@@ -3206,6 +3282,12 @@
             border-bottom-right-radius: 0;
             box-shadow: none;
             bottom: calc(var(--mvb-h, 0px) - 1px);
+            /* Override the delayed box-shadow transition so shadow disappears instantly when fusing */
+            transition: transform 0.32s cubic-bezier(.2,.8,.2,1),
+                        bottom 0.32s cubic-bezier(.2,.8,.2,1),
+                        left 0.32s cubic-bezier(0.2, 0.8, 0.3, 1),
+                        max-width 0.32s cubic-bezier(0.2, 0.8, 0.3, 1),
+                        box-shadow 0s linear 0s;
         }
         body.pin-strip-on.mvb-on .marked-verses-bar {
             border-top-left-radius: 0;
@@ -3412,7 +3494,11 @@
             background: var(--card-bg, var(--bg));
             border-top: 1.5px solid var(--border);
             box-shadow: 0 -4px 16px rgba(0,0,0,0.13);
-            transform: translateY(110%);
+            /* Exit by exactly its own height (100%) — overshooting (e.g. 110%) makes
+               MVB move faster than the pinned strip, opening a visible gap between
+               them mid-close. Pinned strip animates `bottom` from --mvb-h to 0, so
+               matching MVB's transform to 100% keeps them glued during the slide. */
+            transform: translateY(100%);
             transition: transform 0.32s cubic-bezier(.2,.8,.2,1), opacity 0.18s ease, left 0.32s cubic-bezier(0.2, 0.8, 0.3, 1), max-width 0.32s cubic-bezier(0.2, 0.8, 0.3, 1);
             padding: 12px 18px 18px;
             padding-bottom: calc(18px + env(safe-area-inset-bottom));
@@ -3429,7 +3515,7 @@
                 max-width: min(960px, calc(100% - 40px));
                 width: 100%;
                 border-radius: 16px 16px 0 0;
-                transform: translate(-50%, 110%);
+                transform: translate(-50%, 100%);
                 padding: 14px 22px 20px;
             }
             .marked-verses-bar.mvb-visible { transform: translate(-50%, var(--mvb-shift, 0px)); }
@@ -3461,9 +3547,11 @@
                 border-top-color: transparent;
                 box-shadow: none;
             }
-            /* Kill transitions during active MVB swipe so finger and bar move 1:1. */
-            body.mvb-dragging .marked-verses-bar { transition: none !important; }
         }
+        /* Kill transitions during active MVB swipe/drag so finger and bar move 1:1.
+           Applies on all screen sizes — on desktop, MVB also uses --mvb-shift and
+           must follow the pointer instantly just like the pinned strip does. */
+        body.mvb-dragging .marked-verses-bar { transition: none !important; }
         /* Studie label above the bottom action row */
         .mvb-study-label {
             font-size: 0.72rem;

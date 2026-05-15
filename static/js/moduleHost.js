@@ -31,7 +31,15 @@ window.AppModuleHost = (() => {
             jumpToVerse(spec) { if (window.scrollToBlockIdx) window.scrollToBlockIdx(spec); },
             getBlock(idx) { return window.mainData ? window.mainData[idx] : null; },
             getFocus() { return null; },
-            subscribe() {},
+            // Delegate to AppSidebar's event bus so mobile modules receive the
+            // same 'mainBlockChanged' notifications the desktop sidebar gets.
+            // Without this, modules mounted on mobile never rebind on navigation.
+            subscribe(event, fn) {
+                if (window.AppSidebar && typeof window.AppSidebar.subscribe === 'function') {
+                    return window.AppSidebar.subscribe(event, fn);
+                }
+                return () => {};
+            },
         };
     }
 

@@ -897,6 +897,7 @@ function renderAll() {
     if (typeof updateWideMode === 'function') updateWideMode();
     if (typeof updateToolbarCompareBtn === 'function') updateToolbarCompareBtn();
     maybeShowSwipeHint();
+    try { window.AppSidebar && window.AppSidebar.notifyMainBlockChanged(); } catch {}
 }
 
 function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, ver) {
@@ -1259,8 +1260,17 @@ window.toggleCardCompare = async function(idx) {
         if (nowVisible) {
             _compareActivateInstant(idx, section);
         } else {
+            // Mirror open: suppress the wrap max-width transition so the card
+            // jumps instantly to narrow width, and only the section's opacity fades.
+            const card = document.getElementById(`card-${idx}`);
+            const wrap = card && card.closest('.card-swipe-wrap');
+            const isPcCompareActive = !!(card && card.classList.contains('compare-active') && window.innerWidth >= 701);
+            if (isPcCompareActive && wrap) wrap.style.transition = 'none';
             if (section) section.classList.remove('visible');
             updateWideMode();
+            if (isPcCompareActive && wrap) {
+                requestAnimationFrame(() => { wrap.style.transition = ''; });
+            }
         }
     }
 };
@@ -1991,11 +2001,19 @@ function _mvbCopyText() {
 
 // Initialize MVB buttons (called once after DOM ready)
 function initMarkedVersesBar() {
-    const closeBtn = document.getElementById('mvbClose');
-    // X closes MVB entirely — clear both marks AND any active highlight chip,
-    // otherwise the bar lingers (empty) whenever the user landed on the verse
-    // via a path that set currentHighlightVerses (openSingleVerse, expand-to-chapter, …).
-    if (closeBtn) closeBtn.addEventListener('click', () => window.clearHighlightAndMarked());
+    // Click outside text/buttons while MVB is open → dismiss.
+    // Ignored when pointer is inside MVB, a verse, an interactive control, a modal,
+    // an open module host, or the pinned strip.
+    document.addEventListener('pointerdown', (ev) => {
+        if (!document.body.classList.contains('mvb-on')) return;
+        if (ev.target.closest(
+            '#markedVersesBar, .verse-card, .verse-text-clickable, .verse-panel, ' +
+            'button, a, input, select, textarea, label, ' +
+            '.modal-overlay, .module-host, .pinned-strip, ' +
+            '.app-sidebar, .map-fullscreen, .autocomplete-dropdown, .vp-list'
+        )) return;
+        window.clearHighlightAndMarked();
+    });
 
     // Keep --mvb-h in lockstep with the actual bar height so the collapsed drawer always
     // parks exactly above MVB. Without this, a row showing/hiding (annot row, highlight chip)
@@ -2756,6 +2774,9 @@ window.toggleChapterExpand = async function(idx) {
         if (cardCompare[idx]) { cardCompare[idx].data = null; cardCompare[idx].allData = null; }
         await animateCardCollapse(idx);
         try { updateUrlFromCards(); } catch {}
+        if (idx === 0) {
+            try { window.AppSidebar && window.AppSidebar.notifyMainBlockChanged(); } catch {}
+        }
         const _csc = cardCompare[idx];
         if (_csc && _csc.visible) {
             if (_csc.mode === 'all') await loadCardCompareAllData(idx);
@@ -2790,6 +2811,9 @@ window.toggleChapterExpand = async function(idx) {
         const el = card && card.querySelector('.verse-highlight-wrap');
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         try { updateUrlFromCards(); } catch {}
+        if (idx === 0) {
+            try { window.AppSidebar && window.AppSidebar.notifyMainBlockChanged(); } catch {}
+        }
         const _cse = cardCompare[idx];
         if (_cse && _cse.visible) {
             if (_cse.mode === 'all') await loadCardCompareAllData(idx);
@@ -4121,9 +4145,28 @@ async function navigateCardToRef(cardIdx, ref, direction, highlightKeys) {
     // Navigation — drop marked verses so MVB doesn't outlive the verses it points at.
     clearAllMarkedVerses();
     const ver = versionSelect.value;
+    // Kick off the exit animation immediately, in parallel with the fetch,
+    // so the card keeps moving instead of pausing while the network resolves.
+    const card = document.getElementById(`card-${cardIdx}`);
+    const fromSwipe = !!(card && card.classList.contains('swiping'));
+    let exitAnimPromise = Promise.resolve();
+    if (card && direction) {
+        card.classList.remove('swiping');
+        const dxOut = fromSwipe
+            ? (direction === 'next' ? -(card.offsetWidth + 40) : (card.offsetWidth + 40))
+            : (direction === 'next' ? -28 : 28);
+        const dur = fromSwipe ? 0.18 : 0.14;
+        card.style.transition = `opacity ${dur}s ease, transform ${dur}s ease`;
+        // Force a frame so the transition picks up from the current (mid-swipe) transform.
+        void card.offsetHeight;
+        card.style.opacity = '0';
+        card.style.transform = `translateX(${dxOut}px)`;
+        exitAnimPromise = new Promise(r => setTimeout(r, fromSwipe ? 190 : 150));
+    }
     try {
-        const resp = await fetch(`/api/search?q=${encodeURIComponent(ref)}&version=${encodeURIComponent(ver)}`);
-        const data = await resp.json();
+        const fetchPromise = fetch(`/api/search?q=${encodeURIComponent(ref)}&version=${encodeURIComponent(ver)}`)
+            .then(r => r.json());
+        const [data] = await Promise.all([fetchPromise, exitAnimPromise]);
         const newBlock = (data && data.results && data.results[0]) || null;
         if (!newBlock) return;
         // If this card had an "expanded chapter" state, drop it (we're navigating elsewhere)
@@ -4132,22 +4175,6 @@ async function navigateCardToRef(cardIdx, ref, direction, highlightKeys) {
         else currentHighlightVerses = null;
         updateMvbHighlightChip();
         updateMarkedVersesBar();
-        const card = document.getElementById(`card-${cardIdx}`);
-        // If the card is mid-swipe (touch gesture), continue the motion off-screen
-        // instead of snapping back to a small 28px slide (no visual springback).
-        const fromSwipe = !!(card && card.classList.contains('swiping'));
-        if (card && direction) {
-            // Disable .swiping (which has transition:none) so our inline transition takes effect
-            card.classList.remove('swiping');
-            const dxOut = fromSwipe
-                ? (direction === 'next' ? -(card.offsetWidth + 40) : (card.offsetWidth + 40))
-                : (direction === 'next' ? -28 : 28);
-            const dur = fromSwipe ? 0.18 : 0.14;
-            card.style.transition = `opacity ${dur}s ease, transform ${dur}s ease`;
-            card.style.opacity = '0';
-            card.style.transform = `translateX(${dxOut}px)`;
-            await new Promise(r => setTimeout(r, fromSwipe ? 190 : 150));
-        }
         mainData[cardIdx] = newBlock;
         // Reset stale compare data so the new block's reference is fetched after render
         if (cardCompare[cardIdx]) {
@@ -4171,6 +4198,9 @@ async function navigateCardToRef(cardIdx, ref, direction, highlightKeys) {
         }
         // Update URL — use composite query of all card refs so back/share works
         try { updateUrlFromCards(); } catch {}
+        if (cardIdx === 0) {
+            try { window.AppSidebar && window.AppSidebar.notifyMainBlockChanged(); } catch {}
+        }
         // Reload compare data for the new block if compare was visible
         const _cs = cardCompare[cardIdx];
         if (_cs && _cs.visible) {
@@ -4498,6 +4528,41 @@ window.scrollToBlockIdx = function(target) {
 window.openPinnedVerse = function(p) {
     if (!p) return;
     window.scrollToBlockIdx(p);
+};
+
+// Build a reference label like "Matt 2:1-12" from a mainData block. Returns
+// null if the block is missing required fields. Used by isolateToBlock and
+// any module that needs to round-trip a block through /api/search.
+window.blockToRefLabel = function(block) {
+    if (!block || !block.book || !block.verses || block.verses.length === 0) return null;
+    const bName = (typeof bookRefName === 'function') ? bookRefName(block.book) : block.book;
+    const ch = block.verses[0].chapter;
+    if (block.is_chapter) return `${bName} ${ch}`;
+    const first = block.verses[0].num;
+    const last = block.verses[block.verses.length - 1].num;
+    const allSameCh = block.verses.every(v => v.chapter === ch);
+    if (!allSameCh) {
+        const lastCh = block.verses[block.verses.length - 1].chapter;
+        return `${bName} ${ch}:${first}-${lastCh}:${last}`;
+    }
+    return first === last ? `${bName} ${ch}:${first}` : `${bName} ${ch}:${first}-${last}`;
+};
+
+// Isolate a block by replacing mainData with just that block. Use this when
+// a module is triggered for a non-topmost card (idx > 0) — the rule is that
+// modules always bind to mainData[0], so we promote the requested card to
+// be the sole/top card. Resolves when the new mainData[0] is rendered and
+// notifyMainBlockChanged has fired. No-op when blockIdx is already 0.
+window.isolateToBlock = async function(blockIdx) {
+    if (!mainData || !mainData[blockIdx]) return;
+    if (blockIdx === 0) return;
+    const block = mainData[blockIdx];
+    const label = window.blockToRefLabel(block);
+    if (!label) return;
+    await window.insertBlocksIntoView(
+        [{ label, version: versionSelect.value }],
+        { replace: true }
+    );
 };
 
 window.insertBlocksIntoView = async function(specs, opts) {
