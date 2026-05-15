@@ -3109,6 +3109,7 @@
 
         .sidebar-modules {
             flex: 1 1 auto;
+            min-height: 0;
             overflow-y: auto;
             overflow-x: hidden;
             padding: 44px 12px 24px;
@@ -3124,6 +3125,9 @@
             border-radius: var(--radius);
             box-shadow: var(--shadow);
             overflow: hidden;
+            /* Don't let the flex parent squash modules to fit; let them keep
+               their natural height and the .sidebar-modules container scroll. */
+            flex-shrink: 0;
             transition: box-shadow 0.18s ease, opacity 0.2s ease, transform 0.2s ease;
             animation: sidebar-module-in 0.28s cubic-bezier(0.2, 0.8, 0.3, 1);
         }
@@ -3131,9 +3135,20 @@
             from { opacity: 0; transform: translateY(-6px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        .sidebar-module.dragging { opacity: 0.55; }
-        .sidebar-module.drop-before { box-shadow: 0 -2px 0 0 var(--accent) inset, var(--shadow); }
-        .sidebar-module.drop-after { box-shadow: 0 2px 0 0 var(--accent) inset, var(--shadow); }
+        .sidebar-module.dragging {
+            animation: none;
+            box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28), 0 0 0 1px var(--accent);
+            cursor: grabbing;
+            transition: none;
+        }
+        .sidebar-module-placeholder {
+            border: 1px dashed var(--accent);
+            background: var(--accent-dim);
+            border-radius: var(--radius);
+            opacity: 0.55;
+            flex-shrink: 0;
+            box-sizing: border-box;
+        }
 
         .sidebar-module-header {
             display: flex;
@@ -3816,6 +3831,439 @@
         }
         @media (min-width: 701px) {
             .module-host { display: none !important; }
+        }
+
+        /* ── Commentary module ── */
+        .sidebar-module[data-module-id="commentary"] .sidebar-module-body,
+        .commentary-module {
+            /* Override 1000px cap; let the sidebar own the scroll. */
+        }
+        .sidebar-module[data-module-id="commentary"]:not([data-collapsed="true"]) .sidebar-module-body {
+            max-height: none;
+        }
+        .commentary-module {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            font-family: var(--font-ui);
+            min-height: 0;
+        }
+        .commentary-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .commentary-select {
+            flex: 1 1 auto;
+            min-width: 0;
+            font-family: inherit;
+            font-size: 0.85rem;
+            color: var(--text);
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 5px 8px;
+            cursor: pointer;
+        }
+        .commentary-select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .commentary-scope-label {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            padding: 0 2px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .commentary-scope-label:empty { display: none; }
+        .commentary-scope-text { min-width: 0; }
+        .commentary-expand-btn {
+            flex-shrink: 0;
+            font-family: inherit;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 2px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .commentary-expand-btn:hover {
+            color: var(--text);
+            border-color: var(--text-muted);
+        }
+        .commentary-entries {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            /* On PC the outer .sidebar-modules is the scroll surface (modules
+               keep natural height via flex-shrink:0). On mobile a media-query
+               below turns this into the scroll surface inside module-host. */
+        }
+        .commentary-loading,
+        .commentary-empty {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 14px 4px;
+        }
+        .commentary-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+            flex: 0 0 auto;
+        }
+        .commentary-loading,
+        .commentary-empty,
+        .commentary-scope-label {
+            flex: 0 0 auto;
+        }
+        .commentary-box.intro-box {
+            background: var(--accent-dim, var(--card-bg));
+            border-color: var(--border);
+        }
+        .commentary-box > summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 8px 12px;
+            font-size: 0.86rem;
+            font-weight: 600;
+            color: var(--text);
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .commentary-box > summary::-webkit-details-marker { display: none; }
+        .commentary-box > summary::before {
+            content: '';
+            width: 0;
+            height: 0;
+            border-left: 5px solid currentColor;
+            border-top: 4px solid transparent;
+            border-bottom: 4px solid transparent;
+            opacity: 0.6;
+            transform: rotate(0deg);
+            transition: transform 0.18s ease;
+            flex-shrink: 0;
+        }
+        .commentary-box[open] > summary::before { transform: rotate(90deg); }
+        .commentary-box > summary:hover { background: var(--accent-dim); }
+        .commentary-box-body {
+            padding: 4px 14px 12px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+            color: var(--text);
+        }
+        .commentary-plain {
+            white-space: pre-wrap;
+            font-family: var(--font-serif, var(--font-ui));
+            font-size: 0.9rem;
+            line-height: 1.55;
+        }
+        .commentary-md {
+            font-family: var(--font-serif, var(--font-ui));
+        }
+        .commentary-md p { margin: 0.4em 0; }
+        .commentary-md ul, .commentary-md ol { margin: 0.4em 0; padding-left: 1.4em; }
+        .commentary-md blockquote {
+            margin: 0.5em 0;
+            padding-left: 10px;
+            border-left: 3px solid var(--border);
+            color: var(--text-muted);
+        }
+        .commentary-md h1, .commentary-md h3, .commentary-md h4 {
+            font-size: 0.92rem;
+            margin: 0.6em 0 0.3em;
+            font-weight: 600;
+        }
+        details.commentary-md-h2 {
+            margin: 6px 0;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--bg-subtle, transparent);
+        }
+        details.commentary-md-h2 > summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 6px 10px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: var(--text);
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        details.commentary-md-h2 > summary::-webkit-details-marker { display: none; }
+        details.commentary-md-h2 > summary::before {
+            content: '';
+            width: 0;
+            height: 0;
+            border-left: 4px solid currentColor;
+            border-top: 3px solid transparent;
+            border-bottom: 3px solid transparent;
+            opacity: 0.55;
+            transform: rotate(0deg);
+            transition: transform 0.18s ease;
+            flex-shrink: 0;
+        }
+        details.commentary-md-h2[open] > summary::before { transform: rotate(90deg); }
+        details.commentary-md-h2 > summary:hover { background: var(--accent-dim); }
+        .commentary-md-h2-body {
+            padding: 0 10px 8px 18px;
+            font-family: var(--font-serif, var(--font-ui));
+        }
+        details.commentary-refs {
+            margin-top: 10px;
+            border-top: 1px dashed var(--border);
+            padding-top: 6px;
+        }
+        details.commentary-refs > summary {
+            list-style: none;
+            cursor: pointer;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            user-select: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        details.commentary-refs > summary::-webkit-details-marker { display: none; }
+        details.commentary-refs > summary::before {
+            content: '▸';
+            font-size: 0.7rem;
+            transition: transform 0.18s ease;
+            display: inline-block;
+        }
+        details.commentary-refs[open] > summary::before { transform: rotate(90deg); }
+        details.commentary-refs > summary:hover { color: var(--accent); }
+        .commentary-refs-list {
+            margin-top: 6px;
+        }
+        .commentary-ref-item {
+            cursor: pointer;
+        }
+        .commentary-ref-preview:empty { display: none; }
+
+
+        /* ── Outline module ── */
+        .sidebar-module[data-module-id="outline"]:not([data-collapsed="true"]) .sidebar-module-body {
+            max-height: none;
+        }
+        .outline-module {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-family: var(--font-ui);
+            min-height: 0;
+        }
+        .outline-header {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            padding: 0 2px;
+        }
+        .outline-header:empty { display: none; }
+        .outline-body {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .outline-loading,
+        .outline-empty {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 14px 4px;
+        }
+        .outline-list {
+            list-style: none;
+            margin: 0;
+            padding: 0 0 0 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .outline-list .outline-list {
+            padding-left: 14px;
+            border-left: 1px dashed var(--border);
+            margin-top: 3px;
+            margin-left: 4px;
+        }
+        .outline-node {
+            font-size: 0.86rem;
+            line-height: 1.4;
+            color: var(--text);
+            padding: 2px 0;
+        }
+        .outline-node.lvl-1 > details > summary,
+        .outline-node.lvl-1 {
+            font-weight: 600;
+        }
+        .outline-node.lvl-a > details > summary,
+        .outline-node.lvl-a {
+            font-weight: 500;
+        }
+        .outline-node.lvl-i,
+        .outline-node.lvl-x {
+            font-weight: 400;
+            color: var(--text-muted);
+        }
+        .outline-node > details {
+            display: block;
+        }
+        /* Two-column grid: marker (chevron + level) | content (label + refs).
+           Content wraps within col 2 so its second line is indented past the
+           level marker, matching how indented lists normally render. */
+        .outline-node > details > summary,
+        .outline-node:not(:has(> details)) {
+            list-style: none;
+            display: grid;
+            grid-template-columns: auto 1fr;
+            column-gap: 6px;
+            align-items: baseline;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+        .outline-node > details > summary {
+            cursor: pointer;
+            user-select: none;
+        }
+        .outline-node > details > summary::-webkit-details-marker { display: none; }
+        .outline-node > details > summary:hover { background: var(--accent-dim); }
+        .outline-marker {
+            display: inline-flex;
+            align-items: baseline;
+            gap: 3px;
+            white-space: nowrap;
+        }
+        .outline-marker-leaf {
+            /* Reserve space where the chevron would be so leaves line up with
+               sibling collapsibles. */
+            padding-left: 9px;
+        }
+        .outline-chevron {
+            width: 0;
+            height: 0;
+            border-left: 5px solid currentColor;
+            border-top: 4px solid transparent;
+            border-bottom: 4px solid transparent;
+            opacity: 0.5;
+            transform: rotate(0deg);
+            transition: transform 0.15s ease;
+            flex-shrink: 0;
+            align-self: center;
+        }
+        .outline-node > details[open] > summary .outline-chevron {
+            transform: rotate(90deg);
+        }
+        .outline-level {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+        .outline-content {
+            display: inline-flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 2px 6px;
+            min-width: 0;
+        }
+        .outline-label {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+        .outline-refs {
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: 3px;
+            flex-shrink: 0;
+        }
+        .outline-ref {
+            font-family: inherit;
+            font-size: 0.72rem;
+            color: var(--accent);
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 1px 8px;
+            cursor: pointer;
+            white-space: nowrap;
+            line-height: 1.35;
+        }
+        .outline-ref:hover {
+            background: var(--accent-dim);
+            border-color: var(--accent);
+        }
+        .outline-node.is-current > details > summary,
+        .outline-node.is-current:not(:has(> details)) {
+            background: var(--accent-dim);
+            border-radius: 4px;
+        }
+        .outline-node.is-current > details > summary .outline-label,
+        .outline-node.is-current:not(:has(> details)) .outline-label {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+
+        /* Mobile: break out of the fragile flex-shrink chain by absolutely
+           positioning the commentary-module inside module-host-body. That
+           gives the entries list a guaranteed bounded height, so its own
+           overflow-y:auto actually scrolls (the flex-based approach was
+           unreliable on iOS Safari). */
+        @media (max-width: 700px) {
+            .module-host-body {
+                position: relative;
+            }
+            .module-host-body .commentary-module {
+                position: absolute;
+                top: 0;
+                right: 0;
+                bottom: 0;
+                left: 0;
+                padding: 0 12px var(--safe-area-bottom, 0px);
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                min-height: 0;
+                flex: none;
+            }
+            .module-host-body .commentary-entries {
+                flex: 1 1 0;
+                min-height: 0;
+                overflow-y: auto;
+                overscroll-behavior: contain;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 8px;
+            }
+            .module-host-body .outline-module {
+                position: absolute;
+                top: 0;
+                right: 0;
+                bottom: 0;
+                left: 0;
+                padding: 0 12px var(--safe-area-bottom, 0px);
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                min-height: 0;
+                flex: none;
+            }
+            .module-host-body .outline-body {
+                flex: 1 1 0;
+                min-height: 0;
+                overflow-y: auto;
+                overscroll-behavior: contain;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 8px;
+            }
         }
 
         /* ── Reduced motion ── */

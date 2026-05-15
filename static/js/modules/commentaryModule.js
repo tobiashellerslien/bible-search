@@ -1,0 +1,689 @@
+// ── Commentary module (PC sidebar + mobile module host) ──
+// Renders Bible commentaries (Scofield, Matthew Henry, …) for the text in
+// view (study tray) or for marked verses (MVB). Per-commentary scope-aware
+// fetch + render, with book intros, Scofield ref-previews, Matthew Henry
+// markdown with collapsible H2 sections.
+(function () {
+    let _container = null;
+    let _unsubMainBlock = null;
+    let _ctx = null;
+
+    let _commentaries = [];           // [{id,code,name,short_name,granularity,format}, ...]
+    let _selectedId = null;
+    let _commentariesLoaded = false;
+
+    // Scope: where the user opened the module from.
+    //   source: 'tray' | 'mvb-pc' | 'mvb-mobile'
+    //   range:  { book, ch_start, vs_start, ch_end, vs_end, version, label }
+    //   markedVerses: [{book, chapter, verse}, ...] (only for mvb-* sources)
+    let _scope = null;
+
+    // {commentary_id -> {scope-key -> payload}}
+    const _entriesCache = new Map();
+    // {commentary_id+entry-key -> bool} — remember per-entry open state across
+    // refresh of the same commentary; cleared when switching commentary.
+    let _expansionState = new Map();
+    // {book.ch.vs[-vs] -> preview text} for Scofield ref previews
+    const _previewCache = new Map();
+
+    let _hasBeenShown = false;
+    let _isMobile = false;
+
+    function isMobileNow() {
+        return !!(window.AppModuleHost && window.AppModuleHost.isMobile && window.AppModuleHost.isMobile());
+    }
+
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+            { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+        ));
+    }
+
+    function tFn(key, ...args) {
+        if (typeof window.t === 'function') return window.t(key, ...args);
+        return key;
+    }
+
+    // ── DOM scaffold ────────────────────────────────────────────────
+    function buildScaffold() {
+        if (!_container) return;
+        _container.innerHTML = `
+            <div class="commentary-module">
+                <div class="commentary-header">
+                    <select class="commentary-select" aria-label="${esc(tFn('sidebar.commentary.title'))}"></select>
+                </div>
+                <div class="commentary-scope-label"></div>
+                <div class="commentary-entries"></div>
+            </div>
+        `;
+        const sel = _container.querySelector('.commentary-select');
+        sel.addEventListener('change', () => {
+            const newId = Number(sel.value);
+            if (newId === _selectedId) return;
+            // Preserve scroll position when switching commentary.
+            const entriesEl = _container.querySelector('.commentary-entries');
+            const scrollTop = entriesEl ? entriesEl.scrollTop : 0;
+            _selectedId = newId;
+            _expansionState = new Map();  // entries differ across commentaries
+            loadAndRender().then(() => {
+                const newEntriesEl = _container.querySelector('.commentary-entries');
+                if (newEntriesEl) newEntriesEl.scrollTop = scrollTop;
+            });
+        });
+    }
+
+    function fillDropdown() {
+        if (!_container) return;
+        const sel = _container.querySelector('.commentary-select');
+        if (!sel) return;
+        sel.innerHTML = _commentaries.map(c =>
+            `<option value="${c.id}">${esc(c.name)}</option>`
+        ).join('');
+        if (_selectedId != null) sel.value = String(_selectedId);
+    }
+
+    async function ensureCommentariesLoaded() {
+        if (_commentariesLoaded) { fillDropdown(); return; }
+        try {
+            const resp = await fetch('/api/commentaries');
+            const data = await resp.json();
+            _commentaries = data.commentaries || [];
+            _commentariesLoaded = true;
+            // Default: scofield if available, else first.
+            const scof = _commentaries.find(c => c.code === 'scofield');
+            _selectedId = scof ? scof.id : (_commentaries[0] && _commentaries[0].id);
+        } catch (e) {
+            console.error('Failed to load commentaries:', e);
+        }
+        fillDropdown();
+    }
+
+    // ── Scope derivation ────────────────────────────────────────────
+    function rangeFromBlock(block) {
+        if (!block || !block.verses || !block.verses.length) return null;
+        const verses = block.verses;
+        const ch_start = verses[0].chapter;
+        const vs_start = verses[0].num;
+        const ch_end = verses[verses.length - 1].chapter;
+        const vs_end = verses[verses.length - 1].num;
+        const version = (window.versionSelect && String(window.versionSelect.value)) || '';
+        const lang = (typeof window.versionLang === 'function')
+            ? window.versionLang(version) : 'no';
+        const bName = (typeof window.bookName === 'function')
+            ? window.bookName(block.book, lang) : block.book;
+        let label;
+        if (block.is_chapter && ch_start === ch_end) {
+            label = `${bName} ${ch_start}`;
+        } else if (ch_start === ch_end && vs_start === vs_end) {
+            label = `${bName} ${ch_start}:${vs_start}`;
+        } else if (ch_start === ch_end) {
+            label = `${bName} ${ch_start}:${vs_start}-${vs_end}`;
+        } else {
+            label = `${bName} ${ch_start}:${vs_start}-${ch_end}:${vs_end}`;
+        }
+        return { book: block.book, ch_start, vs_start, ch_end, vs_end, version, label };
+    }
+
+    function scopeFromMainBlock() {
+        if (!_ctx) return null;
+        const mb = _ctx.getMainBlock();
+        if (!mb || !mb.block) return null;
+        const range = rangeFromBlock(mb.block);
+        if (!range) return null;
+        return { source: 'tray', range, markedVerses: [] };
+    }
+
+    function scopeKey(scope) {
+        if (!scope) return '';
+        const r = scope.range;
+        const mv = scope.markedVerses.map(v => `${v.book}.${v.chapter}.${v.verse}`).join(',');
+        return [scope.source, r.book, r.ch_start, r.vs_start, r.ch_end, r.vs_end, r.version, mv].join('|');
+    }
+
+    // ── API fetch ───────────────────────────────────────────────────
+    async function fetchEntries(commentaryId, range) {
+        const params = new URLSearchParams();
+        params.set('commentary', String(commentaryId));
+        params.set('book', range.book);
+        params.set('chapter', String(range.ch_start));
+        if (range.ch_end != null && range.ch_end !== range.ch_start) {
+            params.set('chapter_end', String(range.ch_end));
+        }
+        if (range.vs_start != null) params.set('verse_start', String(range.vs_start));
+        if (range.vs_end != null) params.set('verse_end', String(range.vs_end));
+        if (range.version) params.set('version', range.version);
+        params.set('include_intro', '1');
+        const resp = await fetch('/api/commentary?' + params.toString());
+        if (!resp.ok) throw new Error('commentary fetch failed: ' + resp.status);
+        return resp.json();
+    }
+
+    function cachedFor(scope, commentaryId) {
+        const byId = _entriesCache.get(commentaryId);
+        if (!byId) return null;
+        return byId.get(scopeKey(scope)) || null;
+    }
+
+    function cacheStore(scope, commentaryId, payload) {
+        if (!_entriesCache.has(commentaryId)) _entriesCache.set(commentaryId, new Map());
+        _entriesCache.get(commentaryId).set(scopeKey(scope), payload);
+    }
+
+    // ── Render ──────────────────────────────────────────────────────
+    function setScopeLabel(text, opts) {
+        const el = _container && _container.querySelector('.commentary-scope-label');
+        if (!el) return;
+        el.innerHTML = '';
+        if (!text) return;
+        const span = document.createElement('span');
+        span.className = 'commentary-scope-text';
+        span.textContent = text;
+        el.appendChild(span);
+        if (opts && opts.showExpand) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'commentary-expand-btn';
+            btn.textContent = tFn('sidebar.commentary.expandToChapter');
+            btn.title = tFn('sidebar.commentary.expandToChapter');
+            btn.addEventListener('click', expandMvbToChapter);
+            el.appendChild(btn);
+        }
+    }
+
+    async function expandMvbToChapter() {
+        if (!_scope) return;
+        if (_scope.source !== 'mvb-pc' && _scope.source !== 'mvb-mobile') return;
+        const r = _scope.range;
+
+        // Find the card whose block contains the chapter holding the marked verses,
+        // then trigger the same chapter-expand the in-card arrow uses. That clears
+        // marked verses and fires mainBlockChanged, which rebinds this module to
+        // the new chapter-wide tray scope automatically.
+        const md = window.mainData || [];
+        let targetIdx = -1;
+        for (let i = 0; i < md.length; i++) {
+            const b = md[i];
+            if (!b || b.book !== r.book) continue;
+            const hit = (b.verses || []).some(v => v.chapter >= r.ch_start && v.chapter <= r.ch_end);
+            if (hit) { targetIdx = i; break; }
+        }
+        // Mobile: module covers the text anyway, so leave the page alone and just
+        // widen the commentary scope to the chapter — no toggleChapterExpand call.
+        if (targetIdx >= 0 && !isMobileNow() && typeof window.toggleChapterExpand === 'function') {
+            const bar = document.querySelector(`.chapter-expand-bar[data-card-idx="${targetIdx}"]`);
+            const alreadyExpanded = bar && bar.getAttribute('data-expanded') === 'true';
+            if (!alreadyExpanded) {
+                // Demote scope to 'tray' up-front so the mainBlockChanged that
+                // fires at the end of toggleChapterExpand rebinds (and re-fetches)
+                // for the new full-chapter block in the same paint.
+                _scope = { source: 'tray', range: _scope.range, markedVerses: [] };
+                await window.toggleChapterExpand(targetIdx);
+                return;
+            }
+        }
+
+        // Already chapter-expanded (or no matching card) — just widen scope locally.
+        const lang = (typeof window.versionLang === 'function')
+            ? window.versionLang(r.version) : 'no';
+        const bName = (typeof window.bookName === 'function')
+            ? window.bookName(r.book, lang) : r.book;
+        const label = (r.ch_start === r.ch_end)
+            ? `${bName} ${r.ch_start}`
+            : `${bName} ${r.ch_start}-${r.ch_end}`;
+        _scope = {
+            source: 'tray',
+            range: {
+                book: r.book,
+                ch_start: r.ch_start,
+                vs_start: null,
+                ch_end: r.ch_end,
+                vs_end: null,
+                version: r.version,
+                label,
+            },
+            markedVerses: [],
+        };
+        loadAndRender();
+    }
+
+    function setStatus(html) {
+        const el = _container && _container.querySelector('.commentary-entries');
+        if (el) el.innerHTML = html;
+    }
+
+    function commentaryById(id) {
+        return _commentaries.find(c => c.id === id) || null;
+    }
+
+    function escAttrLocal(s) { return esc(s); }
+
+    // Parse `[ref:USFM.CH.VS[-VS|-CH.VS]]` markers + the "Referanser: " prefix
+    // out of a Scofield body. Returns {body, refs}.
+    function extractScofieldRefs(body) {
+        if (!body) return { body: '', refs: [] };
+        const re = /\[ref:([^\]]+)\]/g;
+        const refs = [];
+        let m;
+        while ((m = re.exec(body))) {
+            refs.push(m[1].trim());
+        }
+        // Strip the "Referanser: …" trailing line (case-insensitive). Also any
+        // standalone `[ref:…]` markers above (rare but possible).
+        let cleaned = body.replace(/\n*\s*Referanser:\s*(?:\[ref:[^\]]+\]\s*)+\s*$/i, '');
+        cleaned = cleaned.replace(/\[ref:[^\]]+\]/g, '').trimEnd();
+        return { body: cleaned, refs };
+    }
+
+    function refLabel(refStr) {
+        // refStr like "GEN.1.27" or "MAT.19.4-6" or "GEN.1" (whole chapter)
+        const parts = refStr.split('.');
+        const book = parts[0];
+        const abbrev = (typeof window.bookAbbrev === 'function')
+            ? window.bookAbbrev(book) : book;
+        if (parts.length === 1) return abbrev;
+        if (parts.length === 2) return `${abbrev} ${parts[1]}`;
+        // Has at least book.chapter.verse(-verse)
+        return `${abbrev} ${parts[1]}:${parts.slice(2).join('.')}`;
+    }
+
+    // Use existing /api/search to grab a one-verse preview. Cache result.
+    async function fetchRefPreview(refStr) {
+        if (_previewCache.has(refStr)) return _previewCache.get(refStr);
+        const label = refLabel(refStr);
+        const version = _scope && _scope.range && _scope.range.version;
+        const params = new URLSearchParams();
+        params.set('q', label);
+        if (version) params.set('version', version);
+        try {
+            const resp = await fetch('/api/search?' + params.toString());
+            const data = await resp.json();
+            // /api/search returns {type:'reference', results:[block, ...]} where
+            // each block has .verses[{num, text, chapter}]. Pull first few verses.
+            let preview = '';
+            if (data && data.type === 'reference' && Array.isArray(data.results)) {
+                const first = data.results[0];
+                if (first && first.verses && first.verses.length) {
+                    preview = first.verses.slice(0, 3).map(v => v.text).join(' ').slice(0, 220);
+                }
+            }
+            _previewCache.set(refStr, preview);
+            return preview;
+        } catch {
+            _previewCache.set(refStr, '');
+            return '';
+        }
+    }
+
+    // Markdown render with collapsible H2 sections (Matthew Henry).
+    function renderMarkdownWithCollapsibleH2(md) {
+        if (!md) return '';
+        const marked = window.marked;
+        // Split body on H2 boundaries. Anything before the first H2 is a
+        // pre-section; each H2 + following content becomes a collapsible block.
+        const lines = md.split('\n');
+        const sections = [];
+        let preface = [];
+        let current = null;
+        for (const line of lines) {
+            const h2 = line.match(/^##\s+(.+?)\s*$/);
+            if (h2 && !line.startsWith('###')) {
+                if (current) sections.push(current);
+                else if (preface.length) sections.push({ heading: null, lines: preface });
+                preface = [];
+                current = { heading: h2[1], lines: [] };
+            } else {
+                if (current) current.lines.push(line);
+                else preface.push(line);
+            }
+        }
+        if (current) sections.push(current);
+        else if (preface.length) sections.push({ heading: null, lines: preface });
+
+        const parse = (text) => {
+            if (!marked) return `<pre class="commentary-plain">${esc(text)}</pre>`;
+            try { return marked.parse(text, { breaks: true, gfm: true }); }
+            catch { return `<pre class="commentary-plain">${esc(text)}</pre>`; }
+        };
+
+        let html = '';
+        for (const sec of sections) {
+            const body = sec.lines.join('\n').trim();
+            if (sec.heading == null) {
+                if (body) html += `<div class="commentary-md">${parse(body)}</div>`;
+                continue;
+            }
+            const bodyHtml = body ? parse(body) : '';
+            html += `<details class="commentary-md-h2">`
+                + `<summary>${esc(sec.heading)}</summary>`
+                + `<div class="commentary-md-h2-body">${bodyHtml}</div>`
+                + `</details>`;
+        }
+        return html;
+    }
+
+    function entryKey(entry) {
+        return `${entry.chapter}.${entry.verse_start || 0}.${entry.verse_end || 0}`;
+    }
+
+    function buildIntroHtml(commentary, intro) {
+        const lang = (typeof window.versionLang === 'function' && _scope && _scope.range)
+            ? window.versionLang(_scope.range.version) : 'no';
+        const bName = (typeof window.bookName === 'function')
+            ? window.bookName(intro.book, lang) : intro.book;
+        const title = tFn('sidebar.commentary.intro', bName);
+        let bodyHtml;
+        if (commentary.format === 'markdown') {
+            bodyHtml = renderMarkdownWithCollapsibleH2(intro.body);
+        } else {
+            const refsParsed = extractScofieldRefs(intro.body);
+            bodyHtml = `<div class="commentary-plain">${esc(refsParsed.body)}</div>`
+                + (refsParsed.refs.length ? renderRefsToggle(refsParsed.refs) : '');
+        }
+        // Intro boxes always start collapsed.
+        return `<details class="commentary-box intro-box" data-key="intro:${esc(intro.book)}">`
+            + `<summary>${esc(title)}</summary>`
+            + `<div class="commentary-box-body">${bodyHtml}</div>`
+            + `</details>`;
+    }
+
+    function buildEntryHtml(commentary, entry, opts) {
+        const range = _scope.range;
+        const lang = (typeof window.versionLang === 'function')
+            ? window.versionLang(range.version) : 'no';
+        const bName = (typeof window.bookName === 'function')
+            ? window.bookName(range.book, lang) : range.book;
+        let title;
+        if (entry.verse_start == null) {
+            title = `${bName} ${entry.chapter}`;
+        } else if (entry.verse_end == null || entry.verse_end === entry.verse_start) {
+            title = `${bName} ${entry.chapter}:${entry.verse_start}`;
+        } else {
+            title = `${bName} ${entry.chapter}:${entry.verse_start}-${entry.verse_end}`;
+        }
+        let bodyHtml;
+        if (commentary.format === 'markdown') {
+            bodyHtml = renderMarkdownWithCollapsibleH2(entry.body);
+        } else {
+            const refsParsed = extractScofieldRefs(entry.body);
+            bodyHtml = `<div class="commentary-plain">${esc(refsParsed.body)}</div>`
+                + (refsParsed.refs.length ? renderRefsToggle(refsParsed.refs) : '');
+        }
+        const openAttr = opts && opts.open ? ' open' : '';
+        return `<details class="commentary-box entry-box"${openAttr} data-key="${esc(entryKey(entry))}">`
+            + `<summary>${esc(title)}</summary>`
+            + `<div class="commentary-box-body">${bodyHtml}</div>`
+            + `</details>`;
+    }
+
+    function renderRefsToggle(refs) {
+        const items = refs.map(r => {
+            const label = refLabel(r);
+            return `<div class="xr-item commentary-ref-item" data-ref="${esc(r)}" data-label="${esc(label)}">`
+                + `<span class="xr-ref">${esc(label)}</span>`
+                + `<span class="xr-preview commentary-ref-preview"></span>`
+                + `</div>`;
+        }).join('');
+        return `<details class="commentary-refs">`
+            + `<summary>${esc(tFn('sidebar.commentary.refsTitle'))} (${refs.length})</summary>`
+            + `<div class="commentary-refs-list xr-panel-inner">${items}</div>`
+            + `</details>`;
+    }
+
+    function entryOverlapsMarked(entry, markedVerses) {
+        if (!markedVerses || !markedVerses.length) return false;
+        if (entry.verse_start == null) {
+            // Chapter-level entry: overlap if any marked verse shares the chapter.
+            return markedVerses.some(v => v.chapter === entry.chapter);
+        }
+        const vs = entry.verse_start;
+        const ve = entry.verse_end == null ? vs : entry.verse_end;
+        return markedVerses.some(v => v.chapter === entry.chapter && v.verse >= vs && v.verse <= ve);
+    }
+
+    async function loadAndRender() {
+        if (!_scope || !_scope.range || _selectedId == null) {
+            setScopeLabel('');
+            setStatus('');
+            return;
+        }
+        const commentary = commentaryById(_selectedId);
+        if (!commentary) return;
+
+        // Label
+        const isMvbScope = (_scope.source === 'mvb-pc' || _scope.source === 'mvb-mobile');
+        const scopeLabel = isMvbScope
+            ? tFn('sidebar.commentary.scope.mvb')
+            : tFn('sidebar.commentary.scope.tray', _scope.range.label);
+        setScopeLabel(scopeLabel, { showExpand: isMvbScope });
+
+        // Fetch (cache or network)
+        let payload = cachedFor(_scope, _selectedId);
+        if (!payload) {
+            setStatus(`<div class="commentary-loading">${esc(tFn('sidebar.commentary.loading'))}</div>`);
+            try {
+                payload = await fetchEntries(_selectedId, _scope.range);
+                cacheStore(_scope, _selectedId, payload);
+            } catch (e) {
+                console.error(e);
+                setStatus(`<div class="commentary-empty">${esc(tFn('sidebar.commentary.loading'))}</div>`);
+                return;
+            }
+        }
+
+        _hasBeenShown = true;
+
+        const intros = payload.intros || [];
+        let entries = payload.entries || [];
+
+        // Mobile MVB: filter entries to only those overlapping marked verses.
+        if (_scope.source === 'mvb-mobile' && _scope.markedVerses.length) {
+            entries = entries.filter(e => entryOverlapsMarked(e, _scope.markedVerses));
+        }
+
+        // Open-state rules:
+        //   intros: always closed
+        //   non-intro entries: open if only one, else closed
+        //   MVB (PC and mobile): entries overlapping marked verses are open
+        const nonIntro = entries;
+        const onlyOne = nonIntro.length === 1;
+        const isMvb = (_scope.source === 'mvb-pc' || _scope.source === 'mvb-mobile');
+
+        let html = '';
+        for (const intro of intros) html += buildIntroHtml(commentary, intro);
+
+        for (const entry of nonIntro) {
+            let open = false;
+            if (onlyOne) open = true;
+            if (isMvb && entryOverlapsMarked(entry, _scope.markedVerses)) open = true;
+            html += buildEntryHtml(commentary, entry, { open });
+        }
+
+        if (!intros.length && !nonIntro.length) {
+            html = `<div class="commentary-empty">${esc(tFn('sidebar.commentary.empty'))}</div>`;
+        }
+
+        setStatus(html);
+        attachRefPreviewHandlers();
+    }
+
+    function attachRefPreviewHandlers() {
+        if (!_container) return;
+        // Lazy-load previews when a "Referanser" details opens; click navigates.
+        _container.querySelectorAll('.commentary-refs').forEach(det => {
+            det.addEventListener('toggle', async () => {
+                if (!det.open) return;
+                const items = det.querySelectorAll('.commentary-ref-item');
+                for (const it of items) {
+                    if (it.dataset.previewed === '1') continue;
+                    it.dataset.previewed = '1';
+                    const ref = it.dataset.ref;
+                    const preview = await fetchRefPreview(ref);
+                    const previewEl = it.querySelector('.commentary-ref-preview');
+                    if (previewEl) previewEl.textContent = preview || '';
+                }
+            }, { once: false });
+        });
+        _container.querySelectorAll('.commentary-ref-item').forEach(it => {
+            it.addEventListener('click', () => {
+                const label = it.dataset.label;
+                if (typeof window.searchFromXref === 'function') window.searchFromXref(label);
+            });
+        });
+    }
+
+    // ── Public API for triggers ─────────────────────────────────────
+    // Open module for a card's full block (study tray button).
+    async function showForBlock(blockIdx) {
+        // Isolate to block when not block 0 (same pattern as MapModule).
+        if (blockIdx !== 0 && typeof window.isolateToBlock === 'function') {
+            await window.isolateToBlock(blockIdx);
+            blockIdx = 0;
+        }
+        const block = (window.mainData && window.mainData[blockIdx]) || null;
+        if (!block) return;
+        const range = rangeFromBlock(block);
+        if (!range) return;
+        _scope = { source: 'tray', range, markedVerses: [] };
+        _hasBeenShown = true;
+
+        if (isMobileNow()) {
+            if (window.AppModuleHost) window.AppModuleHost.openModule('commentary');
+        } else if (window.AppSidebar) {
+            if (typeof window.AppSidebar.openModule === 'function') {
+                window.AppSidebar.openModule('commentary');
+            } else {
+                window.AppSidebar.ensureOpen();
+            }
+        }
+        await ensureCommentariesLoaded();
+        await loadAndRender();
+    }
+
+    // Open module for marked verses (MVB ✒️ button).
+    async function showForMarkedVerses(markedVerses) {
+        if (!markedVerses || !markedVerses.length) return;
+        // Compute encompassing range across marked verses.
+        const sorted = markedVerses.slice().sort((a, b) =>
+            (a.chapter - b.chapter) || (a.verse - b.verse));
+        const first = sorted[0], last = sorted[sorted.length - 1];
+        const version = (window.versionSelect && String(window.versionSelect.value)) || '';
+        const lang = (typeof window.versionLang === 'function')
+            ? window.versionLang(version) : 'no';
+        const bName = (typeof window.bookName === 'function')
+            ? window.bookName(first.book, lang) : first.book;
+        const label = (first.chapter === last.chapter && first.verse === last.verse)
+            ? `${bName} ${first.chapter}:${first.verse}`
+            : (first.chapter === last.chapter
+                ? `${bName} ${first.chapter}:${first.verse}-${last.verse}`
+                : `${bName} ${first.chapter}:${first.verse}-${last.chapter}:${last.verse}`);
+        const range = {
+            book: first.book,
+            ch_start: first.chapter, vs_start: first.verse,
+            ch_end: last.chapter, vs_end: last.verse,
+            version, label,
+        };
+        _scope = {
+            source: isMobileNow() ? 'mvb-mobile' : 'mvb-pc',
+            range,
+            markedVerses: markedVerses.map(v => ({ book: v.book, chapter: v.chapter, verse: v.verse })),
+        };
+        _hasBeenShown = true;
+
+        if (isMobileNow()) {
+            if (window.AppModuleHost) window.AppModuleHost.openModule('commentary');
+        } else if (window.AppSidebar) {
+            if (typeof window.AppSidebar.openModule === 'function') {
+                window.AppSidebar.openModule('commentary');
+            } else {
+                window.AppSidebar.ensureOpen();
+            }
+        }
+        await ensureCommentariesLoaded();
+        await loadAndRender();
+    }
+
+    function rebindToMainBlock() {
+        if (!_scope) return;
+        const ns = scopeFromMainBlock();
+        if (!ns) return;
+        if (_scope.source === 'tray') {
+            if (scopeKey(ns) === scopeKey(_scope)) return;
+            _scope = ns;
+            loadAndRender();
+            return;
+        }
+        // MVB scope: stay pinned as long as marked verses still overlap the
+        // current top block. When the user navigates elsewhere (which clears
+        // marked verses) drop MVB scope and rebind to the new top block.
+        const block = window.mainData && window.mainData[0];
+        if (!block) return;
+        const stillRelevant = _scope.markedVerses.some(mv =>
+            mv.book === block.book
+            && (block.verses || []).some(v => v.chapter === mv.chapter && v.num === mv.verse)
+        );
+        if (!stillRelevant) {
+            _scope = ns;
+            loadAndRender();
+        }
+    }
+
+    // ── Module def ──────────────────────────────────────────────────
+    const moduleDef = {
+        id: 'commentary',
+        title: 'Kommentar',
+        icon: '✒️',
+        async mount(container, ctx) {
+            _container = container;
+            _ctx = ctx;
+            _isMobile = isMobileNow();
+            buildScaffold();
+            await ensureCommentariesLoaded();
+            // If no scope yet but a top block exists, fall back to it.
+            if (!_scope) {
+                const ns = scopeFromMainBlock();
+                if (ns) _scope = ns;
+            }
+            if (_scope) await loadAndRender();
+
+            if (ctx && ctx.subscribe) {
+                _unsubMainBlock = ctx.subscribe('mainBlockChanged', () => rebindToMainBlock());
+            }
+        },
+        unmount() {
+            if (_unsubMainBlock) { try { _unsubMainBlock(); } catch {} _unsubMainBlock = null; }
+            _container = null;
+            _ctx = null;
+        },
+        isEmpty() { return !_hasBeenShown; },
+        clearAll() {
+            _scope = null;
+            _hasBeenShown = false;
+            _expansionState = new Map();
+            // Keep _commentaries metadata (cheap to reuse). Wipe entries cache
+            // so a fresh open re-fetches with current versification.
+            _entriesCache.clear();
+            _previewCache.clear();
+            if (_container) {
+                const entriesEl = _container.querySelector('.commentary-entries');
+                if (entriesEl) entriesEl.innerHTML = '';
+                setScopeLabel('');
+            }
+        },
+    };
+
+    window.CommentaryModule = { moduleDef, showForBlock, showForMarkedVerses };
+
+    function tryRegister() {
+        if (window.AppSidebar && window.AppSidebar.register) {
+            window.AppSidebar.register(moduleDef);
+            if (window.AppModuleHost && window.AppModuleHost.register) window.AppModuleHost.register(moduleDef);
+        } else {
+            setTimeout(tryRegister, 30);
+        }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', tryRegister);
+    } else {
+        tryRegister();
+    }
+})();

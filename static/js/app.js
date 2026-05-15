@@ -140,6 +140,21 @@ const I18N = {
         'card.study.interlinear': 'Grunntekst',
         'card.study.bibleref': 'BibleRef',
         'card.study.source': 'Kilde',
+        'card.study.commentary': '✒️ Kommentar',
+        'card.study.outline': '📜 Outline',
+        'sidebar.outline.title': 'Outline',
+        'sidebar.outline.loading': 'Laster outline…',
+        'sidebar.outline.empty': 'Ingen outline for denne boka',
+        'sidebar.outline.error': 'Kunne ikke laste outline',
+        'sidebar.commentary.title': 'Kommentar',
+        'sidebar.commentary.empty': 'Ingen kommentarer for denne teksten',
+        'sidebar.commentary.loading': 'Laster kommentar…',
+        'sidebar.commentary.intro': 'Intro til {0}',
+        'sidebar.commentary.refsTitle': 'Referanser',
+        'sidebar.commentary.scope.tray': 'Kommentar til {0}',
+        'sidebar.commentary.scope.mvb': 'Kommentar til markerte vers',
+        'sidebar.commentary.expandToChapter': 'Vis hele kapittelet',
+        'mvb.commentary.title': 'Kommentar til markerte vers',
         'card.expandChapter': 'Vis hele kapittelet',
         'card.collapseChapter': 'Tilbake til vers',
         'card.navPrev': 'Forrige',
@@ -1047,6 +1062,8 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
                 <div class="study-tray-row">
                     <div class="study-tray-inner">
                         <button class="tray-btn map-tray-btn"${mapDisabled ? ' disabled aria-disabled="true"' : ` onclick="openMapForBlock(${idx},null)"`} title="${mapTitle}">${mapLabel}</button>
+                        <button class="tray-btn commentary-tray-btn" onclick="openCommentaryForBlock(${idx})" title="${escAttr(t('sidebar.commentary.title'))}">${escHtml(t('card.study.commentary'))}</button>
+                        <button class="tray-btn outline-tray-btn" onclick="openOutlineForBlock(${idx})" title="${escAttr(t('sidebar.outline.title'))}">${escHtml(t('card.study.outline'))}</button>
                         ${ilUrl ? `<a class="tray-btn external" href="${ilUrl}" target="_blank" rel="noopener" title="biblehub.com"><img class="tray-btn-logo" src="/static/images/biblehub.png" alt=""><span>${escHtml(t('card.study.interlinear'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
                         ${crUrl ? `<a class="tray-btn external" href="${crUrl}" target="_blank" rel="noopener" title="bibleref.com"><img class="tray-btn-logo" src="/static/images/bibleref.png" alt=""><span>${escHtml(t('card.study.bibleref'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
                         ${yvUrl ? `<a class="tray-btn external" href="${yvUrl}" target="_blank" rel="noopener" title="bible.com"><span>${escHtml(t('card.study.source'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
@@ -2108,6 +2125,26 @@ function initMarkedVersesBar() {
             specs.forEach(s => { if (!window.PinnedVerses.isPinned(s)) window.PinnedVerses.add(s); });
         }
         updateMvbPinButtonState();
+    });
+
+    const commentaryBtn = document.getElementById('mvbCommentary');
+    if (commentaryBtn) commentaryBtn.addEventListener('click', () => {
+        if (!window.CommentaryModule || !markedVerses.size) return;
+        const marked = [...markedVerses.values()].map(v => ({
+            book: v.book, chapter: v.chapter, verse: v.verse
+        }));
+        window.CommentaryModule.showForMarkedVerses(marked);
+    });
+
+    const outlineBtn = document.getElementById('mvbOutline');
+    if (outlineBtn) outlineBtn.addEventListener('click', () => {
+        if (!window.OutlineModule || !markedVerses.size) return;
+        const marked = [...markedVerses.values()].map(v => ({
+            book: v.book, chapter: v.chapter, verse: v.verse
+        }));
+        if (typeof window.OutlineModule.showForMarkedVerses === 'function') {
+            window.OutlineModule.showForMarkedVerses(marked);
+        }
     });
 
     function _collectAnnotButtons(kind) {
@@ -4484,6 +4521,22 @@ document.addEventListener('click', () => {
 window.openMapForBlock = function(idx, focusId) {
     if (window.MapModule && typeof window.MapModule.showForBlock === 'function') {
         window.MapModule.showForBlock(idx, focusId);
+    }
+};
+
+
+// ── Commentary: delegates to CommentaryModule (modules/commentaryModule.js) ──
+window.openCommentaryForBlock = function(idx) {
+    if (window.CommentaryModule && typeof window.CommentaryModule.showForBlock === 'function') {
+        window.CommentaryModule.showForBlock(idx);
+    }
+};
+
+
+// ── Outline: delegates to OutlineModule (modules/outlineModule.js) ───────────
+window.openOutlineForBlock = function(idx) {
+    if (window.OutlineModule && typeof window.OutlineModule.showForBlock === 'function') {
+        window.OutlineModule.showForBlock(idx);
     }
 };
 

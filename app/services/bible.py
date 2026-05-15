@@ -571,6 +571,29 @@ class BibleData:
             out.append({"chapter": ch, "verse_start": v_s, "verse_end": v_e, "body": body})
         return out
 
+    def get_commentary_intros(self, commentary_id, book_usfms):
+        """Book-introduction entries (chapter=0) for each requested book.
+
+        Stored as rows with chapter=0 and verse_start/verse_end NULL. Returns
+        one dict per (book, body) found, in the order books were requested.
+        """
+        if not book_usfms:
+            return []
+        seen = set()
+        unique_books = []
+        for b in book_usfms:
+            if b not in seen:
+                seen.add(b)
+                unique_books.append(b)
+        placeholders = ",".join("?" for _ in unique_books)
+        rows = self.db.execute(
+            f"""SELECT book_usfm, body FROM commentary_entries
+                WHERE commentary_id=? AND chapter=0 AND book_usfm IN ({placeholders})""",
+            [commentary_id, *unique_books],
+        ).fetchall()
+        by_book = {r[0]: r[1] for r in rows}
+        return [{"book": b, "body": by_book[b]} for b in unique_books if b in by_book]
+
     def list_commentary_codes_for_verse(self, book_usfm, chapter, verse):
         """Codes of commentaries that have at least one entry covering this verse —
         used by the frontend to know which buttons to render. Cheap single query."""
