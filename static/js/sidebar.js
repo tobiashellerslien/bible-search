@@ -67,8 +67,9 @@
     }
 
     // ── Module DOM mount/unmount ──
-    function mountModuleDOM(entry) {
+    function mountModuleDOM(entry, opts) {
         if (entry.mounted) return;
+        const prepend = !!(opts && opts.prepend);
         const wrap = document.createElement('section');
         wrap.className = 'sidebar-module';
         wrap.dataset.moduleId = entry.def.id;
@@ -126,7 +127,9 @@
 
         entry.container = body;
         entry.wrap = wrap;
-        $('sidebarModules').appendChild(wrap);
+        const list = $('sidebarModules');
+        if (prepend && list.firstChild) list.insertBefore(wrap, list.firstChild);
+        else list.appendChild(wrap);
 
         try { entry.def.mount(body, ctx()); }
         catch (e) { console.error('Module mount failed:', entry.def.id, e); }
@@ -422,11 +425,18 @@
         if (!isDesktop()) return;
         const entry = state.modules.find(m => m.def.id === id);
         if (!entry) return;
-        if (!state.open) {
-            open();
-            // open() mounts modules with content; this one should now be mounted.
+        const wasOpen = state.open;
+        if (!wasOpen) open();
+        // Newly-opened modules go to the top of the sidebar so the user sees
+        // them without scrolling. Already-mounted modules stay where they are.
+        if (!entry.mounted) {
+            mountModuleDOM(entry, { prepend: true });
+        } else if (wasOpen && entry.wrap) {
+            const list = $('sidebarModules');
+            if (list && list.firstChild !== entry.wrap) {
+                list.insertBefore(entry.wrap, list.firstChild);
+            }
         }
-        if (!entry.mounted) mountModuleDOM(entry);
     }
 
     function close() {

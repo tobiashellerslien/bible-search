@@ -153,8 +153,21 @@ const I18N = {
         'sidebar.commentary.refsTitle': 'Referanser',
         'sidebar.commentary.scope.tray': 'Kommentar til {0}',
         'sidebar.commentary.scope.mvb': 'Kommentar til markerte vers',
-        'sidebar.commentary.expandToChapter': 'Vis hele kapittelet',
+        'sidebar.commentary.expandToChapter': 'Vis for hele kapittelet',
         'mvb.commentary.title': 'Kommentar til markerte vers',
+        'card.study.topics': '🎨 Temaer',
+        'card.study.topics.empty': 'Ingen temaer for denne teksten',
+        'sidebar.topics.title': 'Temaer',
+        'sidebar.topics.empty': 'Ingen temaer for denne teksten',
+        'sidebar.topics.loading': 'Laster temaer…',
+        'sidebar.topics.scope.tray': 'Temaer i {0}',
+        'sidebar.topics.scope.mvb': 'Temaer for markerte vers',
+        'sidebar.topics.expandToChapter': 'Vis for hele kapittelet',
+        'sidebar.topics.countTitle': 'Antall vers (inkluderer undertemaer)',
+        'sidebar.topics.jumpToTrigger': 'Gå til verset som utløste dette temaet',
+        'sidebar.topics.subtopicsCount': '{0} undertemaer',
+        'sidebar.topics.showAll': 'Vis alle ({0} til)',
+        'mvb.topics.title': 'Temaer for markerte vers',
         'card.expandChapter': 'Vis hele kapittelet',
         'card.collapseChapter': 'Tilbake til vers',
         'card.navPrev': 'Forrige',
@@ -163,7 +176,6 @@ const I18N = {
         'card.compareLoading': 'Laster...',
         'card.compareNotFound': 'Ikke funnet',
         'card.compareFailed': 'Lasting feilet',
-        'card.dismissHighlight': 'Fjern markering',
         'annot.fnTitle': 'Fotnote',
         'annot.xrTitle': 'Referanser',
         'annot.loadingRefs': 'Laster referanser…',
@@ -189,6 +201,8 @@ const I18N = {
         'toast.statsFailed': 'Kunne ikke laste statistikk.',
         'search.unknownPrefix': 'Ukjent filter: «{0}». Bruk en gyldig gruppe (f.eks. GT:, NT:, evangeliene:) eller et boknavn.',
         'search.emptyQuery': 'Skriv inn et søkeord etter filteret.',
+        'search.missingReference': 'Skriv kapittel og evt. vers (f.eks. «{0} 1:1»), eller et søkeord.',
+        'search.invalidQuery': 'Ugyldig søk. Sjekk skrivemåten og prøv igjen.',
         'searchResults.text.noResults': 'Ingen treff',
         'searchResults.text.noResultsBody': 'Ingen vers funnet for «{0}» i {1}.',
         'searchResults.searchAllVersions': 'Søk i alle oversettelser',
@@ -397,8 +411,10 @@ function setPageTitle(text) {
 // ── State ──
 let lastQuery = '';
 let mainData = null;
+// Study tray is session-global: once user opens it, it stays open across
+// navigation/searches until they close it. Not persisted across sessions.
+let studyTrayOpen = false;
 // Per-card UI state (keyed by card index in mainData) — runtime only, not persisted
-let cardTrayOpen = {};         // idx -> bool (study tray open/closed)
 let cardExpandedState = {};    // idx -> { originalBlock } when expanded from verse to chapter
 let currentView = 'normal';
 let booksData = [];
@@ -799,6 +815,10 @@ async function doSearch(pushHistory = true, resetAC = true) {
                 showSearchWarning(t('search.unknownPrefix', err.name || '?'));
             } else if (err && err.code === 'empty_query') {
                 showSearchWarning(t('search.emptyQuery'));
+            } else if (err && err.code === 'missing_reference') {
+                showSearchWarning(t('search.missingReference', err.name || '?'));
+            } else if (err && err.code === 'invalid_query') {
+                showSearchWarning(t('search.invalidQuery'));
             } else {
                 resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), typeof err === 'string' ? err : JSON.stringify(err));
             }
@@ -815,7 +835,6 @@ async function doSearch(pushHistory = true, resetAC = true) {
 
         mainData = data.results;
         // Reset per-card UI state on a fresh search (stale indices would point at wrong blocks)
-        cardTrayOpen = {};
         cardExpandedState = {};
         detectChapterInfo(mainData);
         renderAll();
@@ -999,7 +1018,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
     });
     compareOptionsHtml += `<option value="__all__"${isAllMode ? ' selected' : ''}>${escHtml(t('card.allVersionsOption'))}</option>`;
 
-    const trayOpen = block.book && block.verses.length > 0 ? !!cardTrayOpen[idx] : false;
+    const trayOpen = block.book && block.verses.length > 0 ? studyTrayOpen : false;
 
     // credit copy-icon: https://www.flaticon.com/authors/erix
     // credit study-icon: https://www.flaticon.com/authors/bqlqn 
@@ -1022,8 +1041,39 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
                     <span class="toggle-switch"><input type="checkbox" id="align-toggle-${idx}"${alignMode ? ' checked' : ''} onchange="toggleAlignMode(${idx})"><span class="toggle-slider"></span></span>
                 </label>
             </div>
-        </div>
-        <div class="verse-card-body">
+        </div>`;
+
+    // Study tray sits between header and body so it appears directly under the
+    // study toggle in the header. Built up-front so it can be injected above
+    // .verse-card-body while compare-active body still works as a flex row.
+    let studyTrayHtml = '';
+    if (block.book && block.verses.length > 0) {
+        const _ch = block.verses[0].chapter;
+        const _isSingleVerse = block.verses.length === 1;
+        const ilUrl = interlinearUrl(block.book, _ch, _isSingleVerse ? block.verses[0].num : null);
+        const crUrl = biblerefUrl(block.book, _ch, _isSingleVerse ? block.verses[0].num : null);
+        const yvUrl = youversionUrl(block.book, _ch, block.verses, ver, !!block.is_chapter);
+        const placeCount = (block.places || []).length;
+        const mapDisabled = placeCount === 0;
+        const mapLabel = placeCount > 0 ? `🗺️ Kart (${placeCount})` : `🗺️ Kart`;
+        const mapTitle = mapDisabled ? escAttr(t('card.study.map.empty')) : escAttr(t('card.mapBtn.title', placeCount));
+        studyTrayHtml = `<div class="study-tray" data-open="${trayOpen ? 'true' : 'false'}" id="study-tray-${idx}">
+            <div class="study-tray-row">
+                <div class="study-tray-inner">
+                    <button class="tray-btn map-tray-btn"${mapDisabled ? ' disabled aria-disabled="true"' : ` onclick="openMapForBlock(${idx},null)"`} title="${mapTitle}">${mapLabel}</button>
+                    <button class="tray-btn commentary-tray-btn" onclick="openCommentaryForBlock(${idx})" title="${escAttr(t('sidebar.commentary.title'))}">${escHtml(t('card.study.commentary'))}</button>
+                    <button class="tray-btn topics-tray-btn"${block.has_topics ? ` onclick="openTopicsForBlock(${idx})"` : ' disabled aria-disabled="true"'} title="${escAttr(block.has_topics ? t('sidebar.topics.title') : t('card.study.topics.empty'))}">${escHtml(t('card.study.topics'))}</button>
+                    <button class="tray-btn outline-tray-btn" onclick="openOutlineForBlock(${idx})" title="${escAttr(t('sidebar.outline.title'))}">${escHtml(t('card.study.outline'))}</button>
+                    ${ilUrl ? `<a class="tray-btn external" href="${ilUrl}" target="_blank" rel="noopener" title="biblehub.com"><img class="tray-btn-logo" src="/static/images/biblehub.png" alt=""><span>${escHtml(t('card.study.interlinear'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
+                    ${crUrl ? `<a class="tray-btn external" href="${crUrl}" target="_blank" rel="noopener" title="bibleref.com"><img class="tray-btn-logo" src="/static/images/bibleref.png" alt=""><span>${escHtml(t('card.study.bibleref'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
+                    ${yvUrl ? `<a class="tray-btn external" href="${yvUrl}" target="_blank" rel="noopener" title="bible.com"><span>${escHtml(t('card.study.source'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
+                </div>
+            </div>
+        </div>`;
+    }
+
+    html += studyTrayHtml;
+    html += `<div class="verse-card-body">
         <div class="verse-text" id="main-verse-text-${idx}">`;
 
     blockPlacesRegistry[idx] = block.places || [];
@@ -1031,14 +1081,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
     html += '</div>';
 
     if (block.book && block.verses.length > 0) {
-        const ch = block.verses[0].chapter;
-        const bName = bookRefName(block.book);
-        const maxCh = (booksData.find(b => b.code === block.book) || {}).chapters || 0;
-        const isSingleVerse = block.verses.length === 1;
-        const ilUrl = interlinearUrl(block.book, ch, isSingleVerse ? block.verses[0].num : null);
-        const allSameCh = block.verses.every(v => v.chapter === ch);
-
-        // Compare section sits between verse text and footer.
+        // Compare section sits inside the body next to the main verse text.
         // Its own header (the select) is hidden via CSS when card is compare-active on PC,
         // because the select is hoisted into .header-compare-slot for verse-baseline alignment.
         html += `<div class="card-compare-section${compareVisible ? ' visible' : ''}" id="compare-section-${idx}">
@@ -1046,36 +1089,8 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
                 <select class="card-compare-select" id="compare-select-${idx}" onchange="changeCardCompareVersion(${idx}, 'section')">${compareOptionsHtml}</select>
             </div>
             <div class="card-compare-body" id="compare-body-${idx}"></div></div>`;
-        html += `</div>`; // close .verse-card-body (footer must be outside)
-
-        const crUrl = biblerefUrl(block.book, ch, isSingleVerse ? block.verses[0].num : null);
-        const yvUrl = youversionUrl(block.book, ch, block.verses, ver, !!block.is_chapter);
-
-        // Study tray (toggle is in card header; tray expands below card body)
-        const placeCount = (block.places || []).length;
-        const mapDisabled = placeCount === 0;
-        const mapLabel = placeCount > 0 ? `🗺️ Kart (${placeCount})` : `🗺️ Kart`;
-        const mapTitle = mapDisabled ? escAttr(t('card.study.map.empty')) : escAttr(t('card.mapBtn.title', placeCount));
-
-        html += `<div class="verse-card-footer">
-            <div class="study-tray" data-open="${trayOpen ? 'true' : 'false'}" id="study-tray-${idx}">
-                <div class="study-tray-row">
-                    <div class="study-tray-inner">
-                        <button class="tray-btn map-tray-btn"${mapDisabled ? ' disabled aria-disabled="true"' : ` onclick="openMapForBlock(${idx},null)"`} title="${mapTitle}">${mapLabel}</button>
-                        <button class="tray-btn commentary-tray-btn" onclick="openCommentaryForBlock(${idx})" title="${escAttr(t('sidebar.commentary.title'))}">${escHtml(t('card.study.commentary'))}</button>
-                        <button class="tray-btn outline-tray-btn" onclick="openOutlineForBlock(${idx})" title="${escAttr(t('sidebar.outline.title'))}">${escHtml(t('card.study.outline'))}</button>
-                        ${ilUrl ? `<a class="tray-btn external" href="${ilUrl}" target="_blank" rel="noopener" title="biblehub.com"><img class="tray-btn-logo" src="/static/images/biblehub.png" alt=""><span>${escHtml(t('card.study.interlinear'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
-                        ${crUrl ? `<a class="tray-btn external" href="${crUrl}" target="_blank" rel="noopener" title="bibleref.com"><img class="tray-btn-logo" src="/static/images/bibleref.png" alt=""><span>${escHtml(t('card.study.bibleref'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
-                        ${yvUrl ? `<a class="tray-btn external" href="${yvUrl}" target="_blank" rel="noopener" title="bible.com"><span>${escHtml(t('card.study.source'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
-                    </div>
-                    <button class="study-tray-close" onclick="toggleStudyTray(${idx})" title="Lukk studie">✕</button>
-                </div>
-            </div>
-        </div>`;
-
-    } else {
-        html += `</div>`; // close .verse-card-body when no compare/footer was added
     }
+    html += `</div>`; // close .verse-card-body
 
     html += '</div></div>'; // close .verse-card and .card-swipe-wrap
 
@@ -1254,8 +1269,10 @@ function _compareActivateInstant(idx, section) {
 window.toggleCardCompare = async function(idx) {
     const section = document.getElementById(`compare-section-${idx}`);
     if (!cardCompare[idx]) {
-        const defaultVer = allVersionsList.find(v => String(v.id) !== versionSelect.value) || allVersionsList[0];
-        cardCompare[idx] = { version: String(defaultVer.id), data: null, visible: true, mode: 'single', allData: null, alignMode: false };
+        const savedVer = localStorage.getItem('lastCompareVersion');
+        const savedVerValid = savedVer && allVersionsList.some(v => String(v.id) === savedVer) && savedVer !== versionSelect.value;
+        const defaultVer = savedVerValid ? savedVer : (String((allVersionsList.find(v => String(v.id) !== versionSelect.value) || allVersionsList[0]).id));
+        cardCompare[idx] = { version: defaultVer, data: null, visible: true, mode: 'single', allData: null, alignMode: false };
         // Suppress the card-swipe-wrap max-width transition so the card jumps instantly
         // to its final width. Without this, the text column temporarily narrows to 50%
         // of the growing card width during the 0.32s animation, causing more line wraps
@@ -1311,6 +1328,7 @@ window.changeCardCompareVersion = async function(idx, source) {
         cardCompare[idx].mode = 'single';
         cardCompare[idx].version = sel.value;
         cardCompare[idx].data = null;
+        localStorage.setItem('lastCompareVersion', sel.value);
         syncCardCompareSelects(idx);
         const _csec = document.getElementById(`compare-section-${idx}`);
         _compareActivateInstant(idx, _csec); // instant width jump, no height glitch
@@ -1740,7 +1758,6 @@ window.goChapter = async function(bookCode, chapter, bName, direction, cardIdx) 
     }
     clearAllMarkedVerses();
     currentHighlightVerses = null;
-    updateMvbHighlightChip();
     updateMarkedVersesBar();
     await slideTransition(direction, async () => {
         searchInput.value = `${bName} ${chapter}`;
@@ -1763,40 +1780,15 @@ window.openSingleVerse = async function(bookCode, chapter, verse, bName, verToSw
         const cur = history.state || {};
         try { history.replaceState({ ...cur, savedTextSearch: { openBooks, scrollY: window.scrollY } }, '', window.location.href); } catch {}
     }
-    const savedTray0 = !!cardTrayOpen[0];
     searchInput.value = `${bName} ${chapter}:${verse}`;
     updateSearchHighlight();
     await doSearch();
-    if (savedTray0 && mainData && mainData.length === 1 && !cardTrayOpen[0]) {
-        toggleStudyTray(0);
-    }
 };
 
 // ── Marked verses & Marked Verses Bar (MVB) ──────────────────────────────────
 // MVB sits at the bottom on both desktop and mobile. On mobile a module-host
 // (AppModuleHost) can expand on top of MVB to show ONE module at a time, with
 // a shared swipe-down dismiss: first swipe closes the module, then MVB.
-
-function updateMvbHighlightChip() {
-    const chip = document.getElementById('mvbHighlightChip');
-    if (!chip) return;
-    // Only show when highlight state exists AND at least one highlight wrap is
-    // actually rendered in the DOM. Without the DOM check, the chip can linger
-    // after a re-render path removes the wraps but leaves currentHighlightVerses set.
-    const hasWraps = !!document.querySelector('.verse-highlight-wrap');
-    const show = !!(currentHighlightVerses && hasWraps && [...markedVerses.values()].some(v =>
-        currentHighlightVerses.keys.has(`${v.chapter}:${v.verse}`)
-    ));
-    if (show) {
-        // Two spans so the × stays vertically centered next to the (possibly
-        // wrapping) label instead of falling onto its own second line.
-        chip.innerHTML = `<span class="hl-dismiss-label"></span><span class="hl-dismiss-x">×</span>`;
-        chip.querySelector('.hl-dismiss-label').textContent = t('card.dismissHighlight');
-        chip.style.display = '';
-    } else {
-        chip.style.display = 'none';
-    }
-}
 
 function clearAllMarkedVerses() {
     markedVerses.clear();
@@ -1805,7 +1797,6 @@ function clearAllMarkedVerses() {
     if (bar) bar.classList.remove('mvb-visible');
     document.body.classList.remove('mvb-on');
     document.documentElement.style.setProperty('--mvb-h', '0px');
-    updateMvbHighlightChip();
 }
 
 // Book order lookup: returns a sort key for a USFM code using booksData
@@ -1925,6 +1916,17 @@ function updateMvbMapButtonState() {
     btn.dataset.blockIdx = String(idx ?? '');
 }
 
+function updateMvbTopicsButtonState() {
+    const btn = document.getElementById('mvbTopics');
+    if (!btn) return;
+    const idx = _mvbActiveBlockIdx();
+    const block = (idx != null && Array.isArray(window.mainData)) ? window.mainData[idx] : null;
+    const enabled = !!(block && block.has_topics);
+    btn.disabled = !enabled;
+    btn.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+    btn.title = enabled ? 'Temaer for markerte vers' : 'Ingen temaer for denne teksten';
+}
+
 function updateMvbExternalLinks() {
     const groups = getMarkedVersesGroups();
     const first = groups[0];
@@ -1957,13 +1959,11 @@ function updateMarkedVersesBar() {
     if (!bar) return;
 
     const hasVerses = markedVerses.size > 0;
-    const hasHighlight = !!currentHighlightVerses;
 
     if (!hasVerses) {
         bar.classList.remove('mvb-visible');
         document.body.classList.remove('mvb-on');
         document.documentElement.style.setProperty('--mvb-h', '0px');
-        updateMvbHighlightChip();
         // MVB context is gone — any module pinned to those verses should close too.
         if (window.AppModuleHost && window.AppModuleHost.isOpen()) {
             window.AppModuleHost.closeModule();
@@ -1985,10 +1985,7 @@ function updateMarkedVersesBar() {
     if (fnBtn) fnBtn.style.display = anyFn ? '' : 'none';
     if (xrBtn) xrBtn.style.display = anyXr ? '' : 'none';
 
-    updateMvbHighlightChip();
-
-    const chip = document.getElementById('mvbHighlightChip');
-    const showAnnotRow = anyFn || anyXr || (chip && chip.style.display !== 'none');
+    const showAnnotRow = anyFn || anyXr;
     if (annotRow) annotRow.style.display = showAnnotRow ? '' : 'none';
 
     const actionsRow = bar.querySelector('.mvb-row-actions');
@@ -1996,7 +1993,7 @@ function updateMarkedVersesBar() {
     if (actionsRow) actionsRow.style.display = hasVerses ? '' : 'none';
     if (topRow) topRow.style.display = hasVerses ? '' : 'none';
 
-    if (hasVerses) { updateMvbExternalLinks(); updateMvbPinButtonState(); updateMvbMapButtonState(); }
+    if (hasVerses) { updateMvbExternalLinks(); updateMvbPinButtonState(); updateMvbMapButtonState(); updateMvbTopicsButtonState(); }
 
     // Measure AFTER content is laid out — first activation populates mvbRef and
     // toggles row visibility, so measuring before would yield a too-small height
@@ -2029,7 +2026,8 @@ function initMarkedVersesBar() {
             '.modal-overlay, .module-host, .pinned-strip, ' +
             '.app-sidebar, .map-fullscreen, .autocomplete-dropdown, .vp-list'
         )) return;
-        window.clearHighlightAndMarked();
+        // Clear marks only — keep highlight (it has its own dismiss chip).
+        clearAllMarkedVerses();
     });
 
     // Keep --mvb-h in lockstep with the actual bar height so the collapsed drawer always
@@ -2134,6 +2132,15 @@ function initMarkedVersesBar() {
             book: v.book, chapter: v.chapter, verse: v.verse
         }));
         window.CommentaryModule.showForMarkedVerses(marked);
+    });
+
+    const topicsBtn = document.getElementById('mvbTopics');
+    if (topicsBtn) topicsBtn.addEventListener('click', () => {
+        if (!window.TopicsModule || !markedVerses.size) return;
+        const marked = [...markedVerses.values()].map(v => ({
+            book: v.book, chapter: v.chapter, verse: v.verse
+        }));
+        window.TopicsModule.showForMarkedVerses(marked);
     });
 
     const outlineBtn = document.getElementById('mvbOutline');
@@ -2245,10 +2252,11 @@ function initMarkedVersesBar() {
             bar.style.opacity = '';
             const dismiss = axisLocked === 'y' && lastDy > 60;
             if (dismiss) {
-                // Leave --mvb-shift at its current value so MVB continues smoothly
-                // from finger position to off-screen. Clear marks AND highlight so the
-                // bar fully closes — same intent as tapping the X.
-                window.clearHighlightAndMarked();
+                // Clear only marks — highlight is a separate concept and has its
+                // own dismiss chip in MVB. Clearing the highlight here would wipe
+                // the user's original navigation context when they swipe away the
+                // marks (matches Escape-key dismiss behaviour).
+                clearAllMarkedVerses();
                 document.documentElement.style.setProperty('--mvb-shift', '0px');
             } else {
                 // Rubber-band back into place — MVB and drawer transition together.
@@ -2266,6 +2274,11 @@ document.addEventListener('click', (ev) => {
     if (!target) return;
     if (ev.target.closest('.verse-btn, .place-chip, .verse-num, a, button')) return;
     ev.stopPropagation();
+    // Clicking a verse inside a chapter-expand highlight clears the highlight
+    // for the whole run, then falls through to the normal mark-toggle behavior.
+    if (currentHighlightVerses && target.closest('.verse-highlight-wrap')) {
+        window.clearHighlight();
+    }
     const book = target.dataset.book;
     const chapter = parseInt(target.dataset.chapter, 10);
     const verse = parseInt(target.dataset.verse, 10);
@@ -2699,30 +2712,26 @@ function maybeShowSwipeHint() {
     } catch {}
 }
 
-// ── Study tray (per-card) ──
-function ensureStudyTrayOpen(idx) {
-    cardTrayOpen[idx] = true;
-    const tray = document.getElementById(`study-tray-${idx}`);
-    const card = document.getElementById(`card-${idx}`);
-    const toggle = card && card.querySelector('.study-toggle');
-    if (tray) tray.dataset.open = 'true';
-    if (toggle) { toggle.setAttribute('aria-expanded', 'true'); toggle.classList.add('open'); }
+// ── Study tray (session-global open/closed state) ──
+function applyStudyTrayState() {
+    const open = studyTrayOpen;
+    document.querySelectorAll('.study-tray').forEach(tray => {
+        tray.dataset.open = open ? 'true' : 'false';
+    });
+    document.querySelectorAll('.study-toggle').forEach(btn => {
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        btn.classList.toggle('open', open);
+    });
 }
 
-window.toggleStudyTray = function(idx) {
-    const next = !cardTrayOpen[idx];
-    cardTrayOpen[idx] = next;
-    const tray = document.getElementById(`study-tray-${idx}`);
-    const card = document.getElementById(`card-${idx}`);
-    const toggle = card && card.querySelector('.study-toggle');
-    if (tray) tray.dataset.open = next ? 'true' : 'false';
-    if (toggle) {
-        toggle.setAttribute('aria-expanded', next ? 'true' : 'false');
-        toggle.classList.toggle('open', next);
-    }
-    if (next && tray) {
-        setTimeout(() => tray.scrollIntoView({ behavior: 'smooth', block: 'end' }), 50);
-    }
+function ensureStudyTrayOpen(_idx) {
+    studyTrayOpen = true;
+    applyStudyTrayState();
+}
+
+window.toggleStudyTray = function(_idx) {
+    studyTrayOpen = !studyTrayOpen;
+    applyStudyTrayState();
 };
 
 // ── Re-render a single card in place (without re-running search) ──
@@ -2804,7 +2813,6 @@ window.toggleChapterExpand = async function(idx) {
     if (expandState && expandState.originalBlock) {
         // Collapse back to original verses — clear chapter-highlight first, animate out, then re-render.
         currentHighlightVerses = null;
-        updateMvbHighlightChip();
         updateMarkedVersesBar();
         mainData[idx] = expandState.originalBlock;
         delete cardExpandedState[idx];
@@ -2838,7 +2846,6 @@ window.toggleChapterExpand = async function(idx) {
         // Mark which verses to highlight inside the chapter (the verses originally shown)
         const keys = new Set(block.verses.map(v => `${v.chapter}:${v.num}`));
         currentHighlightVerses = { keys };
-        updateMvbHighlightChip();
         updateMarkedVersesBar();
         mainData[idx] = newBlock;
         if (cardCompare[idx]) { cardCompare[idx].data = null; cardCompare[idx].allData = null; }
@@ -2936,7 +2943,6 @@ window.readChapter = async function(bookCode, chapter, bName, highlightKeys) {
     searchInput.value = `${bName} ${chapter}`;
     updateSearchHighlight();
     await doSearch();
-    updateMvbHighlightChip();
     updateMarkedVersesBar();
     if (currentHighlightVerses) {
         requestAnimationFrame(() => {
@@ -2948,7 +2954,6 @@ window.readChapter = async function(bookCode, chapter, bName, highlightKeys) {
 
 window.clearHighlight = function() {
     currentHighlightVerses = null;
-    updateMvbHighlightChip();
     const wraps = Array.from(resultsWrapper.querySelectorAll('.verse-highlight-wrap'));
     if (wraps.length === 0) {
         updateMarkedVersesBar();
@@ -2968,19 +2973,6 @@ window.clearHighlightAndMarked = function() {
     clearAllMarkedVerses();
     window.clearHighlight();
 };
-
-function buildHighlightChipLabel() {
-    if (!currentHighlightVerses) return '';
-    const keys = [...currentHighlightVerses.keys].map(k => {
-        const [c, v] = k.split(':').map(Number);
-        return { c, v };
-    }).sort((a, b) => a.c - b.c || a.v - b.v);
-    if (keys.length === 0) return '';
-    const first = keys[0], last = keys[keys.length - 1];
-    if (keys.length === 1) return t('chip.verseSingle', first.v);
-    if (first.c === last.c) return t('chip.verseRange', first.v, last.v);
-    return t('chip.verseCrossCh', first.c, first.v, last.c, last.v);
-}
 
 // ── All versions (reference) ──
 async function executeAllVersions(label) {
@@ -4210,7 +4202,6 @@ async function navigateCardToRef(cardIdx, ref, direction, highlightKeys) {
         if (cardExpandedState[cardIdx]) delete cardExpandedState[cardIdx];
         if (highlightKeys) currentHighlightVerses = { keys: new Set(highlightKeys) };
         else currentHighlightVerses = null;
-        updateMvbHighlightChip();
         updateMarkedVersesBar();
         mainData[cardIdx] = newBlock;
         // Reset stale compare data so the new block's reference is fetched after render
@@ -4533,6 +4524,14 @@ window.openCommentaryForBlock = function(idx) {
 };
 
 
+// ── Topics: delegates to TopicsModule (modules/topicsModule.js) ──────────────
+window.openTopicsForBlock = function(idx) {
+    if (window.TopicsModule && typeof window.TopicsModule.showForBlock === 'function') {
+        window.TopicsModule.showForBlock(idx);
+    }
+};
+
+
 // ── Outline: delegates to OutlineModule (modules/outlineModule.js) ───────────
 window.openOutlineForBlock = function(idx) {
     if (window.OutlineModule && typeof window.OutlineModule.showForBlock === 'function') {
@@ -4637,7 +4636,6 @@ window.insertBlocksIntoView = async function(specs, opts) {
     if (!allNewBlocks.length) return;
     const existing = (!replace && currentView === 'normal' && mainData) ? mainData : [];
     mainData = [...existing, ...allNewBlocks];
-    cardTrayOpen = {};
     cardExpandedState = {};
     currentView = 'normal';
     detectChapterInfo(mainData);

@@ -29,9 +29,9 @@
     <!-- PWA -->
     <link rel="apple-touch-icon" sizes="180x180" href="/static/images/apple-touch-icon.png?v=20260514" />
     <meta name="apple-mobile-web-app-title" content="Bibelsøk" />
-     <meta name="theme-color" content="#014af4">
+     <meta name="theme-color" content="#F5F2EE">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Bibelsøk">
     <meta name="mobile-web-app-capable" content="yes">
 
@@ -85,7 +85,7 @@
 <body>
 
 <!-- attrib icons: 
-<a href="https://www.flaticon.com/free-icons/question-mark" title="question mark icons">Question mark icons created by riajulislam - Flaticon</a>
+<a href="https://www.flaticon.com/free-icons/question" title="question icons">Question icons created by Mzipi - Flaticon</a>
 <a href="https://www.flaticon.com/free-icons/settings" title="settings icons">Settings icons created by Pixel perfect - Flaticon</a>
 -->
 <div class="header">
@@ -127,7 +127,7 @@
 <div class="display-area">
 <div class="display-bar">
     <button class="display-bar-btn" id="blaBtn" onclick="toggleBlaPanel()">
-        <svg class="display-bar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        <svg class="display-bar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
         <span class="display-bar-label">Oppslag</span>
     </button>
     <div class="display-bar-sep" aria-hidden="true"></div>
@@ -427,7 +427,6 @@
         <div class="mvb-row mvb-row-annot" id="mvbAnnotRow" style="display:none;">
             <button class="mvb-annot-btn" id="mvbFn" style="display:none;" title="Fotnoter">† Fotnoter</button>
             <button class="mvb-annot-btn" id="mvbXr" style="display:none;" title="Kryssreferanser">§ Referanser</button>
-            <button class="copy-btn highlight-dismiss-btn" id="mvbHighlightChip" onclick="window.clearHighlight()" style="display:none;"></button>
         </div>
         <div class="mvb-study-label"><img src="/static/images/study.png" class="mvb-study-icon" alt=""> Studie</div>
         <div class="mvb-row mvb-row-actions">
@@ -435,6 +434,7 @@
                 <button class="mvb-action-btn" id="mvbCompare" aria-pressed="false"><svg style="width:14px;height:14px;flex-shrink:0;vertical-align:middle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9H21M17 6L21 9L17 12M21 15H3M7 18L3 15L7 12"/></svg> Sammenlign</button>
                 <button class="mvb-action-btn" id="mvbMap" style="display:none;">🗺️ Kart</button>
                 <button class="mvb-action-btn" id="mvbCommentary" title="Kommentar til markerte vers">✒️ Kommentar</button>
+                <button class="mvb-action-btn" id="mvbTopics" title="Temaer for markerte vers">🎨 Temaer</button>
                 <button class="mvb-action-btn" id="mvbOutline" title="Outline for markerte vers">📜 Outline</button>
                 <a class="mvb-action-btn" id="mvbInterlinear" href="#" target="_blank" rel="noopener" style="display:none;"><img src="{{ url_for('static', filename='images/biblehub.png') }}" alt="" style="height:12px;"> Grunntekst <span style="font-size:0.7rem;opacity:0.7">↗</span></a>
                 <a class="mvb-action-btn" id="mvbBibleref" href="#" target="_blank" rel="noopener" style="display:none;"><img src="{{ url_for('static', filename='images/bibleref.png') }}" alt="" style="height:12px;"> BibleRef <span style="font-size:0.7rem;opacity:0.7">↗</span></a>
@@ -467,6 +467,7 @@
 <script src="{{ url_for('static', filename='js/modules/mapModule.js') }}"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="{{ url_for('static', filename='js/modules/commentaryModule.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modules/topicsModule.js') }}"></script>
 <script src="{{ url_for('static', filename='js/modules/outlineModule.js') }}"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 <script>

@@ -7,6 +7,7 @@ from .services.bible import (
     USFM_TO_NAME,
     USFM_TO_TESTAMENT,
     get_search_stats,
+    identify_book,
     is_reference_query,
     parse_query,
     parse_search_query,
@@ -93,6 +94,20 @@ def api_search():
         results = [resolve_block(bible_data, version_id, block) for block in blocks]
         return jsonify({"type": "reference", "results": results, "version": version_id})
 
+    # Bare book name (e.g. "1. mosebok") — looks like an incomplete reference,
+    # not a text search. Return a friendly error instead of letting FTS5 choke
+    # on the unmatched book tokens.
+    first_part = query.split(";")[0].strip()
+    book_code, remainder = identify_book(first_part)
+    if book_code and not remainder.strip():
+        return jsonify({
+            "type": "text_search",
+            "error": {"code": "missing_reference", "name": USFM_TO_NAME.get(book_code, book_code)},
+            "results": [],
+            "query": query,
+            "version": version_id,
+        })
+
     parsed = parse_search_query(query)
     if parsed.get('error'):
         return jsonify({
@@ -104,7 +119,16 @@ def api_search():
         })
 
     book_filter = request.args.get("book") or None
-    results, book_totals = search_text(bible_data, version_id, query, book_filter=book_filter)
+    try:
+        results, book_totals = search_text(bible_data, version_id, query, book_filter=book_filter)
+    except Exception as e:
+        return jsonify({
+            "type": "text_search",
+            "error": {"code": "invalid_query", "detail": str(e)},
+            "results": [],
+            "query": query,
+            "version": version_id,
+        })
     return jsonify({
         "type": "text_search",
         "results": results,
@@ -401,23 +425,54 @@ def api_commentary():
 def api_topics():
     bible_data = _bible_data()
     book = request.args.get("book", "").upper()
-    try:
-        chapter = int(request.args.get("chapter", 0))
-        verse = int(request.args.get("verse", 0))
-    except ValueError:
-        return jsonify({"error": "Invalid chapter/verse"}), 400
-    if not book or not chapter or not verse:
-        return jsonify({"error": "Missing book, chapter, or verse"}), 400
+    if not book:
+        return jsonify({"error": "Missing book"}), 400
+
+    def _maybe_int(name):
+        v = request.args.get(name)
+        if v in (None, ""):
+            return None
+        try:
+            return int(v)
+        except ValueError:
+            return None
+
+    chapter = _maybe_int("chapter")
+    verse = _maybe_int("verse")            # legacy: single-verse mode
+    chapter_end = _maybe_int("chapter_end")
+    verse_start = _maybe_int("verse_start")
+    verse_end = _maybe_int("verse_end")
+    if chapter is None:
+        return jsonify({"error": "Missing chapter"}), 400
+
     # All known topic sources currently use eng vsf, so we translate user input
-    # to eng before lookup. (Per-source translation can be added if a future
-    # topic source uses a different versification.)
+    # to eng before lookup.
     version_id = _resolve_version_id(bible_data, request.args.get("version"))
+
+    # Single-verse mode (legacy): /api/topics?book=&chapter=&verse=
+    if verse_start is None and chapter_end is None and verse is not None:
+        if version_id is not None:
+            eb, ec, ev = bible_data.vsf.translation_to_eng(version_id, book, chapter, verse)
+            topics = bible_data.get_topics_for_verse(eb, ec, ev)
+        else:
+            topics = bible_data.get_topics_for_verse(book, chapter, verse)
+        return jsonify({"topics": topics})
+
+    # Range mode: returns aggregated tree sorted by descendant verse-count.
+    ch_start = chapter
+    ch_end = chapter_end if chapter_end is not None else chapter
+    eb_s, ec_s, ev_s = book, ch_start, verse_start
+    eb_e, ec_e, ev_e = book, ch_end, verse_end
     if version_id is not None:
-        eb, ec, ev = bible_data.vsf.translation_to_eng(version_id, book, chapter, verse)
-        topics = bible_data.get_topics_for_verse(eb, ec, ev)
-    else:
-        topics = bible_data.get_topics_for_verse(book, chapter, verse)
-    return jsonify({"topics": topics})
+        try:
+            if verse_start is not None:
+                eb_s, ec_s, ev_s = bible_data.vsf.translation_to_eng(version_id, book, ch_start, verse_start)
+            if verse_end is not None:
+                _eb2, ec_e, ev_e = bible_data.vsf.translation_to_eng(version_id, book, ch_end, verse_end)
+        except Exception:
+            pass
+    tree = bible_data.aggregate_topics_for_range(eb_s, ec_s, ev_s, ec_e, ev_e)
+    return jsonify({"topics": tree, "mode": "range"})
 
 
 @bp.get("/api/topic/<int:topic_id>")
