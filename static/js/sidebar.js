@@ -1,3 +1,54 @@
+// ── AppModuleBus — tracks which module IDs are currently active. ──
+// Active means: mounted in the sidebar (PC), open in module host (mobile),
+// or popup-open for non-module overlays like 'external'. MVB and study trays
+// subscribe so their button highlighting stays in lockstep.
+window.AppModuleBus = (function () {
+    const _active = new Set();
+    const _origin = new Map(); // id -> blockIdx
+    const _source = new Map(); // id -> 'mvb' | 'tray' | 'external' (popup) | null
+    const _listeners = new Set();
+    // Context attached to the NEXT setActive(_, true). Set by callers before
+    // invoking module showFor*; consumed when the module mounts.
+    let _pending = null;
+    function setActive(id, on, originBlockIdx, source) {
+        const was = _active.has(id);
+        if (on) {
+            _active.add(id);
+            const origin = (originBlockIdx != null) ? originBlockIdx
+                : (_pending && _pending.origin != null ? _pending.origin : null);
+            const src = source || (_pending && _pending.source) || null;
+            if (origin != null) _origin.set(id, origin); else _origin.delete(id);
+            if (src) _source.set(id, src); else _source.delete(id);
+        } else {
+            _active.delete(id);
+            _origin.delete(id);
+            _source.delete(id);
+        }
+        if (was === !!on) return;
+        _listeners.forEach(fn => {
+            try { fn(id, !!on, _origin.get(id) ?? null, _source.get(id) ?? null); }
+            catch (e) { console.error(e); }
+        });
+    }
+    function isActive(id) { return _active.has(id); }
+    function getOrigin(id) { return _origin.get(id) ?? null; }
+    function getSource(id) { return _source.get(id) ?? null; }
+    function getActive() { return new Set(_active); }
+    function subscribe(fn) { _listeners.add(fn); return () => _listeners.delete(fn); }
+    function setPendingContext(ctx) { _pending = ctx ? { origin: ctx.origin ?? null, source: ctx.source ?? null } : null; }
+    function getPendingContext() { return _pending; }
+    function clearPendingContext() { _pending = null; }
+    // Back-compat aliases
+    function setPendingOrigin(idx) { setPendingContext({ origin: idx, source: _pending && _pending.source }); }
+    function getPendingOrigin() { return _pending ? _pending.origin : null; }
+    function clearPendingOrigin() { _pending = null; }
+    return {
+        setActive, isActive, getOrigin, getSource, getActive, subscribe,
+        setPendingContext, getPendingContext, clearPendingContext,
+        setPendingOrigin, getPendingOrigin, clearPendingOrigin,
+    };
+})();
+
 // ── Sidebar foundation (PC only) ──
 // In-memory state only — clean slate every visit and on every close.
 // Sidebar opens automatically when a module gets content, closes automatically when all modules empty
@@ -134,6 +185,10 @@
         try { entry.def.mount(body, ctx()); }
         catch (e) { console.error('Module mount failed:', entry.def.id, e); }
         entry.mounted = true;
+        try {
+            const pc = window.AppModuleBus && window.AppModuleBus.getPendingContext && window.AppModuleBus.getPendingContext();
+            window.AppModuleBus && window.AppModuleBus.setActive(entry.def.id, true, _pendingOriginBlockIdx, pc ? pc.source : null);
+        } catch {}
     }
 
     function unmountModuleDOM(entry) {
@@ -143,7 +198,12 @@
         entry.mounted = false;
         entry.wrap = null;
         entry.container = null;
+        try { window.AppModuleBus && window.AppModuleBus.setActive(entry.def.id, false); } catch {}
     }
+
+    // Origin block idx attached to the next mountModuleDOM call; set via openModule()
+    // so AppModuleBus knows which block's study tray should reflect active state.
+    let _pendingOriginBlockIdx = null;
 
     // ── Drag-to-reorder ──
     // While dragging: the picked-up module follows the cursor (position:fixed),
@@ -421,11 +481,16 @@
 
     // Open sidebar (if needed) and ensure a specific module is mounted.
     // Callers should have set the module's "has content" state first.
-    function openModule(id) {
+    // originBlockIdx (optional) — which block opened it, for AppModuleBus origin tracking.
+    function openModule(id, originBlockIdx) {
         if (!isDesktop()) return;
         const entry = state.modules.find(m => m.def.id === id);
         if (!entry) return;
         const wasOpen = state.open;
+        if (originBlockIdx == null && window.AppModuleBus && window.AppModuleBus.getPendingOrigin) {
+            originBlockIdx = window.AppModuleBus.getPendingOrigin();
+        }
+        _pendingOriginBlockIdx = (originBlockIdx == null) ? null : originBlockIdx;
         if (!wasOpen) open();
         // Newly-opened modules go to the top of the sidebar so the user sees
         // them without scrolling. Already-mounted modules stay where they are.
@@ -436,7 +501,21 @@
             if (list && list.firstChild !== entry.wrap) {
                 list.insertBefore(entry.wrap, list.firstChild);
             }
+            // Re-set origin so active highlight follows the new opener.
+            try { window.AppModuleBus && window.AppModuleBus.setActive(id, true, _pendingOriginBlockIdx); } catch {}
         }
+        _pendingOriginBlockIdx = null;
+    }
+
+    // Unmount a single module without closing the sidebar (used when an MVB or
+    // study-tray button is tapped while its module is already active → toggle off).
+    function closeModule(id) {
+        const entry = state.modules.find(m => m.def.id === id);
+        if (!entry || !entry.mounted) return;
+        try { entry.def.clearAll && entry.def.clearAll(); } catch (e) { console.error(e); }
+        unmountModuleDOM(entry);
+        try { window.refreshPinButtons && window.refreshPinButtons(); } catch {}
+        checkAutoClose();
     }
 
     function close() {
@@ -567,7 +646,7 @@
 
     window.AppSidebar = {
         register, unregister,
-        open, close, toggle, ensureOpen, openModule, checkAutoClose,
+        open, close, toggle, ensureOpen, openModule, closeModule, checkAutoClose,
         setFocus, refreshObserver, notifyStateChange, notifyMainBlockChanged,
         subscribe,
         getState: () => ({ open: state.open, focus: state.focus }),

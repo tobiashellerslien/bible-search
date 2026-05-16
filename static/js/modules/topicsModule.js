@@ -128,7 +128,8 @@
             if (data && data.type === 'reference' && Array.isArray(data.results)) {
                 const first = data.results[0];
                 if (first && first.verses && first.verses.length) {
-                    preview = first.verses.slice(0, 3).map(v => v.text).join(' ').slice(0, 240);
+                    preview = first.verses.slice(0, 3).map(v => v.text).join(' ');
+                    if (first.verses.length > 3) preview += ' …';
                 }
             }
             _previewCache.set(refLabel, preview);

@@ -141,6 +141,7 @@ const I18N = {
         'card.study.bibleref': 'BibleRef',
         'card.study.source': 'Kilde',
         'card.study.commentary': '✒️ Kommentar',
+        'card.study.leksikon': '📕 Leksikon',
         'card.study.outline': '📜 Outline',
         'sidebar.outline.title': 'Outline',
         'sidebar.outline.loading': 'Laster outline…',
@@ -167,6 +168,13 @@ const I18N = {
         'sidebar.topics.jumpToTrigger': 'Gå til verset som utløste dette temaet',
         'sidebar.topics.subtopicsCount': '{0} undertemaer',
         'sidebar.topics.showAll': 'Vis alle ({0} til)',
+        'sidebar.leksikon.title': 'Leksikon',
+        'sidebar.leksikon.empty': 'Ingen leksikon-oppslag for denne teksten',
+        'sidebar.leksikon.loading': 'Laster leksikon…',
+        'sidebar.leksikon.scope.tray': 'Leksikon for {0}',
+        'sidebar.leksikon.scope.mvb': 'Leksikon for markerte vers',
+        'sidebar.leksikon.expandToChapter': 'Vis for hele kapittelet',
+        'mvb.leksikon.title': 'Leksikon for markerte vers',
         'mvb.topics.title': 'Temaer for markerte vers',
         'card.expandChapter': 'Vis hele kapittelet',
         'card.collapseChapter': 'Tilbake til vers',
@@ -932,6 +940,7 @@ function renderAll() {
     if (typeof updateToolbarCompareBtn === 'function') updateToolbarCompareBtn();
     maybeShowSwipeHint();
     try { window.AppSidebar && window.AppSidebar.notifyMainBlockChanged(); } catch {}
+    try { refreshModuleActiveDom(); } catch {}
 }
 
 function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, ver) {
@@ -1030,7 +1039,9 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
                     ${chipHtml}
                 </div>
                 <div class="verse-card-header-actions">
+                    ${block.book && block.verses.length > 0 ? `<button class="copy-btn block-pin-btn" data-card-idx="${idx}" onclick="pinBlock(${idx})" title="Fest blokk" aria-label="Fest blokk"><img src="/static/images/pin.png" class="copy-icon" alt=""></button>` : ''}
                     <button class="copy-btn" onclick="copyBlock(${idx})" title="${escAttr(t('card.copy.title'))}"><img src="/static/images/copy.png" class="copy-icon" alt="kopier"></button>
+                    ${block.book && block.verses.length > 0 ? `<button class="copy-btn" onclick="shareBlock(${idx})" title="Del lenke" aria-label="Del lenke"><img src="/static/images/share.png" class="copy-icon" alt=""></button>` : ''}
                     ${block.book && block.verses.length > 0 ? `<button class="copy-btn study-toggle${trayOpen ? ' open' : ''}" onclick="toggleStudyTray(${idx})" aria-expanded="${trayOpen ? 'true' : 'false'}" title="${escAttr(t('card.study.title'))}"><img src="/static/images/study.png" class="copy-icon study-icon" alt="studie"></button>` : ''}
                 </div>
             </div>
@@ -1048,25 +1059,19 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
     // .verse-card-body while compare-active body still works as a flex row.
     let studyTrayHtml = '';
     if (block.book && block.verses.length > 0) {
-        const _ch = block.verses[0].chapter;
-        const _isSingleVerse = block.verses.length === 1;
-        const ilUrl = interlinearUrl(block.book, _ch, _isSingleVerse ? block.verses[0].num : null);
-        const crUrl = biblerefUrl(block.book, _ch, _isSingleVerse ? block.verses[0].num : null);
-        const yvUrl = youversionUrl(block.book, _ch, block.verses, ver, !!block.is_chapter);
         const placeCount = (block.places || []).length;
         const mapDisabled = placeCount === 0;
-        const mapLabel = placeCount > 0 ? `🗺️ Kart (${placeCount})` : `🗺️ Kart`;
         const mapTitle = mapDisabled ? escAttr(t('card.study.map.empty')) : escAttr(t('card.mapBtn.title', placeCount));
+        const mapLabel = 'Kart';
         studyTrayHtml = `<div class="study-tray" data-open="${trayOpen ? 'true' : 'false'}" id="study-tray-${idx}">
             <div class="study-tray-row">
                 <div class="study-tray-inner">
-                    <button class="tray-btn map-tray-btn"${mapDisabled ? ' disabled aria-disabled="true"' : ` onclick="openMapForBlock(${idx},null)"`} title="${mapTitle}">${mapLabel}</button>
-                    <button class="tray-btn commentary-tray-btn" onclick="openCommentaryForBlock(${idx})" title="${escAttr(t('sidebar.commentary.title'))}">${escHtml(t('card.study.commentary'))}</button>
-                    <button class="tray-btn topics-tray-btn"${block.has_topics ? ` onclick="openTopicsForBlock(${idx})"` : ' disabled aria-disabled="true"'} title="${escAttr(block.has_topics ? t('sidebar.topics.title') : t('card.study.topics.empty'))}">${escHtml(t('card.study.topics'))}</button>
-                    <button class="tray-btn outline-tray-btn" onclick="openOutlineForBlock(${idx})" title="${escAttr(t('sidebar.outline.title'))}">${escHtml(t('card.study.outline'))}</button>
-                    ${ilUrl ? `<a class="tray-btn external" href="${ilUrl}" target="_blank" rel="noopener" title="biblehub.com"><img class="tray-btn-logo" src="/static/images/biblehub.png" alt=""><span>${escHtml(t('card.study.interlinear'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
-                    ${crUrl ? `<a class="tray-btn external" href="${crUrl}" target="_blank" rel="noopener" title="bibleref.com"><img class="tray-btn-logo" src="/static/images/bibleref.png" alt=""><span>${escHtml(t('card.study.bibleref'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
-                    ${yvUrl ? `<a class="tray-btn external" href="${yvUrl}" target="_blank" rel="noopener" title="bible.com"><span>${escHtml(t('card.study.source'))}</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>` : ''}
+                    <button class="tray-btn" data-module="map"${mapDisabled ? ' disabled aria-disabled="true"' : ` onclick="openMapForBlock(${idx},null)"`} title="${mapTitle}"><span class="tray-btn-emoji">🗺️</span><span class="tray-btn-label">${mapLabel}</span></button>
+                    <button class="tray-btn" data-module="commentary" onclick="openCommentaryForBlock(${idx})" title="${escAttr(t('sidebar.commentary.title'))}"><span class="tray-btn-emoji">✒️</span><span class="tray-btn-label">Kommentar</span></button>
+                    <button class="tray-btn" data-module="leksikon" onclick="openLeksikonForBlock(${idx})" title="${escAttr(t('sidebar.leksikon.title'))}"><span class="tray-btn-emoji">📕</span><span class="tray-btn-label">Leksikon</span></button>
+                    <button class="tray-btn" data-module="topics"${block.has_topics ? ` onclick="openTopicsForBlock(${idx})"` : ' disabled aria-disabled="true"'} title="${escAttr(block.has_topics ? t('sidebar.topics.title') : t('card.study.topics.empty'))}"><span class="tray-btn-emoji">🎨</span><span class="tray-btn-label">Tema</span></button>
+                    <button class="tray-btn" data-module="outline" onclick="openOutlineForBlock(${idx})" title="${escAttr(t('sidebar.outline.title'))}"><span class="tray-btn-emoji">📜</span><span class="tray-btn-label">Outline</span></button>
+                    <button class="tray-btn" data-module="external" onclick="openExternalForBlock(${idx}, this)" title="Eksterne lenker"><img class="tray-btn-emoji tray-btn-emoji-img" src="/static/images/external.png" alt=""><span class="tray-btn-label">Ekstern</span></button>
                 </div>
             </div>
         </div>`;
@@ -1908,11 +1913,12 @@ function updateMvbMapButtonState() {
     const idx = _mvbActiveBlockIdx();
     const reg = window.blockPlacesRegistry || {};
     const places = (idx != null) ? (reg[idx] || []) : [];
-    // Show only when one of the marked verses actually mentions a place —
-    // otherwise the map would open with every place hidden (verseFilter empty).
+    // Disabled (greyed) when no marked verses mention a place — same set of
+    // module buttons stays visible, just inert.
     const verseSet = new Set([...markedVerses.values()].map(v => `${v.chapter}:${v.verse}`));
     const hasPlacesForMarked = places.some(p => (p.refs || []).some(r => verseSet.has(`${r.chapter}:${r.verse}`)));
-    btn.style.display = hasPlacesForMarked ? '' : 'none';
+    btn.disabled = !hasPlacesForMarked;
+    btn.setAttribute('aria-disabled', hasPlacesForMarked ? 'false' : 'true');
     btn.dataset.blockIdx = String(idx ?? '');
 }
 
@@ -1927,18 +1933,12 @@ function updateMvbTopicsButtonState() {
     btn.title = enabled ? 'Temaer for markerte vers' : 'Ingen temaer for denne teksten';
 }
 
-function updateMvbExternalLinks() {
+// Compute external URLs for the current marked-verses scope. Returns
+// {ilUrl, crUrl, yvUrl} or null if no scope.
+function mvbExternalUrls() {
     const groups = getMarkedVersesGroups();
     const first = groups[0];
-    const ilEl = document.getElementById('mvbInterlinear');
-    const crEl = document.getElementById('mvbBibleref');
-    const srcElEarly = document.getElementById('mvbSource');
-    if (!first) {
-        if (ilEl) ilEl.style.display = 'none';
-        if (crEl) crEl.style.display = 'none';
-        if (srcElEarly) srcElEarly.style.display = 'none';
-        return;
-    }
+    if (!first) return null;
     const ilUrl = typeof interlinearUrl === 'function' ? interlinearUrl(first.book, first.chapter, first.vsStart) : null;
     const crUrl = typeof biblerefUrl === 'function' ? biblerefUrl(first.book, first.chapter, first.vsStart) : null;
     const ver = versionSelect ? versionSelect.value : null;
@@ -1948,10 +1948,19 @@ function updateMvbExternalLinks() {
         return vs;
     });
     const yvUrl = (typeof youversionUrl === 'function' && ver) ? youversionUrl(first.book, first.chapter, yvVerses, ver, false) : null;
-    const srcEl = document.getElementById('mvbSource');
-    if (ilEl) { ilEl.style.display = ilUrl ? '' : 'none'; if (ilUrl) ilEl.href = ilUrl; }
-    if (crEl) { crEl.style.display = crUrl ? '' : 'none'; if (crUrl) crEl.href = crUrl; }
-    if (srcEl) { srcEl.style.display = yvUrl ? '' : 'none'; if (yvUrl) srcEl.href = yvUrl; }
+    return { ilUrl, crUrl, yvUrl };
+}
+
+function updateMvbExternalLinks() {
+    // Layer-2 external links no longer live in the MVB — they're sourced
+    // lazily by openExternalPopup() from mvbExternalUrls(). The Ekstern
+    // button itself is always visible; disable it if no URLs apply.
+    const extBtn = document.getElementById('mvbExternal');
+    if (!extBtn) return;
+    const urls = mvbExternalUrls();
+    const hasAny = !!(urls && (urls.ilUrl || urls.crUrl || urls.yvUrl));
+    extBtn.disabled = !hasAny;
+    extBtn.setAttribute('aria-disabled', hasAny ? 'false' : 'true');
 }
 
 function updateMarkedVersesBar() {
@@ -1977,21 +1986,14 @@ function updateMarkedVersesBar() {
     const refEl = document.getElementById('mvbRef');
     if (refEl) refEl.textContent = hasVerses ? buildMvbRefString() : '';
 
+    // Fotnoter / Referanser are now always visible — greyed when the marked
+    // verses have nothing to show.
     const anyFn = hasVerses && [...markedVerses.values()].some(v => v.hasFn);
     const anyXr = hasVerses && [...markedVerses.values()].some(v => v.hasXr);
     const fnBtn = document.getElementById('mvbFn');
     const xrBtn = document.getElementById('mvbXr');
-    const annotRow = document.getElementById('mvbAnnotRow');
-    if (fnBtn) fnBtn.style.display = anyFn ? '' : 'none';
-    if (xrBtn) xrBtn.style.display = anyXr ? '' : 'none';
-
-    const showAnnotRow = anyFn || anyXr;
-    if (annotRow) annotRow.style.display = showAnnotRow ? '' : 'none';
-
-    const actionsRow = bar.querySelector('.mvb-row-actions');
-    const topRow = bar.querySelector('.mvb-row-top');
-    if (actionsRow) actionsRow.style.display = hasVerses ? '' : 'none';
-    if (topRow) topRow.style.display = hasVerses ? '' : 'none';
+    if (fnBtn) { fnBtn.disabled = !anyFn; fnBtn.setAttribute('aria-disabled', anyFn ? 'false' : 'true'); }
+    if (xrBtn) { xrBtn.disabled = !anyXr; xrBtn.setAttribute('aria-disabled', anyXr ? 'false' : 'true'); }
 
     if (hasVerses) { updateMvbExternalLinks(); updateMvbPinButtonState(); updateMvbMapButtonState(); updateMvbTopicsButtonState(); }
 
@@ -2011,6 +2013,190 @@ function _mvbCopyText() {
     navigator.clipboard.writeText(full).then(() => {
         showToast(t('toast.copied'));
     }).catch(() => {});
+}
+
+// ── Module active-state plumbing ─────────────────────────────────────
+function _isModuleActive(id) {
+    return !!(window.AppModuleBus && window.AppModuleBus.isActive(id));
+}
+
+// Toggle-off contract for Layer-3 buttons: clicking an already-active
+// module's button closes it (mobile → AppModuleHost.closeModule;
+// PC → AppSidebar.closeModule(id); map fullscreen has its own path).
+function _closeActiveModule(id) {
+    if (window.AppModuleHost && window.AppModuleHost.isMobile()
+        && window.AppModuleHost.getActiveId() === id) {
+        window.AppModuleHost.closeModule();
+        return;
+    }
+    if (window.AppSidebar && typeof window.AppSidebar.closeModule === 'function') {
+        window.AppSidebar.closeModule(id);
+    }
+}
+
+// Reflect AppModuleBus state on UI. Highlight is source-specific:
+//   source='mvb'   → MVB module button highlights; no tray highlight.
+//   source='tray'  → tray button on origin block highlights; MVB stays neutral.
+//   source='external' → only the popup's trigger (MVB or tray, by origin) highlights.
+function applyModuleActiveDom(id, active, originBlockIdx, source) {
+    const mvbBtn = document.querySelector(`#mvbModules [data-module="${id}"]`);
+    // Clear everywhere first
+    if (mvbBtn) mvbBtn.removeAttribute('data-active');
+    document.querySelectorAll(`.tray-btn[data-module="${id}"]`).forEach(el => {
+        el.removeAttribute('data-active');
+    });
+    if (!active) return;
+    if (source === 'mvb') {
+        if (mvbBtn) mvbBtn.setAttribute('data-active', '');
+    } else if (source === 'tray' && originBlockIdx != null) {
+        const trayBtn = document.querySelector(`#study-tray-${originBlockIdx} .tray-btn[data-module="${id}"]`);
+        if (trayBtn) trayBtn.setAttribute('data-active', '');
+    } else if (source === 'external') {
+        // External popup: highlight whichever trigger opened it (mvb or tray).
+        if (originBlockIdx == null) {
+            if (mvbBtn) mvbBtn.setAttribute('data-active', '');
+        } else {
+            const trayBtn = document.querySelector(`#study-tray-${originBlockIdx} .tray-btn[data-module="${id}"]`);
+            if (trayBtn) trayBtn.setAttribute('data-active', '');
+        }
+    }
+}
+
+// Re-apply active classes after a re-render (called from rerenderCard / renderResults).
+function refreshModuleActiveDom() {
+    if (!window.AppModuleBus) return;
+    const ids = ['map', 'commentary', 'leksikon', 'topics', 'outline', 'external'];
+    ids.forEach(id => {
+        const active = window.AppModuleBus.isActive(id);
+        const origin = window.AppModuleBus.getOrigin(id);
+        const source = window.AppModuleBus.getSource(id);
+        applyModuleActiveDom(id, active, origin, source);
+    });
+}
+window.refreshModuleActiveDom = refreshModuleActiveDom;
+
+// ── Ekstern popup ────────────────────────────────────────────────────
+let _extPopupCtx = null;
+function _extUrlsForBlock(idx) {
+    const b = (window.mainData && window.mainData[idx]) || null;
+    if (!b || !b.verses || !b.verses.length) return null;
+    const ch = b.verses[0].chapter;
+    const single = b.verses.length === 1;
+    const ver = versionSelect ? versionSelect.value : null;
+    const ilUrl = typeof interlinearUrl === 'function' ? interlinearUrl(b.book, ch, single ? b.verses[0].num : null) : null;
+    const crUrl = typeof biblerefUrl === 'function' ? biblerefUrl(b.book, ch, single ? b.verses[0].num : null) : null;
+    const yvUrl = (typeof youversionUrl === 'function' && ver) ? youversionUrl(b.book, ch, b.verses, ver, !!b.is_chapter) : null;
+    return { ilUrl, crUrl, yvUrl };
+}
+
+function openExternalPopup(opts) {
+    const popup = document.getElementById('externalPopup');
+    if (!popup) return;
+    const urls = (opts && opts.scope === 'block')
+        ? _extUrlsForBlock(opts.idx)
+        : mvbExternalUrls();
+    if (!urls) return;
+    const il = document.getElementById('extInterlinear');
+    const cr = document.getElementById('extBibleref');
+    const sr = document.getElementById('extSource');
+    if (il) { il.style.display = urls.ilUrl ? '' : 'none'; if (urls.ilUrl) il.href = urls.ilUrl; }
+    if (cr) { cr.style.display = urls.crUrl ? '' : 'none'; if (urls.crUrl) cr.href = urls.crUrl; }
+    if (sr) { sr.style.display = urls.yvUrl ? '' : 'none'; if (urls.yvUrl) sr.href = urls.yvUrl; }
+
+    // Position: anchored to trigger on PC (above when there's more room above —
+    // MVB sits at the bottom of the viewport so its popup opens upward),
+    // bottom-sheet on mobile.
+    const isMobile = window.innerWidth <= 700;
+    popup.classList.toggle('external-popup-mobile', isMobile);
+    if (!isMobile && opts && opts.anchor) {
+        const r = opts.anchor.getBoundingClientRect();
+        popup.style.position = 'fixed';
+        popup.style.right = '';
+        popup.style.bottom = '';
+        // Measure popup height by briefly making it visible-but-transparent.
+        popup.style.top = '-9999px';
+        popup.style.left = '0px';
+        popup.setAttribute('data-state', 'open');
+        const popupH = popup.offsetHeight || 160;
+        const popupW = popup.offsetWidth || 220;
+        const spaceBelow = window.innerHeight - r.bottom;
+        const spaceAbove = r.top;
+        const placeAbove = spaceBelow < popupH + 16 && spaceAbove > spaceBelow;
+        const top = placeAbove ? Math.max(8, r.top - popupH - 6) : (r.bottom + 6);
+        const left = Math.min(window.innerWidth - popupW - 8, Math.max(8, r.right - popupW));
+        popup.style.top = top + 'px';
+        popup.style.left = left + 'px';
+    } else {
+        popup.style.position = '';
+        popup.style.left = '';
+        popup.style.right = '';
+        popup.style.top = '';
+        popup.style.bottom = '';
+    }
+    popup.setAttribute('data-state', 'open');
+    popup.setAttribute('aria-hidden', 'false');
+    _extPopupCtx = opts || { scope: 'mvb' };
+    const originIdx = (opts && opts.scope === 'block') ? opts.idx : null;
+    try { window.AppModuleBus && window.AppModuleBus.setActive('external', true, originIdx, 'external'); } catch {}
+
+    // Outside-click dismiss
+    setTimeout(() => {
+        document.addEventListener('pointerdown', _onExtPopupOutside, true);
+    }, 0);
+}
+
+function closeExternalPopup() {
+    const popup = document.getElementById('externalPopup');
+    if (!popup) return;
+    popup.setAttribute('data-state', 'closed');
+    popup.setAttribute('aria-hidden', 'true');
+    _extPopupCtx = null;
+    document.removeEventListener('pointerdown', _onExtPopupOutside, true);
+    try { window.AppModuleBus && window.AppModuleBus.setActive('external', false); } catch {}
+}
+
+function _onExtPopupOutside(ev) {
+    const popup = document.getElementById('externalPopup');
+    if (!popup) return;
+    if (ev.target.closest('#externalPopup')) return;
+    if (ev.target.closest('#mvbExternal')) return;
+    if (ev.target.closest('.tray-btn[data-module="external"]')) return;
+    closeExternalPopup();
+}
+window.openExternalPopup = openExternalPopup;
+window.closeExternalPopup = closeExternalPopup;
+
+// ── Share ───────────────────────────────────────────────────────────
+function buildShareUrl() {
+    const groups = getMarkedVersesGroups();
+    if (!groups.length) return null;
+    const refParts = groups.map(g => {
+        const bName = bookRefName(g.book);
+        if (g.vsStart === g.vsEnd) return `${bName} ${g.chapter}:${g.vsStart}`;
+        return `${bName} ${g.chapter}:${g.vsStart}-${g.vsEnd}`;
+    });
+    const q = refParts.join('; ');
+    const v = versionSelect ? versionSelect.value : '';
+    return `${window.location.origin}${buildURL(q, v)}`;
+}
+
+async function mvbShare() {
+    const url = buildShareUrl();
+    if (!url) return;
+    const ref = buildMvbRefString();
+    if (navigator.share) {
+        try {
+            await navigator.share({ title: ref, text: ref, url });
+            return;
+        } catch (e) {
+            // User cancelled or share failed — fall through to clipboard fallback.
+            if (e && e.name === 'AbortError') return;
+        }
+    }
+    try {
+        await navigator.clipboard.writeText(url);
+        showToast('Lenke kopiert');
+    } catch { showToast('Kunne ikke dele lenke'); }
 }
 
 // Initialize MVB buttons (called once after DOM ready)
@@ -2073,42 +2259,19 @@ function initMarkedVersesBar() {
         doSearch();
     });
 
-    const compareBtn = document.getElementById('mvbCompare');
-    if (compareBtn) compareBtn.addEventListener('click', async () => {
-        if (compareIntent) {
-            _toggleCompareAllCards();
-            return;
-        }
-        compareIntent = true;
-        updateToolbarCompareBtn();
-        const q = buildMvbQuery();
-        if (q) {
-            searchInput.value = q;
-            updateSearchHighlight();
-            await doSearch();
-        } else {
-            if (mainData) mainData.forEach((_, idx) => toggleCardCompare(idx));
-        }
-    });
+    // Sammenlign is now sourced exclusively from the toolbar — removed from MVB.
 
     const mapBtn = document.getElementById('mvbMap');
     if (mapBtn) mapBtn.addEventListener('click', () => {
-        // Mobile: second tap on Kart closes the map.
-        if (window.AppModuleHost && window.AppModuleHost.isMobile()
-            && window.AppModuleHost.getActiveId() === 'map') {
-            window.AppModuleHost.closeModule();
-            return;
-        }
+        if (mapBtn.disabled) return;
+        if (_isModuleActive('map')) { _closeActiveModule('map'); return; }
         const idx = _mvbActiveBlockIdx();
         if (idx == null) return;
-        if (window.MapModule && typeof window.MapModule.showForBlock === 'function') {
-            // Filter visible places to only those referenced by the marked verses,
-            // not the whole block. Study-tray Kart button continues to show all.
-            const verseFilter = [...markedVerses.values()].map(v => ({
-                chapter: v.chapter, verse: v.verse
-            }));
-            window.MapModule.showForBlock(idx, null, { verseFilter });
-        }
+        if (!window.MapModule || typeof window.MapModule.showForBlock !== 'function') return;
+        const verseFilter = [...markedVerses.values()].map(v => ({ chapter: v.chapter, verse: v.verse }));
+        if (window.AppModuleBus) window.AppModuleBus.setPendingContext({ origin: idx, source: 'mvb' });
+        try { window.MapModule.showForBlock(idx, null, { verseFilter }); }
+        finally { Promise.resolve().then(() => window.AppModuleBus && window.AppModuleBus.clearPendingContext()); }
     });
 
     const pinBtn = document.getElementById('mvbPinTop');
@@ -2125,34 +2288,59 @@ function initMarkedVersesBar() {
         updateMvbPinButtonState();
     });
 
+    function _mvbMarkedAsRefs() {
+        return [...markedVerses.values()].map(v => ({ book: v.book, chapter: v.chapter, verse: v.verse }));
+    }
+
+    function _mvbInvoke(id, openFn) {
+        // Per UX: clicking MVB while module is active (from any source) closes it.
+        if (_isModuleActive(id)) { _closeActiveModule(id); return; }
+        const idx = _mvbActiveBlockIdx();
+        if (window.AppModuleBus) window.AppModuleBus.setPendingContext({ origin: idx, source: 'mvb' });
+        try { openFn(); } finally {
+            Promise.resolve().then(() => window.AppModuleBus && window.AppModuleBus.clearPendingContext());
+        }
+    }
+
     const commentaryBtn = document.getElementById('mvbCommentary');
     if (commentaryBtn) commentaryBtn.addEventListener('click', () => {
+        if (commentaryBtn.disabled) return;
         if (!window.CommentaryModule || !markedVerses.size) return;
-        const marked = [...markedVerses.values()].map(v => ({
-            book: v.book, chapter: v.chapter, verse: v.verse
-        }));
-        window.CommentaryModule.showForMarkedVerses(marked);
+        _mvbInvoke('commentary', () => window.CommentaryModule.showForMarkedVerses(_mvbMarkedAsRefs()));
+    });
+
+    const leksikonBtn = document.getElementById('mvbLeksikon');
+    if (leksikonBtn) leksikonBtn.addEventListener('click', () => {
+        if (leksikonBtn.disabled) return;
+        if (!window.LeksikonModule || !markedVerses.size) return;
+        _mvbInvoke('leksikon', () => window.LeksikonModule.showForMarkedVerses(_mvbMarkedAsRefs()));
     });
 
     const topicsBtn = document.getElementById('mvbTopics');
     if (topicsBtn) topicsBtn.addEventListener('click', () => {
+        if (topicsBtn.disabled) return;
         if (!window.TopicsModule || !markedVerses.size) return;
-        const marked = [...markedVerses.values()].map(v => ({
-            book: v.book, chapter: v.chapter, verse: v.verse
-        }));
-        window.TopicsModule.showForMarkedVerses(marked);
+        _mvbInvoke('topics', () => window.TopicsModule.showForMarkedVerses(_mvbMarkedAsRefs()));
     });
 
     const outlineBtn = document.getElementById('mvbOutline');
     if (outlineBtn) outlineBtn.addEventListener('click', () => {
+        if (outlineBtn.disabled) return;
         if (!window.OutlineModule || !markedVerses.size) return;
-        const marked = [...markedVerses.values()].map(v => ({
-            book: v.book, chapter: v.chapter, verse: v.verse
-        }));
-        if (typeof window.OutlineModule.showForMarkedVerses === 'function') {
-            window.OutlineModule.showForMarkedVerses(marked);
-        }
+        if (typeof window.OutlineModule.showForMarkedVerses !== 'function') return;
+        _mvbInvoke('outline', () => window.OutlineModule.showForMarkedVerses(_mvbMarkedAsRefs()));
     });
+
+    const extBtn = document.getElementById('mvbExternal');
+    if (extBtn) extBtn.addEventListener('click', (e) => {
+        if (extBtn.disabled) return;
+        if (_isModuleActive('external')) { closeExternalPopup(); return; }
+        openExternalPopup({ scope: 'mvb', anchor: extBtn });
+        e.stopPropagation();
+    });
+
+    const shareBtn = document.getElementById('mvbShare');
+    if (shareBtn) shareBtn.addEventListener('click', () => mvbShare());
 
     function _collectAnnotButtons(kind) {
         const btns = [];
@@ -2198,15 +2386,12 @@ function initMarkedVersesBar() {
     const copyBtn = document.getElementById('mvbCopyBtn');
     if (copyBtn) copyBtn.addEventListener('click', () => _mvbCopyText());
 
-    // Wheel scroll on actions row
-    const actionsScroll = document.getElementById('mvbActionsScroll');
-    if (actionsScroll) {
-        actionsScroll.addEventListener('wheel', (e) => {
-            if (Math.abs(e.deltaX) < Math.abs(e.deltaY)) {
-                e.preventDefault();
-                actionsScroll.scrollLeft += e.deltaY;
-            }
-        }, { passive: false });
+    // Subscribe to AppModuleBus → reflect active-state on MVB module buttons and
+    // (for the block the module was opened from) on the per-block study-tray buttons.
+    if (window.AppModuleBus && typeof window.AppModuleBus.subscribe === 'function') {
+        window.AppModuleBus.subscribe((id, active, originBlockIdx, source) => {
+            applyModuleActiveDom(id, active, originBlockIdx, source);
+        });
     }
 
     // Swipe-down anywhere on MVB (except interactive controls / scrollable rows) → dismiss
@@ -2214,7 +2399,7 @@ function initMarkedVersesBar() {
     if (bar) {
         let dragging = false, startY = 0, startX = 0, lastDy = 0, axisLocked = null;
         bar.addEventListener('pointerdown', (e) => {
-            if (e.target.closest('button, a, .mvb-actions-scroll')) return;
+            if (e.target.closest('button, a, .mvb-modules, .mvb-row-actions')) return;
             if (e.pointerType === 'mouse' && e.button !== 0) return;
             // When a module is open on top of MVB, only the module-host handle can
             // dismiss things — first swipe closes module, then user can swipe MVB.
@@ -2799,6 +2984,7 @@ function rerenderCard(idx) {
         try { renderCompareBody(idx); } catch {}
     }
     if (typeof updateWideMode === 'function') updateWideMode();
+    try { refreshModuleActiveDom(); } catch {}
 }
 
 // ── Chapter expand/collapse (per-card V-arrow) ──
@@ -3031,6 +3217,67 @@ window.copyBlock = function(blockIdx) {
     const full = `${text}\n\n${label} ${versionLabel(ver)}`;
     navigator.clipboard.writeText(full).then(() => showToast(t('toast.copied')));
 };
+
+function _blockPinSpec(blockIdx) {
+    const block = mainData && mainData[blockIdx];
+    if (!block || !block.book || !block.verses || !block.verses.length) return null;
+    const first = block.verses[0];
+    const last = block.verses[block.verses.length - 1];
+    const ver = versionSelect ? versionSelect.value : '';
+    const lang = versionLang(ver);
+    return {
+        book: block.book,
+        ch_start: first.chapter, vs_start: first.num,
+        ch_end: last.chapter, vs_end: last.num,
+        version: ver,
+        label: translateLabel(block.label, block.book, lang),
+        text: block.verses.map(v => v.text).join(' ').trim(),
+        ts: Date.now(),
+    };
+}
+
+window.pinBlock = function(blockIdx) {
+    if (!window.PinnedVerses) return;
+    const spec = _blockPinSpec(blockIdx);
+    if (!spec) return;
+    if (window.PinnedVerses.isPinned(spec)) window.PinnedVerses.remove(spec);
+    else window.PinnedVerses.add(spec);
+    refreshBlockPinButtons();
+};
+
+window.shareBlock = function(blockIdx) {
+    const block = mainData && mainData[blockIdx];
+    if (!block || !block.book || !block.verses || !block.verses.length) return;
+    const bName = bookRefName(block.book);
+    const ch = block.verses[0].chapter;
+    let ref;
+    if (block.is_chapter) ref = `${bName} ${ch}`;
+    else {
+        const first = block.verses[0].num;
+        const last = block.verses[block.verses.length - 1].num;
+        ref = (first === last) ? `${bName} ${ch}:${first}` : `${bName} ${ch}:${first}-${last}`;
+    }
+    const ver = versionSelect ? versionSelect.value : '';
+    const url = `${window.location.origin}${buildURL(ref, ver)}`;
+    if (navigator.share) {
+        navigator.share({ title: ref, text: ref, url }).catch(() => {
+            navigator.clipboard.writeText(url).then(() => showToast('Lenke kopiert')).catch(() => {});
+        });
+        return;
+    }
+    navigator.clipboard.writeText(url).then(() => showToast('Lenke kopiert')).catch(() => {});
+};
+
+function refreshBlockPinButtons() {
+    if (!window.PinnedVerses || !mainData) return;
+    document.querySelectorAll('.block-pin-btn').forEach(btn => {
+        const idx = Number(btn.dataset.cardIdx);
+        const spec = _blockPinSpec(idx);
+        const pinned = !!(spec && window.PinnedVerses.isPinned(spec));
+        btn.classList.toggle('pinned', pinned);
+    });
+}
+window.refreshBlockPinButtons = refreshBlockPinButtons;
 
 // ── Empty state verse link ──
 window.goToEmptyVerse = function() {
@@ -3485,8 +3732,6 @@ const toolbarCompareBtn = document.getElementById('toolbarCompareBtn');
 function updateToolbarCompareBtn() {
     const pressed = compareIntent ? 'true' : 'false';
     if (toolbarCompareBtn) toolbarCompareBtn.setAttribute('aria-pressed', pressed);
-    const mvbCmp = document.getElementById('mvbCompare');
-    if (mvbCmp) mvbCmp.setAttribute('aria-pressed', pressed);
 }
 function _toggleCompareAllCards() {
     if (compareIntent) {
@@ -4509,34 +4754,77 @@ document.addEventListener('click', () => {
 
 
 // ── Map: delegates to MapModule (see static/js/modules/mapModule.js) ─────────
-window.openMapForBlock = function(idx, focusId) {
-    if (window.MapModule && typeof window.MapModule.showForBlock === 'function') {
-        window.MapModule.showForBlock(idx, focusId);
+// Tray-button click → toggle:
+//   - if active from THIS tray (same block, source='tray') → close
+//   - if active from MVB or another tray → close (any second click closes)
+//   - otherwise → open with source='tray', origin=idx
+function _trayToggle(id, idx, openFn) {
+    if (window.AppModuleBus && window.AppModuleBus.isActive(id)) {
+        _closeActiveModule(id);
+        return;
     }
+    if (window.AppModuleBus) window.AppModuleBus.setPendingContext({ origin: idx, source: 'tray' });
+    try { openFn(); } finally {
+        Promise.resolve().then(() => window.AppModuleBus && window.AppModuleBus.clearPendingContext());
+    }
+}
+
+window.openMapForBlock = function(idx, focusId) {
+    _trayToggle('map', idx, () => {
+        if (window.MapModule && typeof window.MapModule.showForBlock === 'function') {
+            window.MapModule.showForBlock(idx, focusId);
+        }
+    });
 };
 
 
 // ── Commentary: delegates to CommentaryModule (modules/commentaryModule.js) ──
 window.openCommentaryForBlock = function(idx) {
-    if (window.CommentaryModule && typeof window.CommentaryModule.showForBlock === 'function') {
-        window.CommentaryModule.showForBlock(idx);
-    }
+    _trayToggle('commentary', idx, () => {
+        if (window.CommentaryModule && typeof window.CommentaryModule.showForBlock === 'function') {
+            window.CommentaryModule.showForBlock(idx);
+        }
+    });
+};
+
+
+// ── Leksikon: delegates to LeksikonModule (modules/leksikonModule.js) ────────
+window.openLeksikonForBlock = function(idx) {
+    _trayToggle('leksikon', idx, () => {
+        if (window.LeksikonModule && typeof window.LeksikonModule.showForBlock === 'function') {
+            window.LeksikonModule.showForBlock(idx);
+        }
+    });
 };
 
 
 // ── Topics: delegates to TopicsModule (modules/topicsModule.js) ──────────────
 window.openTopicsForBlock = function(idx) {
-    if (window.TopicsModule && typeof window.TopicsModule.showForBlock === 'function') {
-        window.TopicsModule.showForBlock(idx);
-    }
+    _trayToggle('topics', idx, () => {
+        if (window.TopicsModule && typeof window.TopicsModule.showForBlock === 'function') {
+            window.TopicsModule.showForBlock(idx);
+        }
+    });
 };
 
 
 // ── Outline: delegates to OutlineModule (modules/outlineModule.js) ───────────
 window.openOutlineForBlock = function(idx) {
-    if (window.OutlineModule && typeof window.OutlineModule.showForBlock === 'function') {
-        window.OutlineModule.showForBlock(idx);
+    _trayToggle('outline', idx, () => {
+        if (window.OutlineModule && typeof window.OutlineModule.showForBlock === 'function') {
+            window.OutlineModule.showForBlock(idx);
+        }
+    });
+};
+
+// External popup, block-scope (toggle).
+window.openExternalForBlock = function(idx, anchor) {
+    if (window.AppModuleBus && window.AppModuleBus.isActive('external')
+        && window.AppModuleBus.getOrigin('external') === idx) {
+        closeExternalPopup();
+        return;
     }
+    openExternalPopup({ scope: 'block', idx, anchor });
 };
 
 
@@ -4644,6 +4932,7 @@ window.insertBlocksIntoView = async function(specs, opts) {
 
 window.refreshPinButtons = function() {
     if (typeof updateMvbPinButtonState === 'function') updateMvbPinButtonState();
+    if (typeof refreshBlockPinButtons === 'function') refreshBlockPinButtons();
 };
 
 // Re-observe cards whenever results re-render (covers all render paths: renderAll,

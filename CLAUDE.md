@@ -16,11 +16,14 @@ Flask dev server at `http://127.0.0.1:8421`. Deps: `requirements.txt`.
 - `static/js/app.js` — all frontend state and rendering
 - `static/js/sidebar.js` — `window.AppSidebar` PC-only right-side sidebar manager (register/open/close/ensureOpen/checkAutoClose/refreshObserver). State is in-memory only.
 - `static/js/modules/pinnedVerses.js` — pin-verse module (`window.PinnedVerses`); in-memory only, cleared on sidebar close.
+- `static/js/modules/leksikonModule.js` — sidebar module showing Easton/Smith/Hitchcock dictionary entries relevant to the current top block. Auto-triggers on `mainBlockChanged`; UI is per-source tabs in one card.
 
 ## Database (`bible.db`, SQLite, WAL mode)
 Tables: `translations(id,name,full_name,language)`, `books(usfm,order_num,name_no,name_en,testament)`, `verses(translation_id,book_usfm,chapter,verse,text)`, `headings`, `footnotes`, `cross_references(from_book,from_chapter,from_verse,to_book,to_chapter,to_verse_start,to_verse_end,to_chapter_end,votes)` (~345k rows, OpenBible TSK), `verses_fts` (FTS5 virtual table), `places(id,name,aliases,placemark,kind,geometry,confidence,confidence_votes,comment,semantic_type,preceding_article,wikidata_id,wikipedia_url)` (~1336 rows, GeoJSON in `geometry`; `confidence` is OpenBible.info max `modern_associations[*].score` 0–1000 — negative for disputed identifications. `name` ends with "1"/"2"/… when several biblical places share a name (e.g. "Ai 1" Joshua's Ai vs "Ai 2" in Moab) — UI should display `name` + `comment` (e.g. "Achzib 1" + "in Judah") rather than the bare suffix. `semantic_type` is openbible's logical type (settlement/river/region/mountain/…) and differs from `kind` which controls map styling. `aliases` is a JSON array of openbible `translation_name_counts` spellings, used for search alongside `name`.), `place_verses(place_id,book_usfm,chapter,verse)` (~8.7k rows, OpenBible "most-likely" KMZ).
 
 Study tables: `commentaries(id,code,name,short_name,granularity,format)`, `commentary_entries(commentary_id,book_usfm,chapter,verse_start,verse_end,body)` (scofield ~3.2k verse-level + mhenry ~1.2k chapter-level markdown; scofield xrefs inlined as `[ref:USFM.CH.VS]` markup at end of body), `topics(id,parent_id,name,source,sort_order)` + `topic_verses(topic_id,book_usfm,chapter,verse_start,verse_end,sort_order)` (~53k topics / ~117k verses from BSB topical index; hierarchy auto-built from `: `-prefix in topic names, `source` is catalog Top/Nav/TTT only on leaf), `outlines(book_usfm,source,tree_json)` (66 BSB book outlines, refs pre-parsed into JSON nodes `{label, level, refs:[{book,ch_start,vs_start,ch_end,vs_end}], children}`).
+
+Dictionary (leksikon) tables: `dictionaries(id,code,name,short_name,format)`, `dictionary_entries(id,dictionary_id,headword,title,body)` (Easton 3961 + Smith 4561 + Hitchcock 2612; headword UPPERCASE-normalised), `dictionary_entry_refs(entry_id,book_usfm,chapter,verse_start,verse_end,chapter_end)` (~39k ref rows; Hitchcock has none — it piggybacks on Easton/Smith headword matches in the lookup). Bodies are plain prose with `_italics_` markdown and inline scripture refs like `(Exod.6.20)`. Decoded from SWORD modules via `temp_resources/leksikon/decode_sword_ld.py` (RawLD modules require cp1252-fallback for legacy modules like Smith).
 
 BLB (Berean Literal Bible) is a local-only translation (id=9001), not on bible.com.
 
@@ -47,6 +50,8 @@ BLB (Berean Literal Bible) is a local-only translation (id=9001), not on bible.c
 - `GET /api/topics?book=&chapter=&verse=` → `{topics:[{id,name,source,path:[...]}]}` (path is parent chain from root to leaf)
 - `GET /api/topic/<id>` → `{id,name,source,path,verses:[{book_usfm,chapter,verse_start,verse_end,ref_label}],children:[{id,name}]}`
 - `GET /api/outline?book=<usfm>` → `{book,source,tree:[...]}`
+- `GET /api/dictionaries` → `{dictionaries:[{id,code,name,short_name,format}]}`
+- `GET /api/leksikon?book=&chapter=&verse_start=&verse_end=&chapter_end=` → `{entries:[{entry_id,dictionary_id,dictionary_code,dictionary_short_name,headword,title,body}]}` (overlap lookup on Easton/Smith refs + Hitchcock piggyback by headword)
 - `GET /api/heartbeat` → `{ok:true}`
 
 ## Frontend (app.js)

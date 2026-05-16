@@ -60,18 +60,25 @@ window.AppModuleHost = (() => {
         const body = bodyEl();
         if (body) body.innerHTML = '';
         if (typeof window.refreshPinButtons === 'function') window.refreshPinButtons();
+        try { window.AppModuleBus && window.AppModuleBus.setActive(prev.id, false); } catch {}
     }
 
-    function openModule(id) {
+    function openModule(id, originBlockIdx) {
         if (!isMobile()) return;
         const def = state.modules.get(id);
         if (!def) return;
         const body = bodyEl();
         if (!body) return;
+        // Fall back to AppModuleBus.pending if caller didn't pass an origin.
+        const pc = window.AppModuleBus && window.AppModuleBus.getPendingContext
+            ? window.AppModuleBus.getPendingContext() : null;
+        const origin = (originBlockIdx != null) ? originBlockIdx : (pc ? pc.origin : null);
+        const source = pc ? pc.source : null;
 
         // Same module already active: just ensure host is visible.
         if (state.active && state.active.id === id) {
             if (hostEl() && hostEl().getAttribute('data-state') !== 'open') setOpen(true);
+            try { window.AppModuleBus && window.AppModuleBus.setActive(id, true, origin, source); } catch {}
             return;
         }
 
@@ -83,6 +90,7 @@ window.AppModuleHost = (() => {
                 unmountActive();
                 const ctx = mountModule(def);
                 if (ctx) state.active = { id, def, ctx };
+                try { window.AppModuleBus && window.AppModuleBus.setActive(id, true, origin, source); } catch {}
                 requestAnimationFrame(() => { body.style.opacity = '1'; });
             };
             setTimeout(swap, 160);
@@ -94,6 +102,7 @@ window.AppModuleHost = (() => {
         body.style.opacity = '1';
         const ctx = mountModule(def);
         if (ctx) state.active = { id, def, ctx };
+        try { window.AppModuleBus && window.AppModuleBus.setActive(id, true, origin, source); } catch {}
         // Force a layout flush so the slide animation runs from the closed transform.
         void (hostEl() && hostEl().offsetHeight);
         setOpen(true);
