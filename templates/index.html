@@ -416,31 +416,42 @@
 <div id="markedVersesBar" class="marked-verses-bar">
     <div class="mvb-inner">
         <div class="mvb-handle" id="mvbHandle" aria-hidden="true"><div class="mvb-grab"></div></div>
-        <div class="mvb-row mvb-row-top">
+        <!-- Layer 1: reference (wraps; grows MVB vertically) -->
+        <div class="mvb-row mvb-row-ref">
             <span class="mvb-ref" id="mvbRef"></span>
-            <div class="mvb-top-actions">
-                <button class="mvb-btn" id="mvbOpen">📖 Åpne</button>
-                <button class="mvb-pin-btn" id="mvbPinTop" title="Fest markerte vers" aria-label="Fest markerte vers">📌</button>
-                <button class="copy-btn" id="mvbCopyBtn" title="Kopier"><img src="{{ url_for('static', filename='images/copy.png') }}" class="copy-icon" alt="kopier"></button>
-            </div>
         </div>
-        <div class="mvb-row mvb-row-annot" id="mvbAnnotRow" style="display:none;">
-            <button class="mvb-annot-btn" id="mvbFn" style="display:none;" title="Fotnoter">† Fotnoter</button>
-            <button class="mvb-annot-btn" id="mvbXr" style="display:none;" title="Kryssreferanser">§ Referanser</button>
-        </div>
-        <div class="mvb-study-label"><img src="/static/images/study.png" class="mvb-study-icon" alt=""> Studie</div>
+        <!-- Layer 2: single action row, no scroll. Left = annot, right = open/pin/copy/share. -->
         <div class="mvb-row mvb-row-actions">
-            <div class="mvb-actions-scroll" id="mvbActionsScroll">
-                <button class="mvb-action-btn" id="mvbCompare" aria-pressed="false"><svg style="width:14px;height:14px;flex-shrink:0;vertical-align:middle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9H21M17 6L21 9L17 12M21 15H3M7 18L3 15L7 12"/></svg> Sammenlign</button>
-                <button class="mvb-action-btn" id="mvbMap" style="display:none;">🗺️ Kart</button>
-                <button class="mvb-action-btn" id="mvbCommentary" title="Kommentar til markerte vers">✒️ Kommentar</button>
-                <button class="mvb-action-btn" id="mvbTopics" title="Temaer for markerte vers">🎨 Temaer</button>
-                <button class="mvb-action-btn" id="mvbOutline" title="Outline for markerte vers">📜 Outline</button>
-                <a class="mvb-action-btn" id="mvbInterlinear" href="#" target="_blank" rel="noopener" style="display:none;"><img src="{{ url_for('static', filename='images/biblehub.png') }}" alt="" style="height:12px;"> Grunntekst <span style="font-size:0.7rem;opacity:0.7">↗</span></a>
-                <a class="mvb-action-btn" id="mvbBibleref" href="#" target="_blank" rel="noopener" style="display:none;"><img src="{{ url_for('static', filename='images/bibleref.png') }}" alt="" style="height:12px;"> BibleRef <span style="font-size:0.7rem;opacity:0.7">↗</span></a>
-                <a class="mvb-action-btn" id="mvbSource" href="#" target="_blank" rel="noopener" style="display:none;">Kilde <span style="font-size:0.7rem;opacity:0.7">↗</span></a>
+            <div class="mvb-actions-left">
+                <button class="mvb-action-btn mvb-annot-btn" id="mvbXr" title="Kryssreferanser"><span class="mvb-annot-glyph">§</span><span class="mvb-btn-label mvb-label-full">Referanser</span><span class="mvb-btn-label mvb-label-short">Ref.</span></button>
+                <button class="mvb-action-btn mvb-annot-btn" id="mvbFn" title="Fotnoter"><span class="mvb-annot-glyph">†</span><span class="mvb-btn-label mvb-label-full">Fotnoter</span><span class="mvb-btn-label mvb-label-short">Fotn.</span></button>
+            </div>
+            <div class="mvb-actions-right">
+                <button class="mvb-action-btn mvb-icon-btn" id="mvbOpen" title="Åpne markerte vers"><img src="{{ url_for('static', filename='images/book.png') }}" class="mvb-btn-icon" alt=""><span class="mvb-btn-label">Åpne</span></button>
+                <button class="mvb-action-btn mvb-icon-btn" id="mvbPinTop" title="Fest markerte vers" aria-label="Fest markerte vers"><img src="{{ url_for('static', filename='images/pin.png') }}" class="mvb-btn-icon" alt=""><span class="mvb-btn-label">Fest</span></button>
+                <button class="mvb-action-btn mvb-icon-btn" id="mvbCopyBtn" title="Kopier" aria-label="Kopier"><img src="{{ url_for('static', filename='images/copy.png') }}" class="mvb-btn-icon" alt=""><span class="mvb-btn-label">Kopier</span></button>
+                <button class="mvb-action-btn mvb-icon-btn" id="mvbShare" title="Del lenke" aria-label="Del lenke"><img src="{{ url_for('static', filename='images/share.png') }}" class="mvb-btn-icon" alt=""><span class="mvb-btn-label">Del</span></button>
             </div>
         </div>
+        <hr class="mvb-sep">
+        <!-- Layer 3: borderless module buttons, equal width, no scroll. -->
+        <div class="mvb-row mvb-modules" id="mvbModules">
+            <button class="mvb-module-btn" id="mvbMap" data-module="map" title="Kart"><span class="mvb-module-emoji">🗺️</span><span class="mvb-module-label">Kart</span></button>
+            <button class="mvb-module-btn" id="mvbCommentary" data-module="commentary" title="Kommentar"><span class="mvb-module-emoji">✒️</span><span class="mvb-module-label">Kommentar</span></button>
+            <button class="mvb-module-btn" id="mvbLeksikon" data-module="leksikon" title="Leksikon"><span class="mvb-module-emoji">📕</span><span class="mvb-module-label">Leksikon</span></button>
+            <button class="mvb-module-btn" id="mvbTopics" data-module="topics" title="Tema"><span class="mvb-module-emoji">🎨</span><span class="mvb-module-label">Tema</span></button>
+            <button class="mvb-module-btn" id="mvbOutline" data-module="outline" title="Outline"><span class="mvb-module-emoji">📜</span><span class="mvb-module-label">Outline</span></button>
+            <button class="mvb-module-btn" id="mvbExternal" data-module="external" title="Eksterne lenker"><img src="{{ url_for('static', filename='images/external.png') }}" class="mvb-module-emoji mvb-module-emoji-img" alt=""><span class="mvb-module-label">Ekstern</span></button>
+        </div>
+    </div>
+</div>
+
+<!-- Ekstern popup: anchored under #mvbExternal on PC, bottom-sheet on mobile -->
+<div id="externalPopup" class="external-popup" data-state="closed" aria-hidden="true">
+    <div class="external-popup-inner">
+        <a class="external-link" id="extInterlinear" href="#" target="_blank" rel="noopener"><img src="{{ url_for('static', filename='images/biblehub.png') }}" class="external-link-logo" alt=""><span>Grunntekst</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>
+        <a class="external-link" id="extBibleref" href="#" target="_blank" rel="noopener"><img src="{{ url_for('static', filename='images/bibleref.png') }}" class="external-link-logo" alt=""><span>BibleRef</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>
+        <a class="external-link" id="extSource" href="#" target="_blank" rel="noopener"><span>Kilde</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>
     </div>
 </div>
 
@@ -469,6 +480,7 @@
 <script src="{{ url_for('static', filename='js/modules/commentaryModule.js') }}"></script>
 <script src="{{ url_for('static', filename='js/modules/topicsModule.js') }}"></script>
 <script src="{{ url_for('static', filename='js/modules/outlineModule.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modules/leksikonModule.js') }}"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 <script>
 if ('serviceWorker' in navigator) {

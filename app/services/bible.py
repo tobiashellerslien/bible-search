@@ -359,6 +359,22 @@ class BibleData:
             print(f"Loaded {len(self.commentaries)} commentary source(s): "
                   + ", ".join(c["code"] for c in self.commentaries.values()))
 
+        # Dictionary (leksikon) metadata. Entries loaded on demand.
+        self.dictionaries = {}
+        try:
+            for did, code, name, short, fmt in self.db.execute(
+                "SELECT id, code, name, short_name, format FROM dictionaries ORDER BY id"
+            ):
+                self.dictionaries[did] = {
+                    "id": did, "code": code, "name": name,
+                    "short_name": short, "format": fmt,
+                }
+        except sqlite3.OperationalError:
+            pass  # Dictionary schema not yet applied
+        if self.dictionaries:
+            print(f"Loaded {len(self.dictionaries)} dictionary source(s): "
+                  + ", ".join(d["code"] for d in self.dictionaries.values()))
+
     # ── Versification helpers (TVTMS-driven via self.vsf) ─────────────────────
 
     def normalize_reference(self, translation_id, book_usfm, chapter, verse_start, verse_end=None):
@@ -574,6 +590,94 @@ class BibleData:
             for pid, entry in by_id.items():
                 entry["total_refs"] = counts.get(pid, len(entry["refs"]))
         return [by_id[pid] for pid in order]
+
+    def get_dictionary_entries_for_range(self, book_usfm, ch_start, vs_start=None, ch_end=None, vs_end=None):
+        """Distinct dictionary entries whose verse refs overlap the given range.
+
+        Two-step lookup so Hitchcock (which has no verse refs) can piggyback on
+        ref-bearing entries (Easton/Smith) by headword match.
+        """
+        if not self.dictionaries:
+            return []
+        if ch_end is None:
+            ch_end = ch_start
+        # Use chapter*1000+verse as a linear position; chapters never exceed 1000 verses.
+        q_vs_start = vs_start if vs_start is not None else 0
+        q_vs_end = vs_end if vs_end is not None else 999
+        q_start = ch_start * 1000 + q_vs_start
+        q_end = ch_end * 1000 + q_vs_end
+
+        hitchcock_id = next((d["id"] for d in self.dictionaries.values()
+                             if d["code"] == "hitchcock"), None)
+
+        sql = (
+            "SELECT e.id, e.dictionary_id, e.headword, e.title, e.body, "
+            "       r.chapter, r.verse_start, r.verse_end, r.chapter_end "
+            "FROM dictionary_entries e "
+            "JOIN dictionary_entry_refs r ON r.entry_id = e.id "
+            "WHERE r.book_usfm = ? "
+            "  AND (r.chapter * 1000 + r.verse_start) <= ? "
+            "  AND (r.chapter_end * 1000 + r.verse_end) >= ? "
+            "ORDER BY e.headword, e.dictionary_id, r.chapter, r.verse_start"
+        )
+        by_entry = {}
+        order = []
+        headwords_triggers = {}  # headword -> [trigger ref dicts]
+        for eid, did, headword, title, body, ch, vs_s, vs_e, ch_e in self.db.execute(
+            sql, (book_usfm, q_end, q_start)
+        ):
+            trig = {"chapter": ch, "verse_start": vs_s, "verse_end": vs_e, "chapter_end": ch_e}
+            if eid not in by_entry:
+                d = self.dictionaries.get(did, {})
+                by_entry[eid] = {
+                    "entry_id": eid,
+                    "dictionary_id": did,
+                    "dictionary_code": d.get("code"),
+                    "dictionary_short_name": d.get("short_name"),
+                    "headword": headword,
+                    "title": title,
+                    "body": body,
+                    "triggered_by": [],
+                }
+                order.append(eid)
+            by_entry[eid]["triggered_by"].append(trig)
+            headwords_triggers.setdefault(headword, []).append(trig)
+
+        results = [by_entry[eid] for eid in order]
+
+        # Hitchcock piggyback: add etymologies for headwords surfaced above.
+        # Trigger refs are inherited from the matching Easton/Smith entries.
+        if hitchcock_id and headwords_triggers:
+            placeholders = ",".join("?" * len(headwords_triggers))
+            rows = self.db.execute(
+                f"SELECT id, headword, title, body FROM dictionary_entries "
+                f"WHERE dictionary_id = ? AND headword IN ({placeholders})",
+                (hitchcock_id, *headwords_triggers.keys()),
+            ).fetchall()
+            d = self.dictionaries[hitchcock_id]
+            for eid, headword, title, body in rows:
+                # Dedup inherited triggers by (chapter, verse_start, verse_end, chapter_end).
+                seen = set()
+                trigs = []
+                for t in headwords_triggers.get(headword, []):
+                    key = (t["chapter"], t["verse_start"], t["verse_end"], t["chapter_end"])
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    trigs.append(t)
+                results.append({
+                    "entry_id": eid,
+                    "dictionary_id": hitchcock_id,
+                    "dictionary_code": d["code"],
+                    "dictionary_short_name": d["short_name"],
+                    "headword": headword,
+                    "title": title,
+                    "body": body,
+                    "triggered_by": trigs,
+                })
+
+        results.sort(key=lambda e: (e["headword"], e["dictionary_id"]))
+        return results
 
     def get_place_full(self, place_id):
         """Full place row plus all place_verses references across the whole Bible.

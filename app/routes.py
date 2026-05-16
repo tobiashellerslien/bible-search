@@ -421,6 +421,41 @@ def api_commentary():
     return jsonify(payload)
 
 
+@bp.get("/api/dictionaries")
+def api_dictionaries():
+    bible_data = _bible_data()
+    return jsonify({"dictionaries": list(bible_data.dictionaries.values())})
+
+
+@bp.get("/api/leksikon")
+def api_leksikon():
+    bible_data = _bible_data()
+    book = request.args.get("book", "").upper()
+    if not book:
+        return jsonify({"error": "Missing book"}), 400
+
+    def _maybe_int(name):
+        v = request.args.get(name)
+        if v in (None, ""):
+            return None
+        try:
+            return int(v)
+        except ValueError:
+            return None
+
+    chapter = _maybe_int("chapter")
+    if chapter is None:
+        return jsonify({"error": "Missing chapter"}), 400
+    chapter_end = _maybe_int("chapter_end")
+    verse_start = _maybe_int("verse_start")
+    verse_end = _maybe_int("verse_end")
+
+    entries = bible_data.get_dictionary_entries_for_range(
+        book, chapter, verse_start, chapter_end, verse_end
+    )
+    return jsonify({"entries": entries})
+
+
 @bp.get("/api/topics")
 def api_topics():
     bible_data = _bible_data()
