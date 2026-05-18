@@ -446,8 +446,6 @@ let customAccentHex = (() => {
 let lastTextSearchQuery = '';
 const cardCompare = {};  // { [idx]: { version, data, visible } }
 let compareIntent = false; // user's explicit compare on/off preference
-let currentHighlightVerses = null; // { keys: Set<"chapter:verse"> } | null
-let _preserveHighlight = false;
 let lastStatsData = null;
 let statsNormMode = 'total';
 let showAnnotations = localStorage.getItem('showAnnotations') !== 'false';
@@ -793,8 +791,7 @@ searchInput.addEventListener('keydown', e => {
 
 async function doSearch(pushHistory = true, resetAC = true) {
     if (resetAC) closeAutocomplete();
-    if (!_preserveHighlight) { currentHighlightVerses = null; clearAllMarkedVerses(); }
-    _preserveHighlight = false;
+    clearAllMarkedVerses();
     const query = searchInput.value.trim();
     if (!query) return;
 
@@ -1031,6 +1028,9 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
 
     // credit copy-icon: https://www.flaticon.com/authors/erix
     // credit study-icon: https://www.flaticon.com/authors/bqlqn 
+    // credit share-icon by I Wayan Wika: https://www.flaticon.com/free-icons/share
+    // credit pin-icon by meaicon: https://www.flaticon.com/free-icons/pin
+
     let html = `<div class="card-swipe-wrap">${sideNavHtml}<div class="verse-card${compareActive ? ' compare-active' : ''}" id="${cardId}"${swipeAttrs}>
         <div class="verse-card-header">
             <div class="verse-card-header-main">
@@ -1391,9 +1391,6 @@ document.addEventListener('click', e => {
 
 
 
-function isVerseHighlighted(v) {
-    return !!(currentHighlightVerses && currentHighlightVerses.keys.has(`${v.chapter}:${v.num}`));
-}
 
 function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookCode, lang, ver, headings = [], footnotes = [], places = [], cardIdx = null, alignMode = false) {
     const headingMap = {};
@@ -1445,13 +1442,6 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
         const bookCodeSafe = bookCode ? escAttr(bookCode) : '';
         const refName = bookCode ? escAttr(bookRefName(bookCode)) : '';
 
-        const highlighted = isVerseHighlighted(v);
-        const prevHighlighted = vi > 0 && isVerseHighlighted(verses[vi - 1]);
-        const nextHighlighted = vi < verses.length - 1 && isVerseHighlighted(verses[vi + 1]);
-
-        // Open wrapper before the first verse in a highlighted run
-        if (highlighted && !prevHighlighted) html += '<span class="verse-highlight-wrap">';
-
         html += `<span class="verse-line">`;
         if (showNums) {
             html += `<span class="verse-num" onclick="openSingleVerse('${bookCodeSafe}',${v.chapter},${v.num},'${refName}','${escAttr(ver || '')}')" title="${escAttr(bookRefName(bookCode))} ${v.chapter}:${v.num}">${v.num}</span>`;
@@ -1489,9 +1479,6 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
         }
 
         html += `</span> `;
-
-        // Close wrapper after the last verse in a highlighted run
-        if (highlighted && !nextHighlighted) html += '</span>';
 
         // Panels are block siblings of verse-line (display:none = no layout impact when closed)
         if (showFootnotes && fnText) {
@@ -1556,20 +1543,6 @@ function findSiblingPanel(verseLine, cls) {
         if (!found) continue;
         if (children[i].classList.contains('verse-line')) break; // stop at next verse
         if (children[i].classList.contains(cls)) return children[i];
-    }
-    // If parent is a verse-highlight-wrap (last verse in a highlighted run),
-    // the panel was emitted outside the wrap — look among the wrap's siblings.
-    if (parent.classList.contains('verse-highlight-wrap')) {
-        const grandParent = parent.parentElement;
-        if (!grandParent) return null;
-        const gpChildren = grandParent.children;
-        let foundWrap = false;
-        for (let i = 0; i < gpChildren.length; i++) {
-            if (gpChildren[i] === parent) { foundWrap = true; continue; }
-            if (!foundWrap) continue;
-            if (gpChildren[i].classList.contains('verse-line') || gpChildren[i].classList.contains('verse-highlight-wrap')) break;
-            if (gpChildren[i].classList.contains(cls)) return gpChildren[i];
-        }
     }
     return null;
 }
@@ -1762,7 +1735,6 @@ window.goChapter = async function(bookCode, chapter, bName, direction, cardIdx) 
         return;
     }
     clearAllMarkedVerses();
-    currentHighlightVerses = null;
     updateMarkedVersesBar();
     await slideTransition(direction, async () => {
         searchInput.value = `${bName} ${chapter}`;
@@ -2459,11 +2431,6 @@ document.addEventListener('click', (ev) => {
     if (!target) return;
     if (ev.target.closest('.verse-btn, .place-chip, .verse-num, a, button')) return;
     ev.stopPropagation();
-    // Clicking a verse inside a chapter-expand highlight clears the highlight
-    // for the whole run, then falls through to the normal mark-toggle behavior.
-    if (currentHighlightVerses && target.closest('.verse-highlight-wrap')) {
-        window.clearHighlight();
-    }
     const book = target.dataset.book;
     const chapter = parseInt(target.dataset.chapter, 10);
     const verse = parseInt(target.dataset.verse, 10);
@@ -2997,9 +2964,7 @@ window.toggleChapterExpand = async function(idx) {
     clearAllMarkedVerses();
 
     if (expandState && expandState.originalBlock) {
-        // Collapse back to original verses — clear chapter-highlight first, animate out, then re-render.
-        currentHighlightVerses = null;
-        updateMarkedVersesBar();
+        // Collapse back to original verses — animate out, then re-render.
         mainData[idx] = expandState.originalBlock;
         delete cardExpandedState[idx];
         if (cardCompare[idx]) { cardCompare[idx].data = null; cardCompare[idx].allData = null; }
@@ -3029,17 +2994,31 @@ window.toggleChapterExpand = async function(idx) {
         const newBlock = (data && data.results && data.results[0]) || null;
         if (!newBlock) return;
         cardExpandedState[idx] = { originalBlock: block };
-        // Mark which verses to highlight inside the chapter (the verses originally shown)
-        const keys = new Set(block.verses.map(v => `${v.chapter}:${v.num}`));
-        currentHighlightVerses = { keys };
-        updateMarkedVersesBar();
+        const verseKeys = new Set(block.verses.map(v => `${v.chapter}:${v.num}`));
         mainData[idx] = newBlock;
         if (cardCompare[idx]) { cardCompare[idx].data = null; cardCompare[idx].allData = null; }
-        await animateCardExpand(idx);
-        // After height-animation has fully settled, scroll the highlighted verses into view.
+        // Kick off the height animation; rerenderCard runs synchronously inside
+        // it, so the new chapter DOM is already in place. Apply the flash now
+        // (instant visual feedback) but defer scrollIntoView until the animation
+        // settles — otherwise the still-clipped/animating max-height makes the
+        // scroll target a moving target and smooth-scroll lands in the wrong spot.
+        const animPromise = animateCardExpand(idx);
         const card = document.getElementById(`card-${idx}`);
-        const el = card && card.querySelector('.verse-highlight-wrap');
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        let firstLine = null;
+        if (card) {
+            const lines = card.querySelectorAll('.verse-line');
+            lines.forEach(line => {
+                const tc = line.querySelector('.verse-text-clickable');
+                if (!tc) return;
+                if (verseKeys.has(`${tc.dataset.chapter}:${tc.dataset.verse}`)) {
+                    if (!firstLine) firstLine = line;
+                    line.classList.add('topic-trigger-flash');
+                    setTimeout(() => line.classList.remove('topic-trigger-flash'), 3000);
+                }
+            });
+        }
+        await animPromise;
+        if (firstLine) firstLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
         try { updateUrlFromCards(); } catch {}
         if (idx === 0) {
             try { window.AppSidebar && window.AppSidebar.notifyMainBlockChanged(); } catch {}
@@ -3122,42 +3101,31 @@ const animateCardCollapse = animateCardHeightChange;
 
 // ── Read chapter (legacy, kept for any callers) ──
 window.readChapter = async function(bookCode, chapter, bName, highlightKeys) {
-    if (highlightKeys) {
-        currentHighlightVerses = { keys: new Set(highlightKeys.split(',')) };
-    }
-    _preserveHighlight = true;
     searchInput.value = `${bName} ${chapter}`;
     updateSearchHighlight();
     await doSearch();
     updateMarkedVersesBar();
-    if (currentHighlightVerses) {
+    if (highlightKeys) {
+        const keys = new Set(highlightKeys.split(','));
         requestAnimationFrame(() => {
-            const el = resultsWrapper.querySelector('.verse-highlight-wrap');
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const lines = resultsWrapper.querySelectorAll('.verse-line');
+            let firstLine = null;
+            lines.forEach(line => {
+                const tc = line.querySelector('.verse-text-clickable');
+                if (!tc) return;
+                if (keys.has(`${tc.dataset.chapter}:${tc.dataset.verse}`)) {
+                    if (!firstLine) firstLine = line;
+                    line.classList.add('topic-trigger-flash');
+                    setTimeout(() => line.classList.remove('topic-trigger-flash'), 3000);
+                }
+            });
+            if (firstLine) firstLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
     }
-};
-
-window.clearHighlight = function() {
-    currentHighlightVerses = null;
-    const wraps = Array.from(resultsWrapper.querySelectorAll('.verse-highlight-wrap'));
-    if (wraps.length === 0) {
-        updateMarkedVersesBar();
-        return;
-    }
-    wraps.forEach(w => w.classList.add('fading-out'));
-    setTimeout(() => {
-        wraps.forEach(wrap => {
-            while (wrap.firstChild) wrap.parentNode.insertBefore(wrap.firstChild, wrap);
-            wrap.remove();
-        });
-        updateMarkedVersesBar();
-    }, 180);
 };
 
 window.clearHighlightAndMarked = function() {
     clearAllMarkedVerses();
-    window.clearHighlight();
 };
 
 // ── All versions (reference) ──
@@ -3296,7 +3264,6 @@ window.goHome = function(pushHistory = true) {
     allVersionsCache = null;
     allVersionsTextCache = null;
     currentChapterInfo = null;
-    currentHighlightVerses = null;
     clearAllMarkedVerses();
     Object.keys(cardCompare).forEach(k => delete cardCompare[k]);
     // Empty state should leave no overlays behind — close any open module
@@ -4010,6 +3977,8 @@ function applyFontSize(val) {
 
 // ── Dark mode & accent color ──
 const darkToggle = document.getElementById('darkToggle');
+const dmLight = document.getElementById('dmLight');
+const dmDark = document.getElementById('dmDark');
 
 function _hexToRgb(hex) {
     const h = (hex || '').replace('#', '').trim();
@@ -4053,6 +4022,15 @@ function _hslToHex(h, s, l) {
     const toHex = x => Math.round(Math.max(0, Math.min(1, x)) * 255).toString(16).padStart(2, '0');
     return '#' + toHex(r) + toHex(g) + toHex(b);
 }
+// Returns '#000' or '#fff' — whichever contrasts better against the given hex background.
+function _pencilColor(hex) {
+    const rgb = _hexToRgb(hex);
+    if (!rgb) return '#ffffff';
+    const toLinear = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+    const L = 0.2126 * toLinear(rgb.r) + 0.7152 * toLinear(rgb.g) + 0.0722 * toLinear(rgb.b);
+    return L > 0.179 ? '#000000' : '#ffffff';
+}
+
 // Derive {accent, hover, dim} from a single hex, tuned for light or dark theme.
 function deriveAccentFromHex(hex, isDark) {
     const rgb = _hexToRgb(hex);
@@ -4100,7 +4078,8 @@ function applyAccent(sel) {
 
 function applyTheme(dark) {
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
-    darkToggle.innerHTML = dark ? '&#9728;' : '&#9790;';
+    dmLight.classList.toggle('active', !dark);
+    dmDark.classList.toggle('active', dark);
     localStorage.setItem('theme', dark ? 'dark' : 'light');
     applyAccent(currentAccent);
 }
@@ -4130,6 +4109,7 @@ function applyTheme(dark) {
     const hasSavedCustom = !!localStorage.getItem('accentCustom');
     if (hasSavedCustom) {
         customSw.style.background = customAccentHex;
+        customSw.style.color = _pencilColor(customAccentHex);
         customSw.classList.add('has-color');
     }
     customSw.title = I18N.no['settings.customAccent'];
@@ -4207,6 +4187,7 @@ function applyTheme(dark) {
             customAccentHex = hex;
             localStorage.setItem('accentCustom', customAccentHex);
             customSw.style.background = customAccentHex;
+            customSw.style.color = _pencilColor(customAccentHex);
             customSw.classList.add('has-color');
             applyAccent('custom');
         }
@@ -4295,7 +4276,8 @@ function applyTheme(dark) {
     window.addEventListener('resize', () => { if (popupEl && popupEl.style.display !== 'none') positionPopup(customSw); });
 })();
 
-darkToggle.addEventListener('click', () => applyTheme(document.documentElement.getAttribute('data-theme') !== 'dark'));
+dmLight.addEventListener('click', () => applyTheme(false));
+dmDark.addEventListener('click', () => applyTheme(true));
 applyTheme(localStorage.getItem('theme') === 'dark');
 
 // ── UI font ──
@@ -4414,7 +4396,7 @@ window.goVerse = async function(bookCode, chapter, verse, bName, direction, card
 
 // Navigate a single card to a new reference without disturbing other cards.
 // Updates URL via history.pushState so back-button + share-link still work.
-async function navigateCardToRef(cardIdx, ref, direction, highlightKeys) {
+async function navigateCardToRef(cardIdx, ref, direction) {
     if (!mainData || !mainData[cardIdx]) return;
     // Navigation — drop marked verses so MVB doesn't outlive the verses it points at.
     clearAllMarkedVerses();
@@ -4445,9 +4427,6 @@ async function navigateCardToRef(cardIdx, ref, direction, highlightKeys) {
         if (!newBlock) return;
         // If this card had an "expanded chapter" state, drop it (we're navigating elsewhere)
         if (cardExpandedState[cardIdx]) delete cardExpandedState[cardIdx];
-        if (highlightKeys) currentHighlightVerses = { keys: new Set(highlightKeys) };
-        else currentHighlightVerses = null;
-        updateMarkedVersesBar();
         mainData[cardIdx] = newBlock;
         // Reset stale compare data so the new block's reference is fetched after render
         if (cardCompare[cardIdx]) {
