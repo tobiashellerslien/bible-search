@@ -749,7 +749,7 @@
                     // suppress bindPopup's own click-open below so the popup
                     // doesn't open mid-animation and trigger autoPan that
                     // fights our fitBounds.
-                    selectPlace(targetId, { fromLatLng: ev?.latlng, openPopup: true });
+                    selectPlace(targetId, { fromLatLng: ev?.latlng, openPopup: true, keepZoom: true });
                 });
 
                 // Point hover handlers — points are not detected by map mousemove.
@@ -917,11 +917,15 @@
 
         if (entry.isPolygon || entry.isLine) {
             if (bounds && bounds.isValid()) {
-                targetZoom = Math.min(
-                    effectiveMaxZoom,
-                    _map.getBoundsZoom(bounds, false, L.point(40, 40))
-                );
                 targetCenter = bounds.getCenter();
+                if (opts.keepZoom) {
+                    targetZoom = _map.getZoom();
+                } else {
+                    targetZoom = Math.min(
+                        effectiveMaxZoom,
+                        _map.getBoundsZoom(bounds, false, L.point(40, 40))
+                    );
+                }
             }
         } else if (center) {
             targetZoom = Math.max(_map.getZoom(), effectiveMaxZoom);

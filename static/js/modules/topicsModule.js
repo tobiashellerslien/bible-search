@@ -381,7 +381,7 @@
                     found[0].scrollIntoView({ block: 'center', behavior: 'smooth' });
                     found.forEach(el => {
                         el.classList.add('topic-trigger-flash');
-                        setTimeout(() => el.classList.remove('topic-trigger-flash'), 1600);
+                        setTimeout(() => el.classList.remove('topic-trigger-flash'), 3000);
                     });
                 } else {
                     const lang = (typeof window.versionLang === 'function' && _scope && _scope.range)

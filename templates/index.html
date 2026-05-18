@@ -368,7 +368,10 @@
                 <h3 data-i18n="settings.appearance">Appearance</h3>
                 <div class="settings-row">
                     <span class="settings-label" data-i18n="settings.darkMode">Dark mode</span>
-                    <button class="header-btn" id="darkToggle" data-i18n-title="header.darkMode">&#9790;</button>
+                    <div class="dm-toggle" id="darkToggle" role="group">
+                        <button class="dm-btn" id="dmLight">&#9728; Lys</button>
+                        <button class="dm-btn" id="dmDark">&#9790; Mørk</button>
+                    </div>
                 </div>
                 <div class="settings-row">
                     <span class="settings-label" data-i18n="settings.uiFont">UI font</span>
@@ -413,6 +416,8 @@
 </div>
 
 <!-- Marked Verses Bar -->
+<!-- Credit book icon: meaicon, https://www.flaticon.com/free-icons/knowledge  -->
+<!-- Credit external icon: Bharat Icons, https://www.flaticon.com/free-icons/external-link -->
 <div id="markedVersesBar" class="marked-verses-bar">
     <div class="mvb-inner">
         <div class="mvb-handle" id="mvbHandle" aria-hidden="true"><div class="mvb-grab"></div></div>

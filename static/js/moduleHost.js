@@ -8,6 +8,9 @@ window.AppModuleHost = (() => {
         active: null,           // {id, def, ctx}
         modules: new Map(),     // id → def
     };
+    // Cancels an in-flight close (pending transitionend + fallback timer) so a
+    // rapid open-after-close doesn't get clobbered by the stale cleanup.
+    let pendingCloseCancel = null;
 
     function hostEl() { return document.getElementById('moduleHost'); }
     function bodyEl() { return document.getElementById('moduleHostBody'); }
@@ -69,6 +72,20 @@ window.AppModuleHost = (() => {
         if (!def) return;
         const body = bodyEl();
         if (!body) return;
+        // If a close is in flight, cancel its pending cleanup first so the
+        // stale transitionend can't tear down the module we're about to mount.
+        // Only unmount the old module if we're switching to a different one —
+        // for a same-module re-open, the caller (e.g. showForMarkedVerses) has
+        // already updated module state synchronously, and running clearAll()
+        // here would wipe it (causing a white/empty re-open).
+        if (pendingCloseCancel) {
+            const cancel = pendingCloseCancel;
+            pendingCloseCancel = null;
+            cancel();
+            if (state.active && state.active.id !== id) {
+                unmountActive();
+            }
+        }
         // Fall back to AppModuleBus.pending if caller didn't pass an origin.
         const pc = window.AppModuleBus && window.AppModuleBus.getPendingContext
             ? window.AppModuleBus.getPendingContext() : null;
@@ -111,6 +128,11 @@ window.AppModuleHost = (() => {
     function closeModule() {
         if (!state.active && !document.body.classList.contains('module-open')) return;
         const h = hostEl();
+        // Clear active state immediately so the tray button highlight reflects
+        // the close at once rather than waiting for the slide-out to finish.
+        if (state.active) {
+            try { window.AppModuleBus && window.AppModuleBus.setActive(state.active.id, false); } catch {}
+        }
         // Drop body.module-open immediately so MVB regains its swipe handle the
         // moment the close starts (otherwise the handle is missing during the
         // 0.32s slide-out and pops back in afterwards). The module-host slides
@@ -122,11 +144,20 @@ window.AppModuleHost = (() => {
             const onEnd = (ev) => {
                 if (ev.target !== h || ev.propertyName !== 'transform') return;
                 h.removeEventListener('transitionend', onEnd);
+                pendingCloseCancel = null;
                 cleanup();
             };
             h.addEventListener('transitionend', onEnd);
             // Fallback if transitionend never fires (e.g. reduced-motion).
-            setTimeout(() => { if (!state.active) cleanup(); }, 500);
+            const fallback = setTimeout(() => {
+                pendingCloseCancel = null;
+                h.removeEventListener('transitionend', onEnd);
+                cleanup();
+            }, 500);
+            pendingCloseCancel = () => {
+                h.removeEventListener('transitionend', onEnd);
+                clearTimeout(fallback);
+            };
         } else {
             cleanup();
         }
@@ -135,43 +166,98 @@ window.AppModuleHost = (() => {
     function isOpen() { return !!state.active; }
     function getActiveId() { return state.active ? state.active.id : null; }
 
-    // ── Drag on the handle: drag down > 60px closes; <60px springs back. ──
+    // ── Drag-to-dismiss: drag down > 60px closes; <60px springs back. ──
+    // Active anywhere in the upper zone of the host (handle + header text/buttons),
+    // so users have a much larger target than the thin grab bar.
     function initDrag() {
         const handle = document.getElementById('moduleHostHandle');
-        if (!handle) return;
-        let dragging = false, startY = 0, lastDy = 0;
+        const host = hostEl();
+        if (!handle || !host) return;
 
-        handle.addEventListener('pointerdown', (e) => {
-            if (!isMobile() || !state.active) return;
-            if (e.pointerType === 'mouse' && e.button !== 0) return;
-            dragging = true;
+        // Height (px) from the top of the host within which a downward swipe
+        // initiates dismissal. Covers the handle (~36px) plus the typical
+        // module header row (scope label + buttons).
+        const TOP_ZONE = 110;
+        const ACTIVATE_DY = 8; // px of downward travel before we hijack the gesture
+
+        let dragging = false;     // actively translating the host
+        let arming = false;       // pointer down in zone, waiting to see direction
+        let startY = 0, startX = 0, lastDy = 0;
+        let activePointerId = null;
+        let capturedOn = null;
+
+        function inTopZone(clientY) {
+            const rect = host.getBoundingClientRect();
+            return clientY >= rect.top && clientY <= rect.top + TOP_ZONE;
+        }
+
+        function beginArm(e, fromHandle) {
+            if (!isMobile() || !state.active) return false;
+            if (e.pointerType === 'mouse' && e.button !== 0) return false;
+            if (!fromHandle && !inTopZone(e.clientY)) return false;
+            arming = true;
+            dragging = fromHandle; // handle starts dragging immediately
             startY = e.clientY;
+            startX = e.clientX;
             lastDy = 0;
-            try { handle.setPointerCapture(e.pointerId); } catch {}
-            e.preventDefault();
-            const h = hostEl();
-            if (h) h.style.transition = 'none';
-        });
+            activePointerId = e.pointerId;
+            if (fromHandle) {
+                try { handle.setPointerCapture(e.pointerId); capturedOn = handle; } catch {}
+                e.preventDefault();
+                host.style.transition = 'none';
+            }
+            return true;
+        }
 
-        handle.addEventListener('pointermove', (e) => {
-            if (!dragging) return;
-            e.preventDefault();
+        function onMove(e) {
+            if (!arming || e.pointerId !== activePointerId) return;
             const dy = e.clientY - startY;
+            const dx = e.clientX - startX;
+            if (!dragging) {
+                // Only hijack on a clearly downward gesture; let upward/lateral
+                // gestures (scroll, button drag-cancel) behave normally.
+                if (dy > ACTIVATE_DY && Math.abs(dy) > Math.abs(dx)) {
+                    dragging = true;
+                    try { host.setPointerCapture(e.pointerId); capturedOn = host; } catch {}
+                    host.style.transition = 'none';
+                } else if (dy < -ACTIVATE_DY || Math.abs(dx) > ACTIVATE_DY) {
+                    // Cancel arming — user is doing something else.
+                    arming = false;
+                    return;
+                } else {
+                    return;
+                }
+            }
+            e.preventDefault();
             lastDy = Math.max(0, dy);
-            const h = hostEl();
-            if (h) h.style.transform = `translateY(${lastDy}px)`;
-        });
+            host.style.transform = `translateY(${lastDy}px)`;
+        }
 
         function endDrag(e) {
-            if (!dragging) return;
+            if (!arming || e.pointerId !== activePointerId) return;
+            const wasDragging = dragging;
+            arming = false;
             dragging = false;
-            try { handle.releasePointerCapture(e.pointerId); } catch {}
-            const h = hostEl();
-            if (h) { h.style.transition = ''; h.style.transform = ''; }
-            if (lastDy > 60) closeModule();
+            if (capturedOn) {
+                try { capturedOn.releasePointerCapture(e.pointerId); } catch {}
+                capturedOn = null;
+            }
+            activePointerId = null;
+            if (wasDragging) {
+                host.style.transition = '';
+                host.style.transform = '';
+                if (lastDy > 60) closeModule();
+            }
         }
-        handle.addEventListener('pointerup', endDrag);
-        handle.addEventListener('pointercancel', endDrag);
+
+        handle.addEventListener('pointerdown', (e) => { beginArm(e, true); });
+        host.addEventListener('pointerdown', (e) => {
+            if (e.target.closest && e.target.closest('#moduleHostHandle')) return;
+            beginArm(e, false);
+        });
+        host.addEventListener('pointermove', onMove);
+        host.addEventListener('pointerup', endDrag);
+        host.addEventListener('pointercancel', endDrag);
     }
 
     function init() {
