@@ -1,7 +1,8 @@
 // ── i18n ──
 const I18N = {
     no: {
-        'header.help': 'Hjelp & info — trykk ? når som helst',
+        'header.help': 'Hjelp & om — trykk ? når som helst',
+        'header.feedback': 'Send tilbakemelding',
         'header.settings': 'Innstillinger',
         'header.darkMode': 'Veksle mørk modus',
         'search.placeholder': 'Søk i Bibelen...',
@@ -15,19 +16,13 @@ const I18N = {
         'toggle.headings': 'Overskrifter',
         'toggle.annotations': 'Kryssreferanser og fotnoter †§',
         'toggle.places': 'Steder i tekst 📍',
-        'modal.helpInfo': 'Hjelp & Om',
-        'modal.tab.help': 'Hjelp',
-        'modal.tab.info': 'Om',
-        'help.section.features': 'Funksjoner',
-        'help.feature.search': '🔍Søk: Søk i hele Bibelen, eller slå opp referanser. Kraftig søkesyntaks med autofullføring og filtre (f.eks. søk innenfor en enkelt bok eller testament). Se seksjon for søkesyntaks nedenfor.',
-        'help.feature.quickSearch': '⚡Hurtigsøk (⚡-knapp ved siden av søkefeltet): direkte, feiltolerant søk som oppdateres mens du skriver — best for å finne ett enkelt vers du nesten husker',
-        'help.feature.perVerse': 'Per vers: sammenlign oversettelser, kopier tekst (med eller uten referanse), lenke til grunntekst / interlineær (biblehub.com)',
-        'help.feature.commentary': 'Per vers/kapittel: lenke til bibelkommentar (bibleref.com) — merk: ikke alle GT-vers/kapitler har kommentar enda',
-        'help.feature.stats': '📊Statistikk: statistikkpanel på hvert tekstsøk, med bl.a. fordeling av treff gjennom Bibelen',
-        'help.feature.shareUrl': 'Del URL-en for å dele visningen du er i (tekst, søk, oversettelse)',
-        'help.feature.places': 'Steder: bibelske steder (byer, regioner, elver) vises som 📍-merker ved siden av versene; trykk "🗺️ Kart" på en passasje for å se alle på et satellittkart. Skru merkene av/på i bla & vis.',
-        'help.feature.pwa': 'Installer som app: legg til på hjemskjerm (iOS: Del → Legg til på hjemskjerm, Android: nettlesermeny → Installer) for en fullskjermsopplevelse',
-        'help.section.searchSyntax': 'Søk & syntaks',
+        'modal.helpInfo': 'Hjelp & om',
+        'help.section.search': 'Søk',
+        'help.searchIntro': 'Skriv en <strong>referanse</strong> for oppslag (f.eks. <code>Joh 3:16</code>), eller <strong>ord/fraser</strong> for tekstsøk. Operatorene under kan kombineres. Autofullføring foreslår bøker mens du skriver.',
+        'help.section.operators': 'Operatorer for tekstsøk',
+        'help.section.searchGroups': 'Søkegrupper / filtre (klikk for å utvide)',
+        'help.restartTour': '▶ Ta velkomst-touren på nytt',
+        'help.openFeedback': '💬 Send tilbakemelding',
         'help.section.refLookup': 'Referanser',
         'help.row.singleVerse': 'Enkelt vers',
         'help.row.wholeChapter': 'Helt kapittel',
@@ -78,17 +73,26 @@ const I18N = {
         // Fyll inn din bio nedenfor. HTML støttes (f.eks. <a href="..."> lenker).
         'info.aboutMe.text': 'Jeg heter Tobias, og er en kristen student i Trondheim. Jeg lagde denne appen fordi jeg selv savnet en måte å kunne søke raskt i bibelen på, spesielt i de norske oversettelsene. Håper nå at dette kan bli til nytte for andre også, både for å kunne finne rett vers i rett tid, som en hjelp til bibelstudie, og for å bli bedre kjent med Gud og Hans ord.',
         'info.aboutMe.favorites': 'Mine favorittvers',
-        'info.bibleText.title': 'Bibeltekst',
-        'info.bibleText.text': 'Bibelteksten er hentet fra <a href="https://www.bible.com" target="_blank" rel="noopener">YouVersion / bible.com</a> og lagret lokalt for raske oppslag og avansert fulltekstsøk. Alle rettigheter til oversettelsene tilhører deres respektive opphavsrettighetsinnehavere og forlag. Verktøyet er ment for personlig bruk og bibelstudium — ikke for videredistribusjon.',
-        'info.crossRefs.title': 'Kryssreferanser',
-        'info.crossRefs.text': 'Kryssreferanser (~345 000 referanser) kommer fra <a href="https://www.openbible.info/labs/cross-references/" target="_blank" rel="noopener">OpenBible.info sitt kryssreferanseprosjekt</a>, hovedsakelig basert på Treasury of Scripture Knowledge (TSK). Brukt under Creative Commons Attribution 4.0.',
-        'info.places.title': 'Stedsdata & kart',
-        'info.places.text': 'Stedsdata (~1300 byer, regioner, elver og veier fra Bibelen) kommer fra <a href="https://www.openbible.info/geo/" target="_blank" rel="noopener">OpenBible.info sitt bibelske geokodingsprosjekt</a>. Brukt under Creative Commons Attribution 4.0. <br><br><strong>Viktig forbehold:</strong> her vises kun den ene <em>mest sannsynlige</em> plasseringen for hvert sted. Mange bibelske steder har flere foreslåtte identifikasjoner fra ulike forskere, og som forfatteren selv skriver: <em>«There are almost certainly errors.»</em> For alternative plasseringer, kilder for hver identifikasjon, og det komplette datasettet, se <a href="https://www.openbible.info/geo/" target="_blank" rel="noopener">openbible.info/geo</a>. <br><br>Kartfliser: satellittbilder © <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a>, Maxar, Earthstar Geographics; gatekart © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>-bidragsytere. Kartrendering med <a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>.',
-        'info.openSource.title': 'Åpen kildekode',
-        'info.openSource.text': 'Dette prosjektet er åpen kildekode under MIT-lisensen — <a href="https://github.com/tobiashellerslien/bible-search" target="_blank" rel="noopener">github.com/tobiashellerslien/bible-search</a>.',
-        'info.openSource.competition': 'lenke til konkurrerende tjeneste',
-        'info.feedback.title': 'Tilbakemelding',
-        'info.feedback.text': 'Spørsmål, forslag eller funnet en bug? Ta kontakt på <a href="mailto:tobias@hellerslien.net">tobias@hellerslien.net</a>.',
+        'info.license.title': 'Kilder & lisens',
+        'info.license.text':
+            '<li>Bibeltekst: <a href="https://www.bible.com" target="_blank" rel="noopener">YouVersion / bible.com</a> — lagret lokalt for rask søk. Alle rettigheter tilhører oversettelsenes opphavsrettighetsinnehavere; verktøyet er for personlig bruk.</li>'
+            + '<li>Kryssreferanser &amp; stedsdata: <a href="https://www.openbible.info/" target="_blank" rel="noopener">OpenBible.info</a> (CC-BY 4.0). Stedene viser kun mest sannsynlige plassering — «There are almost certainly errors.»</li>'
+            + '<li>Outlines &amp; temaer: <a href="https://berean.bible/" target="_blank" rel="noopener">Berean Bible (BSB)</a> sitt topical/outline-prosjekt.</li>'
+            + '<li>Leksikon (Easton, Smith, Hitchcock): klassiske oppslagsverk i public domain.</li>'
+            + '<li>Kart: satellittbilder © <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a> · gatekart © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · rendering med <a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>.</li>'
+            + '<li>Åpen kildekode (MIT): <a href="https://github.com/tobiashellerslien/bible-search" target="_blank" rel="noopener">github.com/tobiashellerslien/bible-search</a> · <a href="https://bibel.tjelle.net/" target="_blank" rel="noopener" style="color:var(--text-muted)">konkurrerende tjeneste</a>.</li>',
+        'feedback.title': 'Send tilbakemelding',
+        'feedback.intro': 'Alle tilbakemeldinger og kritikk settes stor pris på! Jeg ønsker at dette verktøyet skal bli best mulig — meldingen din havner rett på mobilen min.',
+        'feedback.category': 'Kategori',
+        'feedback.cat.bug': '🐛 Feil',
+        'feedback.cat.feature': '✨ Ny funksjon',
+        'feedback.cat.change': '🔧 Endring',
+        'feedback.cat.other': '💬 Annet',
+        'feedback.emailLabel': 'E-post (valgfri)',
+        'feedback.emailPlaceholder': 'valgfri — om du vil bli kontaktet',
+        'feedback.messageLabel': 'Melding',
+        'feedback.messagePlaceholder': 'Skriv tilbakemelding her…',
+        'feedback.send': 'Send',
         'modal.stats': 'Statistikk',
         'stats.totalHits': 'Totalt treff',
         'stats.perChapter': 'Per kapittel',
@@ -939,7 +943,6 @@ function renderAll() {
     });
     if (typeof updateWideMode === 'function') updateWideMode();
     if (typeof updateToolbarCompareBtn === 'function') updateToolbarCompareBtn();
-    maybeShowSwipeHint();
     try { window.AppSidebar && window.AppSidebar.notifyMainBlockChanged(); } catch {}
     try { refreshModuleActiveDom(); } catch {}
 }
@@ -2871,41 +2874,6 @@ window.goToVerseInVersion = function(ref, version) {
     doSearch();
 };
 
-// ── Swipe hint (one-time, mobile only) ──
-function maybeShowSwipeHint() {
-    try {
-        if (window.innerWidth >= 701) return;
-        if (localStorage.getItem('swipeHintShown') === '1') return;
-        // Need at least one card with swipe data to make the hint useful
-        const card = resultsWrapper.querySelector('.verse-card[data-swipe-book]');
-        if (!card) return;
-        const overlay = document.createElement('div');
-        overlay.className = 'swipe-hint-overlay';
-        overlay.innerHTML = `
-            <div class="swipe-hint-inner">
-                <span class="swipe-hint-arrow swipe-hint-arrow-left">&#8592;</span>
-                <span class="swipe-hint-text">${escHtml(t('swipeHint.text'))}</span>
-                <span class="swipe-hint-arrow swipe-hint-arrow-right">&#8594;</span>
-            </div>`;
-        card.appendChild(overlay);
-        requestAnimationFrame(() => overlay.classList.add('visible'));
-        let dismissed = false;
-        const dismiss = () => {
-            if (dismissed) return;
-            dismissed = true;
-            overlay.classList.remove('visible');
-            setTimeout(() => overlay.remove(), 280);
-            try { localStorage.setItem('swipeHintShown', '1'); } catch {}
-            document.removeEventListener('touchstart', dismiss, true);
-            document.removeEventListener('click', dismiss, true);
-        };
-        setTimeout(dismiss, 2600);
-        // Dismiss on any user interaction so the hint never blocks clicks/taps.
-        document.addEventListener('touchstart', dismiss, true);
-        document.addEventListener('click', dismiss, true);
-    } catch {}
-}
-
 // ── Study tray (session-global open/closed state) ──
 function applyStudyTrayState() {
     const open = studyTrayOpen;
@@ -3585,13 +3553,8 @@ document.getElementById('statsModeSelect').addEventListener('change', function()
     if (lastStatsData) renderStatsModal(lastStatsData);
 });
 
-// ── Help & info (tabbed modal) ──
-function showHelpTab(tab) {
-    document.querySelectorAll('#helpModal .modal-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-    document.querySelectorAll('#helpModal [data-tab-content]').forEach(c => c.hidden = (c.dataset.tabContent !== tab));
-}
-window.openHelp = function(tab) {
-    if (tab) showHelpTab(tab);
+// ── Help & info (single-tab modal) ──
+window.openHelp = function() {
     document.getElementById('helpModal').classList.add('open');
 };
 document.getElementById('helpToggle').addEventListener('click', () => document.getElementById('helpModal').classList.toggle('open'));
@@ -3599,8 +3562,12 @@ document.getElementById('helpClose').addEventListener('click', () => document.ge
 document.getElementById('helpModal').addEventListener('click', e => {
     if (e.target === document.getElementById('helpModal')) document.getElementById('helpModal').classList.remove('open');
 });
-document.querySelectorAll('#helpModal .modal-tab').forEach(tab => {
-    tab.addEventListener('click', () => showHelpTab(tab.dataset.tab));
+// Restart welcome tour from help
+document.addEventListener('click', e => {
+    if (e.target && e.target.id === 'restartTourBtn') {
+        document.getElementById('helpModal').classList.remove('open');
+        if (window.WelcomeTour) window.WelcomeTour.start({ force: true });
+    }
 });
 
 // ── Settings ──

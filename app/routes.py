@@ -1,3 +1,9 @@
+import hashlib
+import html as _html
+import re
+import time
+from datetime import datetime, timezone
+
 from flask import Blueprint, current_app, jsonify, render_template, request, send_from_directory
 
 from .services.bible import (
@@ -682,4 +688,72 @@ def api_outline():
 
 @bp.get("/api/heartbeat")
 def api_heartbeat():
+    return jsonify({"ok": True})
+
+
+_FEEDBACK_CATEGORIES = {
+    "bug": "🐛 Bug",
+    "feature": "✨ Ny funksjon",
+    "change": "🔧 Endring",
+    "other": "💬 Annet",
+}
+_FEEDBACK_RATE_LIMIT_SEC = 30
+_FEEDBACK_LAST_SUBMIT: dict[str, float] = {}
+_EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+
+
+@bp.post("/api/feedback")
+def api_feedback():
+    token = current_app.config.get("TELEGRAM_BOT_TOKEN") or ""
+    chat_id = current_app.config.get("TELEGRAM_CHAT_ID") or ""
+    if not token or not chat_id:
+        return jsonify({"ok": False, "error": "feedback_not_configured"}), 503
+
+    data = request.get_json(silent=True) or {}
+    category = (data.get("category") or "").strip().lower()
+    email = (data.get("email") or "").strip()
+    message = (data.get("message") or "").strip()
+
+    if category not in _FEEDBACK_CATEGORIES:
+        return jsonify({"ok": False, "error": "invalid_category"}), 400
+    if not message:
+        return jsonify({"ok": False, "error": "empty_message"}), 400
+    if len(message) > 4000:
+        return jsonify({"ok": False, "error": "message_too_long"}), 400
+    if email and not _EMAIL_RE.match(email):
+        return jsonify({"ok": False, "error": "invalid_email"}), 400
+
+    ip = (request.headers.get("X-Forwarded-For", request.remote_addr or "") or "").split(",")[0].strip()
+    ip_hash = hashlib.sha256(ip.encode("utf-8")).hexdigest()[:16] if ip else "anon"
+    now = time.time()
+    last = _FEEDBACK_LAST_SUBMIT.get(ip_hash, 0)
+    if now - last < _FEEDBACK_RATE_LIMIT_SEC:
+        wait = int(_FEEDBACK_RATE_LIMIT_SEC - (now - last))
+        return jsonify({"ok": False, "error": "rate_limited", "retry_after": wait}), 429
+
+    user_agent = request.headers.get("User-Agent", "")[:300]
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
+    text = (
+        f"🆕 <b>Tilbakemelding</b> — {_FEEDBACK_CATEGORIES[category]}\n"
+        f"📧 {_html.escape(email) if email else '<i>ingen</i>'}\n"
+        f"🕒 {ts}\n"
+        f"🖥 {_html.escape(user_agent)}\n"
+        "━━━━━━━━━━━━\n"
+        f"{_html.escape(message)}"
+    )
+
+    try:
+        import requests as _requests
+        resp = _requests.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={"chat_id": chat_id, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True},
+            timeout=5,
+        )
+        if resp.status_code != 200:
+            return jsonify({"ok": False, "error": "telegram_failed", "detail": resp.text[:200]}), 502
+    except Exception as e:
+        return jsonify({"ok": False, "error": "telegram_exception", "detail": str(e)[:200]}), 502
+
+    _FEEDBACK_LAST_SUBMIT[ip_hash] = now
     return jsonify({"ok": True})

@@ -9,7 +9,7 @@ En rask og kraftig bibelsøkeapp. Slå opp vers etter referanse, søk i hele tek
 | `Johannes 3:16` | Enkeltvers |
 | `Salme 23` | Helt kapittel |
 | `1. Mos 1:1-3` | Versintervall |
-| `Joh 3:16;17` | Flere passasjer (kontekst videreføres) |
+| `Joh 3:16;17;Rom 5:8` | Flere passasjer (kontekst videreføres) |
 | `nåde` | Fritekstsøk (delstreng) |
 | `"tro"` | Kun eksakt ord (ikke "troende") |
 | `"evig liv"` | Eksakt frase |

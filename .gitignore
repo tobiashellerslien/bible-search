@@ -9,3 +9,4 @@ bible.db
 todo.md
 migrations/
 temp_resources/
+.env
