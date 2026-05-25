@@ -257,6 +257,17 @@
             // matches and the highlight gets stranded.
             if (closedId !== null) clearVerseHighlight(closedId);
             else if (ownedByCurrentSelection) clearVerseHighlight(null);
+            else if (_selectedId !== null) {
+                // Defensive: outside-click closures may emit popupclose with
+                // an unrecognized source. Clear whatever highlight the active
+                // selection owns, and reset selection state so a subsequent
+                // click on the same place opens cleanly.
+                clearVerseHighlight(_selectedId);
+                const e = mainEntry(_selectedId);
+                if (e) { resetStyle(e); setMarkerState(e, ''); }
+                _selectedId = null;
+                highlightMenu(null);
+            }
 
             if (ownedByCurrentSelection) {
                 const e = mainEntry(_selectedId);
@@ -388,7 +399,7 @@
             <div class="popup-header-text">
                 <div class="popup-name">${namePart}</div>`;
         if (place.semantic_type) {
-            html += `<div class="popup-semantic">${esc(place.semantic_type)}</div>`;
+            html += `<div class="popup-semantic">${esc(translateType(place.semantic_type))}</div>`;
         }
         html += `</div></div>`;
 
@@ -550,6 +561,66 @@
         else if (minY < mapRect.top + pad) dy = minY - (mapRect.top + pad);
         if (dx !== 0 || dy !== 0) _map.panBy([dx, dy], { animate: true });
     }
+    // Translation tables for casual-user readability.
+    // Norwegian-only UI — translate openbible's English vocabulary.
+    const TYPE_NO = {
+        'settlement': 'bosetning',
+        'region': 'område',
+        'river': 'elv',
+        'mountain': 'fjell',
+        'mountain range': 'fjellkjede',
+        'mountain ridge': 'fjellrygg',
+        'mountain pass': 'fjellpass',
+        'body of water': 'vannmasse',
+        'spring': 'kilde',
+        'well': 'brønn',
+        'pool': 'dam',
+        'wadi': 'wadi (tørrelv)',
+        'valley': 'dal',
+        'hill': 'høyde',
+        'island': 'øy',
+        'forest': 'skog',
+        'field': 'mark',
+        'campsite': 'leirplass',
+        'altar': 'alter',
+        'gate': 'port',
+        'tree': 'tre',
+        'rock': 'klippe',
+        'cliff': 'klippe',
+        'road': 'vei',
+        'ford': 'vadested',
+        'fortification': 'festning',
+        'garden': 'hage',
+        'mine': 'gruve',
+        'people group': 'folkegruppe',
+        'natural area': 'naturområde',
+        'promontory': 'odde',
+        'structure': 'bygning',
+        'stone heap': 'steinrøys',
+        'settlement and spring': 'bosetning og kilde',
+        'district in settlement': 'bydel',
+        'hall': 'hall',
+        'room': 'rom',
+        'canal': 'kanal',
+    };
+    const PRECISION_NO = {
+        'point in modern settlement': 'punkt i moderne bosetning',
+        'point in mountain range': 'punkt i fjellkjede',
+        'point in region': 'punkt i området',
+        'archaeological site': 'arkeologisk sted',
+        'point in modern village': 'punkt i moderne landsby',
+        'point in modern city': 'punkt i moderne by',
+        'general area': 'omtrentlig område',
+        'terrain feature': 'terrengtrekk',
+    };
+    function translateType(s) {
+        if (!s) return s;
+        return TYPE_NO[s.toLowerCase()] || s;
+    }
+    function translatePrecision(s) {
+        if (!s) return s;
+        return PRECISION_NO[s.toLowerCase()] || s;
+    }
     function openSubPopup(kind, place, anchorEl) {
         closeSubPopup({ silent: true });
         const c = colorForPlace(place);
@@ -558,14 +629,46 @@
         div.className = 'map-subpopup';
         div.style.setProperty('--place-color', c);
         div.style.setProperty('--place-color-text', darkenForText(c));
+        const t = (kind === 'details') ? place.thumb : null;
+        const hasThumb = !!(t && t.file);
         let inner = `<div class="map-subpopup-header">
             <span class="map-subpopup-title">${kind === 'details' ? 'Detaljer' : 'Lenker'}</span>
             <button class="map-subpopup-close" type="button" aria-label="Lukk">&times;</button>
-        </div><div class="map-subpopup-body">`;
+        </div><div class="map-subpopup-body${hasThumb ? ' map-subpopup-body--with-thumb' : ''}">`;
         if (kind === 'details') {
-            if (place.placemark && place.placemark !== place.name) inner += `<div class="map-subpopup-row"><span class="map-subpopup-label">Placemark</span><div>${esc(place.placemark)}</div></div>`;
-            if (place.semantic_type) inner += `<div class="map-subpopup-row"><span class="map-subpopup-label">Type</span><div>${esc(place.semantic_type)}</div></div>`;
-            if (aliases.length) inner += `<div class="map-subpopup-row"><span class="map-subpopup-label">Alias</span><div>${esc(aliases.join(', '))}</div></div>`;
+            if (hasThumb) {
+                const bg = t.placeholder
+                    ? `background:linear-gradient(${t.placeholder.split(',').map(c => c.trim()).join(',')});`
+                    : '';
+                const altSafe = attr(t.description || place.name || '');
+                const creditHtml = t.credit
+                    ? (t.credit_url
+                        ? `<a href="${attr(t.credit_url)}" target="_blank" rel="noopener">${esc(t.credit)}</a>`
+                        : esc(t.credit))
+                    : '';
+                const satBadge = t.is_satellite ? '<span class="thumb-sat-badge" title="Satellittbilde">Satellitt</span>' : '';
+                inner += `<div class="map-subpopup-thumb" style="${bg}">
+                    <img loading="lazy" src="${attr(t.file)}" alt="${altSafe}" onerror="this.style.display='none'">
+                    <div class="map-subpopup-thumb-credit">${creditHtml}${satBadge}</div>
+                </div>`;
+            }
+            inner += `<div class="map-subpopup-rows">`;
+            if (place.placemark && place.placemark !== place.name) {
+                inner += `<div class="map-subpopup-row"><span class="map-subpopup-label" title="Opprinnelig stedsnavn fra OpenBible KMZ">Opprinnelig navn</span><div>${esc(place.placemark)}</div></div>`;
+            }
+            if (aliases.length) {
+                inner += `<div class="map-subpopup-row"><span class="map-subpopup-label" title="Stavemåter fra bibeloversettelser">Andre navn</span><div>${esc(aliases.join(', '))}</div></div>`;
+            }
+            if (place.semantic_type) {
+                inner += `<div class="map-subpopup-row"><span class="map-subpopup-label">Type</span><div>${esc(translateType(place.semantic_type))}</div></div>`;
+            }
+            if (place.precision && place.precision.meters != null) {
+                const m = place.precision.meters;
+                const descRaw = place.precision.description;
+                const desc = descRaw ? ` <span class="map-subpopup-dim">(${esc(translatePrecision(descRaw))})</span>` : '';
+                const human = m >= 1000 ? `±${(m / 1000).toFixed(m % 1000 === 0 ? 0 : 1)} km` : `±${m} m`;
+                inner += `<div class="map-subpopup-row"><span class="map-subpopup-label" title="Anslagsvis nøyaktighet for koordinaten">Presisjon</span><div>${human}${desc}</div></div>`;
+            }
             if (place.confidence != null) {
                 const conf = Number(place.confidence);
                 const disputed = conf < 0;
@@ -579,6 +682,7 @@
                 const label = disputed ? `Omstridt — ${numHtml}` : numHtml;
                 inner += `<div class="map-subpopup-row"><span class="map-subpopup-label">Sikkerhet</span><div class="${disputed ? 'map-subpopup-disputed' : ''}">${label}${votes}</div></div>`;
             }
+            inner += `</div>`; // close .map-subpopup-rows
         } else {
             const links = [];
             const center = geometryCentroid(place.geometry);
@@ -593,19 +697,21 @@
         // popup's transform — it then follows the map on drag/zoom instead of
         // detaching to viewport coordinates. Fallback to <body> if not found.
         const popup = anchorEl.closest('.leaflet-popup');
-        const pw = 260;
         const a = anchorEl.getBoundingClientRect();
         if (popup) {
             popup.appendChild(div);
+        } else {
+            document.body.appendChild(div);
+        }
+        // Measure actual rendered width (CSS may scale up to 460px when thumb +
+        // PC), then clamp into the viewport.
+        const pw = div.offsetWidth || 260;
+        if (popup) {
             const p = popup.getBoundingClientRect();
-            // Clamp the would-be screen-space left into the viewport, then
-            // express as offset from the popup's local origin (transforms on
-            // popup are translate-only, so screen-space delta == local delta).
             const absLeft = Math.max(8, Math.min(window.innerWidth - pw - 8, a.left));
             div.style.left = (absLeft - p.left) + 'px';
             div.style.top  = (a.bottom - p.top + 6) + 'px';
         } else {
-            document.body.appendChild(div);
             const left = Math.max(8, Math.min(window.innerWidth - pw - 8, a.left));
             div.style.left = left + 'px';
             div.style.top  = (a.bottom + window.scrollY + 6) + 'px';
