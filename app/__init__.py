@@ -36,6 +36,8 @@ def create_app():
         path = (request.path or "")
         if path.startswith("/static/") and (path.endswith(".js") or path.endswith(".css")):
             response.headers["Cache-Control"] = "no-cache"
+        elif path == "/" or path == "/index.html":
+            response.headers["Cache-Control"] = "no-store"
         return response
 
     return app

@@ -2477,7 +2477,7 @@
             gap: 8px !important;
         }
         .driver-popover-progress-text {
-            font-family: var(--font-ui) !important;
+            font-family: 'Lora', Georgia, serif !important;
             color: var(--text-muted) !important;
             font-size: 0.78rem !important;
             letter-spacing: 0.4px !important;
@@ -2491,7 +2491,7 @@
             border: none !important;
             border-radius: 999px !important;
             padding: 7px 16px !important;
-            font-family: var(--font-ui) !important;
+            font-family: 'Lora', Georgia, serif !important;
             font-size: 0.85rem !important;
             font-weight: 600 !important;
             letter-spacing: 0.2px !important;

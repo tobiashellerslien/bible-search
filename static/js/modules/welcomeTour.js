@@ -70,18 +70,18 @@
                 },
             },
             {
-                element: '#helpToggle',
+                element: '#feedbackToggle',
                 popover: {
-                    title: '❓ Hjelp',
-                    description: 'Full søke-syntaks, hurtigtaster og info. Du kan ta denne touren på nytt herfra.',
+                    title: '💬 Send tilbakemelding',
+                    description: 'Funnet en feil? Har du forslag eller ønsker? All tilbakemelding og kritikk settes stor pris på!',
                     side: 'bottom', align: 'end',
                 },
             },
             {
-                element: '#feedbackToggle',
+                element: '#helpToggle',
                 popover: {
-                    title: '💬 Send tilbakemelding',
-                    description: 'Funnet en bug? Har du forslag eller ønsker? All tilbakemelding og kritikk settes stor pris på!',
+                    title: '❓ Hjelp',
+                    description: 'Full søke-syntaks, hurtigtaster og info. Du kan ta denne touren på nytt herfra.',
                     side: 'bottom', align: 'end',
                 },
             },
