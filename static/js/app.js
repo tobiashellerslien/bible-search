@@ -3158,7 +3158,12 @@ function renderAllVersions(allResults, label) {
             <span class="verse-card-label">${escHtml(displayLabel)}</span>
         </div>
         <div class="all-versions-grid">`;
-    for (const [versionName, blocks] of Object.entries(allResults)) {
+    const orderedEntries = allVersionsList
+        .map(v => [String(v.id), allResults[String(v.id)]])
+        .filter(([, b]) => b !== undefined);
+    const knownIds = new Set(orderedEntries.map(([id]) => id));
+    const extraEntries = Object.entries(allResults).filter(([id]) => !knownIds.has(id));
+    for (const [versionName, blocks] of [...orderedEntries, ...extraEntries]) {
         const verses = blocks.flatMap(b => b.verses || []);
         if (verses.length === 0) continue;
         const headings = blocks.flatMap(b => b.headings || []);

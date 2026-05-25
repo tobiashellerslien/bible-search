@@ -472,10 +472,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<div class="sw-update-banner" id="swUpdateBanner">
-    Siden er oppdatert
-    <button onclick="window.location.reload()">Last på nytt</button>
-</div>
 
 <script src="{{ url_for('static', filename='js/sidebar.js') }}"></script>
 <script src="{{ url_for('static', filename='js/moduleHost.js') }}"></script>
@@ -488,40 +484,13 @@
 <script src="{{ url_for('static', filename='js/modules/leksikonModule.js') }}"></script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 <script>
+// The PWA service worker was removed (it caused asset-version mismatches on
+// revisits). For users that still have it registered, fetch /sw.js once so
+// the self-destruct stub installs, clears caches, and unregisters.
 if ('serviceWorker' in navigator) {
-    // If this page wasn't controlled by a SW when it loaded, any SW_UPDATED
-    // we receive in this session is from the very first install — ignore it.
-    const hadController = !!navigator.serviceWorker.controller;
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-        || window.navigator.standalone === true;
-
-    function showUpdateBanner() {
-        if (!isStandalone) return;
-        const banner = document.getElementById('swUpdateBanner');
-        if (banner) banner.classList.add('show');
-    }
-
-    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
-
-    // Live updates while page is open.
-    navigator.serviceWorker.addEventListener('message', event => {
-        const d = event.data;
-        if (!d) return;
-        if (d.type === 'SW_UPDATED' && hadController) showUpdateBanner();
-        if (d.type === 'VERSION') {
-            const last = localStorage.getItem('swVersion');
-            if (last && last !== d.version) showUpdateBanner();
-            localStorage.setItem('swVersion', d.version);
-        }
-    });
-
-    // Catch-up check: if the SW updated while the PWA was closed, the
-    // SW_UPDATED message fired without a listener. On every load we ask the
-    // active SW for its version and compare with the one we last saw.
-    navigator.serviceWorker.ready.then(reg => {
-        const active = reg.active || navigator.serviceWorker.controller;
-        active?.postMessage({ type: 'GET_VERSION' });
-    }).catch(() => {});
+    navigator.serviceWorker.getRegistrations()
+        .then(regs => regs.forEach(r => r.update()))
+        .catch(() => {});
 }
 </script>
 </body>

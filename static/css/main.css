@@ -172,11 +172,11 @@
         }
         .color-swatch-custom {
             background:
-                linear-gradient(var(--card), var(--card)) padding-box,
+                linear-gradient(var(--card-bg), var(--card-bg)) padding-box,
                 conic-gradient(from 0deg, #ef4444, #f59e0b, #eab308, #22c55e, #06b6d4, #3b82f6, #a855f7, #ec4899, #ef4444) border-box;
             border: 2px solid transparent;
             position: relative;
-            color: #fff;
+            color: var(--text-muted);
         }
         .color-swatch-custom::after {
             content: '';
@@ -196,7 +196,7 @@
         .color-popup {
             position: fixed;
             z-index: 9999;
-            background: var(--card);
+            background: var(--card-bg);
             border: 1px solid var(--border);
             border-radius: 10px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.25);
@@ -1836,37 +1836,6 @@
             box-shadow: var(--shadow-lg);
         }
         .toast.show { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
-
-        /* ── SW update banner ── */
-        .sw-update-banner {
-            position: fixed; bottom: 24px; left: 50%;
-            transform: translateX(-50%) translateY(80px);
-            background: var(--card-bg);
-            border: 1px solid var(--accent);
-            color: var(--text);
-            padding: 10px 16px;
-            border-radius: 10px;
-            font-size: 0.82rem;
-            font-family: var(--font-ui);
-            display: flex; align-items: center; gap: 10px;
-            opacity: 0;
-            transition: opacity 0.25s ease, transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2);
-            z-index: 1001;
-            box-shadow: var(--shadow-lg);
-            white-space: nowrap;
-        }
-        .sw-update-banner.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-        }
-        .sw-update-banner button {
-            background: var(--accent); color: #fff;
-            border: none; border-radius: 6px;
-            padding: 4px 12px; font-size: 0.8rem;
-            font-family: var(--font-ui);
-            cursor: pointer;
-        }
-        .sw-update-banner button:hover { background: var(--accent-hover); }
 
         /* ── Modal overlay ── */
         .modal-overlay {
