@@ -671,6 +671,7 @@
         .display-bar-btn[aria-pressed="true"] { color: var(--accent); background: var(--accent-dim); }
         .display-bar-icon { width: 13px; height: 13px; flex-shrink: 0; }
         .display-bar-hint { font-size: 0.72em; opacity: 0.55; margin-left: 2px; vertical-align: middle; }
+        .display-bar-label-short { display: none; }
         .display-arrow {
             font-family: var(--font-mono);
             display: inline-block;
@@ -1159,6 +1160,27 @@
             text-decoration: none;
         }
         .verse-num:hover { text-decoration: underline; }
+        /* Compare body when content was mapped across versifications — mute the
+           verse numbers so the user isn't confused by differing chapter/verse
+           coords vs the main pane. */
+        .verse-text.compare-mapped .verse-num {
+            color: var(--text-muted, #8a8a8a);
+            opacity: 0.65;
+        }
+        .compare-mapped-hint {
+            float: right;
+            font-size: 0.7rem;
+            color: var(--text-muted, #8a8a8a);
+            font-style: italic;
+            padding: 1px 8px;
+            margin: 0 0 4px 8px;
+            border: 1px dashed var(--border, #ccc);
+            border-radius: 10px;
+            cursor: help;
+            line-height: 1.4;
+            white-space: nowrap;
+            vertical-align: baseline;
+        }
         .verse-text-clickable { cursor: pointer; }
         .verse-text-clickable:hover {
             text-decoration: underline;
@@ -2227,9 +2249,10 @@
             .search-group #searchBtn { padding: 9px 10px; font-size: 0.8rem; }
 
             .display-bar { width: 100%; }
-            .display-bar-btn { flex: 1; padding: 6px 0; font-size: 0.78rem; }
+            .display-bar-btn { flex: 1; padding: 5px 0; font-size: 0.72rem; }
             .display-bar-label { display: none; }
-            .display-bar-icon { width: 15px; height: 15px; }
+            .display-bar-label-short { display: inline; }
+            .display-bar-icon { width: 14px; height: 14px; }
 
             .search-wrap input,
             .search-highlight-overlay,
