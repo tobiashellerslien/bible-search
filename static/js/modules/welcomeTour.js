@@ -89,7 +89,7 @@
                 element: '#settingsToggle',
                 popover: {
                     title: '⚙ Innstillinger',
-                    description: 'Personlig tilpasning: Mørk modus, fonter, farge og standard-oversettelse.',
+                    description: 'Personlig tilpasning: Mørk modus, skrifttyper og -størrelser, farge og standard-oversettelse.',
                     side: 'bottom', align: 'end',
                 },
             },
