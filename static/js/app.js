@@ -1168,7 +1168,7 @@ function renderCompareBody(idx) {
     const mappedClass = isMapped ? ' compare-mapped' : '';
     const compLabelTranslated = translateLabel(cs.data.label, cs.data.book || mainBlock?.book, compLang);
     const mappedHint = isMapped
-        ? `<span class="compare-mapped-hint" title="${escAttr(t('compare.mappedTooltip') || 'Different versification — verses aligned by position')}">↔ ${escHtml(compLabelTranslated)}</span>`
+        ? `<span class="compare-mapped-hint" data-tip="${escAttr(t('compare.mappedTooltip') || 'Different versification — verses aligned by position')}">↔ ${escHtml(compLabelTranslated)}</span>`
         : '';
     // Float the hint inside .verse-text so it appears in the top-right corner
     // of the compare text without taking its own row (which would offset rows
@@ -1415,6 +1415,17 @@ window.toggleCardMore = function(idx) {
 document.addEventListener('click', e => {
     if (!e.target.closest('.card-more-wrap')) {
         document.querySelectorAll('.card-more-menu.open').forEach(m => m.classList.remove('open'));
+    }
+    const chip = e.target.closest('.compare-mapped-hint');
+    document.querySelectorAll('.compare-mapped-hint.show-tip').forEach(el => {
+        if (el !== chip) el.classList.remove('show-tip');
+    });
+    if (chip) {
+        chip.classList.toggle('show-tip');
+        if (chip.classList.contains('show-tip')) {
+            clearTimeout(chip._tipTimer);
+            chip._tipTimer = setTimeout(() => chip.classList.remove('show-tip'), 3000);
+        }
     }
 });
 
