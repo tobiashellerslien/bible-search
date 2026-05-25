@@ -187,6 +187,7 @@ const I18N = {
         'card.compareLoading': 'Laster...',
         'card.compareNotFound': 'Ikke funnet',
         'card.compareFailed': 'Lasting feilet',
+        'compare.mappedTooltip': 'Ulik versinndeling – versene er justert posisjonelt',
         'annot.fnTitle': 'Fotnote',
         'annot.xrTitle': 'Referanser',
         'annot.loadingRefs': 'Laster referanser…',
@@ -1158,7 +1159,21 @@ function renderCompareBody(idx) {
         return;
     }
     const compLang = versionLang(cs.version);
-    body.innerHTML = `<div class="verse-text">${renderVerseTextHtml(cs.data.verses, showNums, showNewlines, showHeadings, cs.data.book, compLang, cs.version, cs.data.headings || [], cs.data.footnotes || [], [], null, alignMode)}</div>`;
+    // Detect cross-vsf mapping: if main and compare bear different reference
+    // labels (e.g. main "Joel 3" → compare "Joel 2:28-3:21"), gray out the
+    // compare verse numbers + show a small hint so the user isn't misled by
+    // mismatched numbering.
+    const mainBlock = mainData[idx];
+    const isMapped = !!(mainBlock && cs.data.label && mainBlock.label !== cs.data.label);
+    const mappedClass = isMapped ? ' compare-mapped' : '';
+    const compLabelTranslated = translateLabel(cs.data.label, cs.data.book || mainBlock?.book, compLang);
+    const mappedHint = isMapped
+        ? `<span class="compare-mapped-hint" title="${escAttr(t('compare.mappedTooltip') || 'Different versification — verses aligned by position')}">↔ ${escHtml(compLabelTranslated)}</span>`
+        : '';
+    // Float the hint inside .verse-text so it appears in the top-right corner
+    // of the compare text without taking its own row (which would offset rows
+    // vs the main pane). Verse text flows around it.
+    body.innerHTML = `<div class="verse-text${mappedClass}">${mappedHint}${renderVerseTextHtml(cs.data.verses, showNums, showNewlines, showHeadings, cs.data.book, compLang, cs.version, cs.data.headings || [], cs.data.footnotes || [], [], null, alignMode)}</div>`;
     if (alignMode) equalizeVerseHeights(idx);
 }
 
@@ -1354,8 +1369,12 @@ async function loadCardCompareData(idx) {
     if (!mainData || !mainData[idx] || !cardCompare[idx]) return;
     const block = mainData[idx];
     const version = cardCompare[idx].version;
+    // Pass src_version so backend can map the reference across versification
+    // traditions (e.g. NB88 Joel 3:1 → NIV Joel 2:28).
+    const srcVersion = (window.versionSelect && String(window.versionSelect.value)) || '';
     try {
-        const resp = await fetch(`/api/search?q=${encodeURIComponent(block.label)}&version=${encodeURIComponent(version)}`);
+        const srcParam = srcVersion ? `&src_version=${encodeURIComponent(srcVersion)}` : '';
+        const resp = await fetch(`/api/search?q=${encodeURIComponent(block.label)}&version=${encodeURIComponent(version)}${srcParam}`);
         const data = await resp.json();
         if (data.type === 'reference' && !data.error && data.results && data.results[0]) {
             cardCompare[idx].data = data.results[0];
@@ -1370,8 +1389,10 @@ async function loadCardCompareData(idx) {
 async function loadCardCompareAllData(idx) {
     if (!mainData || !mainData[idx] || !cardCompare[idx]) return;
     const block = mainData[idx];
+    const srcVersion = (window.versionSelect && String(window.versionSelect.value)) || '';
     try {
-        const resp = await fetch(`/api/all_versions?q=${encodeURIComponent(block.label)}`);
+        const srcParam = srcVersion ? `&src_version=${encodeURIComponent(srcVersion)}` : '';
+        const resp = await fetch(`/api/all_versions?q=${encodeURIComponent(block.label)}${srcParam}`);
         const data = await resp.json();
         cardCompare[idx].allData = data.results || {};
     } catch {
@@ -1428,7 +1449,9 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
     const isMultiChapter = verses.some(x => x.chapter !== verses[0]?.chapter);
 
     verses.forEach((v, vi) => {
-        if (alignMode) html += `<div class="verse-align-row" data-key="${v.chapter}:${v.num}"><div class="verse-align-pre">`;
+        // Positional index as align key — works across versifications where
+        // chapter:verse coords differ between main and compare (mapped compare).
+        if (alignMode) html += `<div class="verse-align-row" data-key="i${vi}"><div class="verse-align-pre">`;
 
         if (isMultiChapter && v.chapter !== lastChapter) {
             if (vi > 0 && !alignMode && showNewlines) html += '<br>';

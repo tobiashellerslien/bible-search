@@ -123,6 +123,7 @@
         }
         if (range.vs_start != null) params.set('verse_start', String(range.vs_start));
         if (range.vs_end != null) params.set('verse_end', String(range.vs_end));
+        if (range.version) params.set('version', range.version);
         const resp = await fetch('/api/leksikon?' + params.toString());
         if (!resp.ok) throw new Error('leksikon fetch failed: ' + resp.status);
         const data = await resp.json();

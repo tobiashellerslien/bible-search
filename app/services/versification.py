@@ -125,3 +125,79 @@ class Versifier:
 
     def eng_to_translation(self, translation_id, book, ch, verse):
         return self.from_eng(self.translation_vsf(translation_id), book, ch, verse)
+
+    # ── Parsed-block conversion (for compare across translations) ─────────────
+    def convert_block(self, block, src_vsf, dst_vsf, src_max_verses=None):
+        """Return a new block dict with chapter/verse endpoints translated from
+        src_vsf to dst_vsf. May promote a verse_range to cross_chapter if the
+        mapping splits the range across chapters in dst. Returns the same block
+        unchanged when vsfs match or the block has no verse-level coordinates
+        (whole_chapter / chapter_range, where boundaries can't be precisely
+        relocated without verse anchors)."""
+        if src_vsf == dst_vsf:
+            return block
+        btype = block.get("type")
+        if btype in ("single_verse",):
+            _, c, v = self.convert(src_vsf, dst_vsf, block["book"], block["chapter"], block["verse"])
+            return {**block, "chapter": c, "verse": v}
+        if btype == "verse_range":
+            book = block["book"]
+            _, c1, v1 = self.convert(src_vsf, dst_vsf, book, block["chapter"], block["vs_start"])
+            _, c2, v2 = self.convert(src_vsf, dst_vsf, book, block["chapter"], block["vs_end"])
+            if c1 == c2:
+                return {**block, "chapter": c1, "vs_start": v1, "vs_end": v2}
+            return {**block, "type": "cross_chapter", "ch_start": c1, "vs_start": v1,
+                    "ch_end": c2, "vs_end": v2}
+        if btype == "verse_range_to_end":
+            book = block["book"]
+            _, c1, v1 = self.convert(src_vsf, dst_vsf, book, block["chapter"], block["vs_start"])
+            if c1 == block["chapter"]:
+                return {**block, "chapter": c1, "vs_start": v1}
+            # Endpoint shifted to a different dst chapter — leave as verse_range_to_end
+            # using the new chapter; resolver fills vs_end from translation's max verse.
+            return {**block, "chapter": c1, "vs_start": v1}
+        if btype == "cross_chapter":
+            book = block["book"]
+            _, c1, v1 = self.convert(src_vsf, dst_vsf, book, block["ch_start"], block["vs_start"])
+            _, c2, v2 = self.convert(src_vsf, dst_vsf, book, block["ch_end"], block["vs_end"])
+            if c1 == c2:
+                return {**block, "type": "verse_range", "chapter": c1,
+                        "vs_start": v1, "vs_end": v2,
+                        "ch_start": None, "ch_end": None}
+            return {**block, "ch_start": c1, "vs_start": v1, "ch_end": c2, "vs_end": v2}
+        if btype in ("whole_chapter", "chapter_range"):
+            # Anchor on the src translation's actual chapter bounds so the dst
+            # span covers exactly the user-visible passage. Always produce a
+            # cross_chapter (or verse_range) range; the conservative bound
+            # avoids over-fetching when the src chapter is a subset of dst's.
+            book = block["book"]
+            if btype == "whole_chapter":
+                ch_s = ch_e = block["chapter"]
+            else:
+                ch_s = block["ch_start"]
+                ch_e = block["ch_end"]
+            max_v_e = (src_max_verses or {}).get(ch_e) or 999
+            _, c1, v1 = self.convert(src_vsf, dst_vsf, book, ch_s, 1)
+            _, c2, v2 = self.convert(src_vsf, dst_vsf, book, ch_e, max_v_e)
+            if c1 == c2:
+                return {
+                    **block,
+                    "type": "verse_range",
+                    "chapter": c1, "vs_start": v1, "vs_end": v2,
+                }
+            return {
+                **block,
+                "type": "cross_chapter",
+                "ch_start": c1, "vs_start": v1,
+                "ch_end": c2, "vs_end": v2,
+            }
+        return block
+
+    def convert_translation_block(self, block, src_translation_id, dst_translation_id,
+                                  src_max_verses=None):
+        return self.convert_block(
+            block,
+            self.translation_vsf(src_translation_id),
+            self.translation_vsf(dst_translation_id),
+            src_max_verses=src_max_verses,
+        )

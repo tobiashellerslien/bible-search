@@ -91,6 +91,23 @@ def api_search():
 
     if is_reference_query(query):
         blocks = parse_query(query)
+        # Compare-mode: when the caller passes ?src_version=<id> different from
+        # ?version=<id>, the reference was authored in src_version's vsf and we
+        # need to remap it to target vsf before resolving (e.g. NB88 Joel 3:1
+        # → NIV Joel 2:28). Only convert when src_version was explicitly given —
+        # _resolve_version_id falls back to the first translation otherwise.
+        src_raw = request.args.get("src_version")
+        src_version_id = _resolve_version_id(bible_data, src_raw) if src_raw else None
+        if src_version_id is not None and src_version_id != version_id:
+            src_books = bible_data.book_verse_counts.get(src_version_id, {})
+            blocks = [
+                bible_data.vsf.convert_translation_block(
+                    b, src_version_id, version_id,
+                    src_max_verses=src_books.get(b.get("book")),
+                )
+                if "error" not in b else b
+                for b in blocks
+            ]
         results = [resolve_block(bible_data, version_id, block) for block in blocks]
         return jsonify({"type": "reference", "results": results, "version": version_id})
 
@@ -167,10 +184,22 @@ def api_all_versions():
     if not query:
         return jsonify({"error": "No query provided"}), 400
     blocks = parse_query(query)
-    all_results = {
-        version_id: [resolve_block(bible_data, version_id, block) for block in blocks]
-        for version_id in bible_data.translations
-    }
+    src_raw = request.args.get("src_version")
+    src_version_id = _resolve_version_id(bible_data, src_raw) if src_raw else None
+    src_books = bible_data.book_verse_counts.get(src_version_id, {}) if src_version_id else {}
+    all_results = {}
+    for vid in bible_data.translations:
+        per_version_blocks = blocks
+        if src_version_id is not None and src_version_id != vid:
+            per_version_blocks = [
+                bible_data.vsf.convert_translation_block(
+                    b, src_version_id, vid,
+                    src_max_verses=src_books.get(b.get("book")),
+                )
+                if "error" not in b else b
+                for b in blocks
+            ]
+        all_results[vid] = [resolve_block(bible_data, vid, block) for block in per_version_blocks]
     return jsonify({"results": all_results, "query": query})
 
 
@@ -450,9 +479,59 @@ def api_leksikon():
     verse_start = _maybe_int("verse_start")
     verse_end = _maybe_int("verse_end")
 
-    entries = bible_data.get_dictionary_entries_for_range(
-        book, chapter, verse_start, chapter_end, verse_end
-    )
+    # Dictionary refs (Easton/Smith) are eng vsf. Translate the user-vsf
+    # window to eng before lookup, then remap each entry's triggered_by refs
+    # back to the user's vsf so chip labels match the displayed verses.
+    version_id = _resolve_version_id(bible_data, request.args.get("version"))
+    tx_vsf = bible_data.vsf.translation_vsf(version_id) if version_id is not None else "eng"
+    non_eng = (tx_vsf != "eng")
+
+    ch_end_eff = chapter_end if chapter_end is not None else chapter
+    if non_eng:
+        s_v = verse_start if verse_start is not None else 1
+        e_v = verse_end if verse_end is not None else 999
+        _, q_ch_s, q_vs_s = bible_data.vsf.to_eng(tx_vsf, book, chapter, s_v)
+        _, q_ch_e, q_vs_e = bible_data.vsf.to_eng(tx_vsf, book, ch_end_eff, e_v)
+        # Widen the eng window: any eng-vs that, when mapped back, may fall
+        # inside the user window. Use whole-chapter window between endpoints.
+        lo_ch, hi_ch = min(q_ch_s, q_ch_e), max(q_ch_s, q_ch_e)
+        entries = bible_data.get_dictionary_entries_for_range(
+            book, lo_ch, None, hi_ch, None,
+        )
+    else:
+        entries = bible_data.get_dictionary_entries_for_range(
+            book, chapter, verse_start, chapter_end, verse_end,
+        )
+
+    if non_eng:
+        # Remap each triggered_by ref eng→tx_vsf and filter to user window.
+        ch_s_user = chapter
+        ch_e_user = ch_end_eff
+        for entry in entries:
+            kept = []
+            for t in entry.get("triggered_by", []):
+                ch = t.get("chapter")
+                ch_e = t.get("chapter_end") if t.get("chapter_end") is not None else ch
+                vs_s = t.get("verse_start")
+                vs_e = t.get("verse_end") if t.get("verse_end") is not None else vs_s
+                _, m_ch_s, m_vs_s = bible_data.vsf.from_eng(tx_vsf, book, ch, vs_s)
+                _, m_ch_e, m_vs_e = bible_data.vsf.from_eng(tx_vsf, book, ch_e, vs_e)
+                # Overlap test in user vsf (verse-resolution chapter*1000+verse)
+                a = m_ch_s * 1000 + m_vs_s
+                b = m_ch_e * 1000 + m_vs_e
+                u_s = ch_s_user * 1000 + (verse_start if verse_start is not None else 0)
+                u_e = ch_e_user * 1000 + (verse_end if verse_end is not None else 999)
+                if min(a, b) > u_e or max(a, b) < u_s:
+                    continue
+                kept.append({
+                    "chapter": m_ch_s,
+                    "verse_start": m_vs_s,
+                    "verse_end": m_vs_e,
+                    "chapter_end": m_ch_e,
+                })
+            entry["triggered_by"] = kept
+        entries = [e for e in entries if e.get("triggered_by")]
+
     return jsonify({"entries": entries})
 
 
@@ -496,17 +575,69 @@ def api_topics():
     # Range mode: returns aggregated tree sorted by descendant verse-count.
     ch_start = chapter
     ch_end = chapter_end if chapter_end is not None else chapter
+    tx_vsf = bible_data.vsf.translation_vsf(version_id) if version_id is not None else "eng"
+    non_eng = (tx_vsf != "eng")
     eb_s, ec_s, ev_s = book, ch_start, verse_start
     eb_e, ec_e, ev_e = book, ch_end, verse_end
-    if version_id is not None:
+    if non_eng:
+        # Convert window to eng. When verses are absent, use the translation's
+        # actual chapter bounds so the eng window matches the user's window
+        # exactly (no over-fetch causing false matches in Joel/Mal/Ps).
         try:
-            if verse_start is not None:
-                eb_s, ec_s, ev_s = bible_data.vsf.translation_to_eng(version_id, book, ch_start, verse_start)
-            if verse_end is not None:
-                _eb2, ec_e, ev_e = bible_data.vsf.translation_to_eng(version_id, book, ch_end, verse_end)
+            verse_counts = bible_data.book_verse_counts.get(version_id, {}).get(book, {})
+            s_v = verse_start if verse_start is not None else 1
+            e_v = verse_end if verse_end is not None else verse_counts.get(ch_end, 999)
+            eb_s, ec_s, ev_s = bible_data.vsf.to_eng(tx_vsf, book, ch_start, s_v)
+            _eb2, ec_e, ev_e = bible_data.vsf.to_eng(tx_vsf, book, ch_end, e_v)
         except Exception:
             pass
     tree = bible_data.aggregate_topics_for_range(eb_s, ec_s, ev_s, ec_e, ev_e)
+
+    if non_eng:
+        # Clamp each triggered_by to the eng query window, then remap eng→user
+        # vsf so chip labels match the rendered verses. Drops any node whose
+        # triggers all fall outside the window (clears is_match too).
+        eng_lo = ec_s * 1000 + ev_s
+        eng_hi = ec_e * 1000 + ev_e
+        verse_counts = bible_data.book_verse_counts.get(version_id, {}).get(book, {})
+        u_lo = ch_start * 1000 + (verse_start if verse_start is not None else 1)
+        u_hi = ch_end * 1000 + (verse_end if verse_end is not None else verse_counts.get(ch_end, 999))
+        def _remap_trig(t):
+            ch = t["chapter"]
+            vs_s = t["verse_start"]
+            vs_e = t["verse_end"] if t.get("verse_end") is not None else vs_s
+            t_lo = max(ch * 1000 + vs_s, eng_lo)
+            t_hi = min(ch * 1000 + vs_e, eng_hi)
+            if t_lo > t_hi:
+                return None
+            e_ch_s, e_vs_s = divmod(t_lo, 1000)
+            e_ch_e, e_vs_e = divmod(t_hi, 1000)
+            _, m_ch_s, m_vs_s = bible_data.vsf.from_eng(tx_vsf, book, e_ch_s, e_vs_s)
+            _, m_ch_e, m_vs_e = bible_data.vsf.from_eng(tx_vsf, book, e_ch_e, e_vs_e)
+            # Drop chips that don't actually fall inside the user's vsf window
+            # (translation storage may not match its declared vsf perfectly).
+            a = m_ch_s * 1000 + m_vs_s
+            b = m_ch_e * 1000 + m_vs_e
+            if min(a, b) > u_hi or max(a, b) < u_lo:
+                return None
+            return {
+                "chapter": m_ch_s,
+                "verse_start": m_vs_s,
+                "verse_end": m_vs_e if (m_ch_e != m_ch_s or m_vs_e != m_vs_s) else None,
+            }
+        def _walk(nodes):
+            for n in nodes:
+                kept = []
+                for t in n.get("triggered_by", []):
+                    r = _remap_trig(t)
+                    if r is not None:
+                        kept.append(r)
+                if n.get("is_match") and not kept:
+                    n["is_match"] = False
+                n["triggered_by"] = kept
+                _walk(n.get("children") or [])
+        _walk(tree)
+
     return jsonify({"topics": tree, "mode": "range"})
 
 

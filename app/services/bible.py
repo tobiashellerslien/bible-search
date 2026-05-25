@@ -515,18 +515,15 @@ class BibleData:
         where = ["pv.book_usfm = ?", "pv.chapter BETWEEN ? AND ?"]
         params = [book_usfm, ch_start, ch_end]
 
-        if non_eng and vs_start is not None:
-            # Translate range endpoints to eng for the lookup; widen chapter
-            # range to span any boundary shifts.
-            _, ec_s, ev_s = self.vsf.to_eng(tx_vsf, book_usfm, ch_start, vs_start)
-            _, ec_e, ev_e = self.vsf.to_eng(tx_vsf, book_usfm, ch_end, vs_end if vs_end is not None else 999)
-            where = ["pv.book_usfm = ?", "pv.chapter BETWEEN ? AND ?"]
+        if non_eng:
+            # Over-fetch the eng chapter window covering the user's vsf window
+            # (whole-chapter ranges included). Precise verse-level filtering is
+            # done after each row is remapped back to translation vsf below.
+            s_v = vs_start if vs_start is not None else 1
+            e_v = vs_end if vs_end is not None else 999
+            _, ec_s, _ = self.vsf.to_eng(tx_vsf, book_usfm, ch_start, s_v)
+            _, ec_e, _ = self.vsf.to_eng(tx_vsf, book_usfm, ch_end, e_v)
             params = [book_usfm, min(ec_s, ec_e), max(ec_s, ec_e)]
-            where.append("NOT (pv.chapter = ? AND pv.verse < ?)")
-            params.extend([ec_s, ev_s])
-            if vs_end is not None:
-                where.append("NOT (pv.chapter = ? AND pv.verse > ?)")
-                params.extend([ec_e, ev_e])
         else:
             if vs_start is not None:
                 where.append("NOT (pv.chapter = ? AND pv.verse < ?)")
@@ -561,6 +558,14 @@ class BibleData:
              ch, vs) in self.db.execute(sql, params):
             if non_eng:
                 _, ch, vs = self.vsf.from_eng(tx_vsf, book_usfm, ch, vs)
+                # Filter remapped row to the user's actual vsf window
+                # (the eng-side over-fetch above can include stray rows).
+                if ch < ch_start or ch > ch_end:
+                    continue
+                if vs_start is not None and ch == ch_start and vs < vs_start:
+                    continue
+                if vs_end is not None and ch == ch_end and vs > vs_end:
+                    continue
             if pid not in by_id:
                 by_id[pid] = {
                     "id": pid,
@@ -1294,6 +1299,10 @@ def _resolve_block_core(bible_data, version_id, block):
         footnotes = bible_data.get_footnotes(version_id, book, block["chapter"], block["chapter"], block["verse"], block["verse"])
         places = bible_data.get_places_for_range(book, block["chapter"], block["verse"], block["chapter"], block["verse"], translation_id=version_id)
         result_verses = [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses]
+        # Re-derive label from the resolved chapter/verse so compare-mode shows
+        # the mapped reference (e.g. NB88 3:1 → KJV 2:28) rather than the source.
+        book_name = USFM_TO_NAME.get(book, book)
+        base = {**base, "label": f"{book_name} {block['chapter']}:{block['verse']}"}
         _annotate_xrefs(bible_data, version_id, book, result_verses)
         return {**base, "verses": result_verses, "headings": headings, "footnotes": footnotes, "places": places}
     elif btype == "verse_range":
