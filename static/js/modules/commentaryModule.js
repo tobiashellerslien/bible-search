@@ -274,6 +274,29 @@
         return { body: cleaned, refs };
     }
 
+    // Render a Scofield body to HTML: escape, replace `_(See Scofield "X")_`
+    // pointers with clickable links, then turn remaining `_..._` into <em>,
+    // and preserve paragraph breaks.
+    function renderScofieldBody(text) {
+        if (!text) return '';
+        let html = esc(text);
+        // "See Scofield" pointers (post-escape, quotes are &quot;)
+        html = html.replace(
+            /_?\(?See Scofield &quot;([^&]+?)&quot;\)?_?/g,
+            (_m, refLabel) => {
+                const safeRef = refLabel.replace(/'/g, '&#39;');
+                return `<a class="scofield-see-link" data-see-ref="${safeRef}" href="#" `
+                    + `title="Åpne Scofield-note for ${safeRef}">`
+                    + `📖 Se Scofield: ${safeRef}</a>`;
+            }
+        );
+        // Remaining `_..._` → <em>...</em> (single line, non-greedy)
+        html = html.replace(/_([^_\n]+?)_/g, '<em>$1</em>');
+        // Paragraph breaks
+        const paragraphs = html.split(/\n{2,}/).map(p => p.replace(/\n/g, '<br>'));
+        return paragraphs.map(p => `<p>${p}</p>`).join('');
+    }
+
     function refLabel(refStr) {
         // refStr like "GEN.1.27" or "MAT.19.4-6" or "GEN.1" (whole chapter)
         const parts = refStr.split('.');
@@ -377,7 +400,7 @@
             bodyHtml = renderMarkdownWithCollapsibleH2(intro.body);
         } else {
             const refsParsed = extractScofieldRefs(intro.body);
-            bodyHtml = `<div class="commentary-plain">${esc(refsParsed.body)}</div>`
+            bodyHtml = `<div class="commentary-plain commentary-scofield">${renderScofieldBody(refsParsed.body)}</div>`
                 + (refsParsed.refs.length ? renderRefsToggle(refsParsed.refs) : '');
         }
         // Intro boxes always start collapsed.
@@ -406,7 +429,7 @@
             bodyHtml = renderMarkdownWithCollapsibleH2(entry.body);
         } else {
             const refsParsed = extractScofieldRefs(entry.body);
-            bodyHtml = `<div class="commentary-plain">${esc(refsParsed.body)}</div>`
+            bodyHtml = `<div class="commentary-plain commentary-scofield">${renderScofieldBody(refsParsed.body)}</div>`
                 + (refsParsed.refs.length ? renderRefsToggle(refsParsed.refs) : '');
         }
         const openAttr = opts && opts.open ? ' open' : '';
@@ -528,6 +551,15 @@
             it.addEventListener('click', () => {
                 const label = it.dataset.label;
                 if (typeof window.searchFromXref === 'function') window.searchFromXref(label);
+            });
+        });
+        _container.querySelectorAll('.scofield-see-link').forEach(el => {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                const ref = el.dataset.seeRef;
+                if (ref && typeof window.searchFromXref === 'function') {
+                    window.searchFromXref(ref);
+                }
             });
         });
     }

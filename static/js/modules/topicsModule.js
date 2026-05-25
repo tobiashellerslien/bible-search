@@ -16,6 +16,14 @@
     let _hasBeenShown = false;
     let _isMobile = false;
 
+    // Filter: by default only render topics on the match-path (matched topic
+    // + its ancestors). A per-parent "Vis alle undertemaer" button reveals
+    // the rest of that parent's children. The set holds parent-topic IDs
+    // whose siblings have been revealed; sentinel 0 means "all globally".
+    let _expandedSmall = new Set();
+    let _currentTree = null;
+    let _lastScopeKey = '';
+
     function isMobileNow() {
         return !!(window.AppModuleHost && window.AppModuleHost.isMobile && window.AppModuleHost.isMobile());
     }
@@ -216,34 +224,83 @@
         return n;
     }
 
-    function buildTopicNodeHtml(node, depth) {
-        const hasChildren = node.children && node.children.length > 0;
-        const childHtml = hasChildren
-            ? `<div class="topic-children">`
-              + node.children.map(c => buildTopicNodeHtml(c, depth + 1)).join('')
-              + `</div>`
-            : '';
+    // Memoised: does this node or any descendant carry is_match=true?
+    // Drives match-path highlighting and bypasses the small-topic filter.
+    const _matchPathMemo = new WeakMap();
+    function subtreeHasMatch(node) {
+        if (!node) return false;
+        if (_matchPathMemo.has(node)) return _matchPathMemo.get(node);
+        let v = !!node.is_match;
+        if (!v && node.children) {
+            for (const c of node.children) {
+                if (subtreeHasMatch(c)) { v = true; break; }
+            }
+        }
+        _matchPathMemo.set(node, v);
+        return v;
+    }
+
+    function shouldRenderNode(node, parentId) {
+        if (subtreeHasMatch(node)) return true;
+        if (_expandedSmall.has(0)) return true;
+        if (parentId != null && _expandedSmall.has(parentId)) return true;
+        return false;
+    }
+
+    function buildTopicNodeHtml(node, depth, parentId) {
+        const allChildren = node.children || [];
+        let renderedChildHtml = '';
+        let hiddenSmallCount = 0;
+        if (allChildren.length) {
+            const parts = [];
+            for (const c of allChildren) {
+                if (shouldRenderNode(c, node.id)) {
+                    parts.push(buildTopicNodeHtml(c, depth + 1, node.id));
+                } else {
+                    hiddenSmallCount++;
+                }
+            }
+            if (hiddenSmallCount > 0) {
+                parts.push(
+                    `<button type="button" class="topics-show-small"`
+                    + ` data-parent-id="${node.id}">`
+                    + esc(tFn('sidebar.topics.showAllSubtopics', hiddenSmallCount))
+                    + `</button>`
+                );
+            }
+            if (parts.length) {
+                renderedChildHtml = `<div class="topic-children">${parts.join('')}</div>`;
+            }
+        }
+
+        const hasRenderedChildren = renderedChildHtml.length > 0;
         const triggers = buildTriggerChips(node);
-        // Badge = sum of direct verse-rows across this topic + all rendered
-        // descendants. That keeps it consistent with what the user can actually
-        // see in the tree (parent topics typically have 0 direct rows of their
-        // own — all verses live in subtopics). Sort still uses node.verse_count.
         const visibleCount = visibleSubtreeCount(node);
         const count = `<span class="topic-count" title="${esc(tFn('sidebar.topics.countTitle'))}">${visibleCount}</span>`;
-        const parentBadge = hasChildren
-            ? `<span class="topic-parent-badge" title="${esc(tFn('sidebar.topics.subtopicsCount', node.children.length))}">↳ ${node.children.length}</span>`
+        const childBadgeCount = allChildren.length;
+        const parentBadge = childBadgeCount > 0
+            ? `<span class="topic-parent-badge" title="${esc(tFn('sidebar.topics.subtopicsCount', childBadgeCount))}">↳ ${childBadgeCount}</span>`
             : '';
-        const parentClass = hasChildren ? ' has-children' : '';
-        return `<details class="topic-node${parentClass}" data-topic-id="${node.id}" data-depth="${depth}">`
+
+        let cls = 'topic-node';
+        if (hasRenderedChildren) cls += ' has-children';
+        if (node.is_match) cls += ' topic-node--match';
+        else if (subtreeHasMatch(node)) cls += ' topic-node--in-match-path';
+
+        const matchTitle = node.is_match
+            ? ` title="${esc(tFn('sidebar.topics.matchBadgeTitle'))}"`
+            : '';
+
+        return `<details class="${cls}" data-topic-id="${node.id}" data-depth="${depth}">`
             + `<summary>`
-              + `<span class="topic-name">${esc(node.name)}</span>`
+              + `<span class="topic-name"${matchTitle}>${esc(node.name)}</span>`
               + count
               + parentBadge
               + triggers
             + `</summary>`
             + `<div class="topic-body">`
               + `<div class="topic-verses xr-panel-inner" data-loaded="0"></div>`
-              + childHtml
+              + renderedChildHtml
             + `</div>`
             + `</details>`;
     }
@@ -324,18 +381,71 @@
         }
     }
 
+    function captureOpenTopicIds() {
+        if (!_container) return new Set();
+        const ids = new Set();
+        _container.querySelectorAll('.topic-node[open]').forEach(el => {
+            const tid = Number(el.dataset.topicId);
+            if (tid) ids.add(tid);
+        });
+        return ids;
+    }
+
+    function restoreOpenTopicIds(ids) {
+        if (!_container || !ids || !ids.size) return;
+        ids.forEach(tid => {
+            const el = _container.querySelector(`.topic-node[data-topic-id="${tid}"]`);
+            if (el) el.open = true;
+        });
+    }
+
     function renderTree(tree) {
+        const openIds = captureOpenTopicIds();
+        _currentTree = tree;
         if (!tree || !tree.length) {
             setTreeHtml(`<div class="topics-empty">${esc(tFn('sidebar.topics.empty'))}</div>`);
             return;
         }
-        const html = tree.map(n => buildTopicNodeHtml(n, 0)).join('');
-        setTreeHtml(html);
+        const parts = [];
+        let hiddenRoots = 0;
+        for (const n of tree) {
+            if (shouldRenderNode(n, null)) {
+                parts.push(buildTopicNodeHtml(n, 0, null));
+            } else {
+                hiddenRoots++;
+            }
+        }
+        if (hiddenRoots > 0) {
+            parts.push(
+                `<button type="button" class="topics-show-small topics-show-small--global"`
+                + ` data-parent-id="0">`
+                + esc(tFn('sidebar.topics.showAllSubtopics', hiddenRoots))
+                + `</button>`
+            );
+        }
+        if (!parts.length) {
+            setTreeHtml(`<div class="topics-empty">${esc(tFn('sidebar.topics.empty'))}</div>`);
+            return;
+        }
+        setTreeHtml(parts.join(''));
+        restoreOpenTopicIds(openIds);
         attachHandlers();
     }
 
     function attachHandlers() {
         if (!_container) return;
+        // Show-small toggles: reveal previously filtered tiny topics. Click on
+        // a per-parent button only widens that subtree; the global button at
+        // the root reveals every hidden topic in one go.
+        _container.querySelectorAll('.topics-show-small').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                const pid = Number(btn.dataset.parentId);
+                _expandedSmall.add(pid);
+                renderTree(_currentTree);
+            });
+        });
         // Lazy-load verses when a topic node opens.
         _container.querySelectorAll('.topic-node').forEach(det => {
             det.addEventListener('toggle', async (e) => {
@@ -461,6 +571,10 @@
         setScopeLabel(scopeLabel, { showExpand: isMvbScope });
 
         const key = scopeKey(_scope);
+        if (key !== _lastScopeKey) {
+            _expandedSmall = new Set();
+            _lastScopeKey = key;
+        }
         let tree = _dataCache.get(key);
         if (!tree) {
             setTreeHtml(`<div class="topics-loading">${esc(tFn('sidebar.topics.loading'))}</div>`);
@@ -585,6 +699,9 @@
             _dataCache.clear();
             _topicDetailCache.clear();
             _previewCache.clear();
+            _expandedSmall = new Set();
+            _currentTree = null;
+            _lastScopeKey = '';
             if (_container) {
                 const tree = _container.querySelector('.topics-tree');
                 if (tree) tree.innerHTML = '';

@@ -168,6 +168,9 @@ const I18N = {
         'sidebar.topics.jumpToTrigger': 'Gå til verset som utløste dette temaet',
         'sidebar.topics.subtopicsCount': '{0} undertemaer',
         'sidebar.topics.showAll': 'Vis alle ({0} til)',
+        'sidebar.topics.showSmall': '+ {0} små undertemaer',
+        'sidebar.topics.showAllSubtopics': '+ Vis alle undertemaer ({0})',
+        'sidebar.topics.matchBadgeTitle': 'Dette temaet matcher gjeldende tekst',
         'sidebar.leksikon.title': 'Leksikon',
         'sidebar.leksikon.empty': 'Ingen leksikon-oppslag for denne teksten',
         'sidebar.leksikon.loading': 'Laster leksikon…',
@@ -1067,7 +1070,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
             <div class="study-tray-row">
                 <div class="study-tray-inner">
                     <button class="tray-btn" data-module="map"${mapDisabled ? ' disabled aria-disabled="true"' : ` onclick="openMapForBlock(${idx},null)"`} title="${mapTitle}"><span class="tray-btn-emoji">🗺️</span><span class="tray-btn-label">${mapLabel}</span></button>
-                    <button class="tray-btn" data-module="commentary" onclick="openCommentaryForBlock(${idx})" title="${escAttr(t('sidebar.commentary.title'))}"><span class="tray-btn-emoji">✒️</span><span class="tray-btn-label">Kommentar</span></button>
+                    <button class="tray-btn" data-module="commentary" onclick="openCommentaryForBlock(${idx})" title="${escAttr(t('sidebar.commentary.title'))}"><span class="tray-btn-emoji">✒️</span><span class="tray-btn-label"><span class="tray-label-long">Kommentar</span><span class="tray-label-short">Komment.</span></span></button>
                     <button class="tray-btn" data-module="leksikon" onclick="openLeksikonForBlock(${idx})" title="${escAttr(t('sidebar.leksikon.title'))}"><span class="tray-btn-emoji">📕</span><span class="tray-btn-label">Leksikon</span></button>
                     <button class="tray-btn" data-module="topics"${block.has_topics ? ` onclick="openTopicsForBlock(${idx})"` : ' disabled aria-disabled="true"'} title="${escAttr(block.has_topics ? t('sidebar.topics.title') : t('card.study.topics.empty'))}"><span class="tray-btn-emoji">🎨</span><span class="tray-btn-label">Tema</span></button>
                     <button class="tray-btn" data-module="outline" onclick="openOutlineForBlock(${idx})" title="${escAttr(t('sidebar.outline.title'))}"><span class="tray-btn-emoji">📜</span><span class="tray-btn-label">Outline</span></button>
@@ -1107,7 +1110,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
         if (showExpand) {
             const isExpanded = !!(expandState && expandState.originalBlock);
             html += `<button class="chapter-expand-bar" data-card-idx="${idx}" data-expanded="${isExpanded ? 'true' : 'false'}" onclick="toggleChapterExpand(${idx})" title="${escAttr(t(isExpanded ? 'card.collapseChapter' : 'card.expandChapter'))}" aria-label="${escAttr(t(isExpanded ? 'card.collapseChapter' : 'card.expandChapter'))}">
-                <svg class="chapter-expand-arrow" viewBox="0 0 24 12" aria-hidden="true"><path d="M2 2 L12 10 L22 2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span class="chapter-expand-arrow" aria-hidden="true">&#8249;</span>
             </button>`;
         }
     }
@@ -1128,7 +1131,12 @@ function renderCompareBody(idx) {
         if (!cs.allData) { body.innerHTML = `<span class="compare-loading">${escHtml(t('card.compareLoading'))}</span>`; return; }
         let html = '';
         let first = true;
-        for (const [vName, blocks] of Object.entries(cs.allData)) {
+        const orderedAll = allVersionsList
+            .map(v => [String(v.id), cs.allData[String(v.id)]])
+            .filter(([, b]) => b !== undefined);
+        const knownAllIds = new Set(orderedAll.map(([id]) => id));
+        const extraAll = Object.entries(cs.allData).filter(([id]) => !knownAllIds.has(id));
+        for (const [vName, blocks] of [...orderedAll, ...extraAll]) {
             const verses = blocks.flatMap(b => b.verses || []);
             if (verses.length === 0) continue;
             const headings = blocks.flatMap(b => b.headings || []);
@@ -4295,7 +4303,7 @@ document.getElementById('fontUICtrl').addEventListener('click', e => {
     const btn = e.target.closest('.font-ui-btn');
     if (btn) applyFontUI(btn.dataset.val);
 });
-applyFontUI(localStorage.getItem('fontUI') || 'mono');
+applyFontUI(localStorage.getItem('fontUI') || 'serif');
 
 applyI18n();
 
