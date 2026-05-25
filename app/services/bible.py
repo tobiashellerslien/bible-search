@@ -974,19 +974,33 @@ class BibleData:
         return by_topic  # {topic_id: {...}}
 
     def aggregate_topics_for_range(self, book_usfm, ch_start, vs_start, ch_end, vs_end):
-        """Build a tree of matched topics for the range. Each matched topic
-        plus all its ancestors (so the user sees parent context) are nodes;
-        only matched leaves carry 'triggered_by'. Sorted at every level by
-        total descendant verse-count (incl. self) descending."""
+        """Build a tree of topics for the range. For each matched topic we
+        include its full ancestor chain AND every other descendant of the
+        matched roots — so the user sees matched leaves in the context of
+        their siblings, not in isolation. Matched nodes carry 'triggered_by'
+        and `is_match=True`. Sorted at every level by total descendant
+        verse-count (incl. self) descending."""
         matched = self.get_topics_for_range(book_usfm, ch_start, vs_start, ch_end, vs_end)
         if not matched:
             return []
         counts = self._ensure_topic_counts()
         own_counts = self._ensure_topic_own_counts()
 
-        # Walk each matched topic up to root collecting all needed nodes.
-        # Read the parent + name for any ancestor we haven't already seen.
-        nodes = {}  # tid -> {id, name, source, parent_id, verse_count, triggered_by, children:[]}
+        # Walk each matched topic up to root, collecting ancestors + finding
+        # root ancestors. We then bulk-load every descendant of those roots
+        # so siblings of matched nodes are present in the returned tree.
+        nodes = {}  # tid -> {id, name, source, parent_id, verse_count, ...}
+        def _make_node(tid, name, parent_id, source):
+            return {
+                "id": tid, "name": name, "source": source,
+                "parent_id": parent_id,
+                "verse_count": counts.get(tid, 0),
+                "own_count": own_counts.get(tid, 0),
+                "triggered_by": [],
+                "is_match": False,
+                "children": [],
+            }
+
         def _ensure_node(tid):
             if tid in nodes:
                 return nodes[tid]
@@ -996,28 +1010,45 @@ class BibleData:
             if not row:
                 return None
             name, parent_id, source = row
-            n = {
-                "id": tid, "name": name, "source": source,
-                "parent_id": parent_id,
-                "verse_count": counts.get(tid, 0),
-                "own_count": own_counts.get(tid, 0),
-                "triggered_by": [],
-                "children": [],
-            }
+            n = _make_node(tid, name, parent_id, source)
             nodes[tid] = n
             return n
 
+        root_ids = set()
         for tid, m in matched.items():
             node = _ensure_node(tid)
             if node is None:
                 continue
             node["triggered_by"] = m["triggered_by"]
+            node["is_match"] = True
             cur = node["parent_id"]
+            last_id = tid
             while cur is not None:
                 p = _ensure_node(cur)
                 if p is None:
                     break
+                last_id = cur
                 cur = p["parent_id"]
+            root_ids.add(last_id)
+
+        # Bulk-load every descendant of the collected roots so we include
+        # sibling subtopics, not just the matched path. Hierarchy is shallow
+        # (max ~4 levels) so the recursive CTE is cheap.
+        if root_ids:
+            placeholders = ",".join("?" for _ in root_ids)
+            cur = self.db.execute(
+                "WITH RECURSIVE sub(id) AS ("
+                f"  SELECT id FROM topics WHERE id IN ({placeholders})"
+                "  UNION ALL"
+                "  SELECT t.id FROM topics t JOIN sub ON t.parent_id = sub.id"
+                ") SELECT t.id, t.name, t.parent_id, t.source FROM topics t"
+                " JOIN sub ON sub.id = t.id",
+                list(root_ids),
+            )
+            for tid, name, parent_id, source in cur:
+                if tid in nodes:
+                    continue
+                nodes[tid] = _make_node(tid, name, parent_id, source)
 
         # Build path for each node (root → leaf names).
         for n in nodes.values():
@@ -1026,8 +1057,6 @@ class BibleData:
             while cur is not None and cur in nodes:
                 path.append(nodes[cur]["name"])
                 cur = nodes[cur]["parent_id"]
-            # If we ran off the tree of collected nodes but still have ancestors
-            # in the DB, walk the rest via _topic_path for completeness.
             if cur is not None:
                 rest = self._topic_path(cur)
                 path.extend(reversed(rest))
@@ -1048,7 +1077,6 @@ class BibleData:
                 _sort_tree(c["children"])
         _sort_tree(roots)
 
-        # Drop parent_id from output (internal-only).
         def _strip(lst):
             for n in lst:
                 n.pop("parent_id", None)
