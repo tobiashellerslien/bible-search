@@ -2851,6 +2851,7 @@
             font-size: 0.82rem;
             color: var(--text);
             width: 260px;
+            max-width: calc(100vw - 32px);
             border-top: 3px solid var(--place-color, var(--accent));
             /* Leaflet popups set text-align:center; sub-popup is parented to the
                popup now so it inherits that. Force left so the Detaljer rows read
@@ -2873,6 +2874,7 @@
         }
         .map-subpopup-close:hover { color: var(--text); background: var(--hover-bg); }
         .map-subpopup-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+        .map-subpopup-rows { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
         .map-subpopup-row { display: flex; flex-direction: column; gap: 2px; }
         .map-subpopup-label {
             font-size: 0.68rem;
@@ -2892,6 +2894,47 @@
             transition: background 0.15s, border-color 0.15s;
         }
         .map-subpopup-links a:hover { background: var(--accent-dim); border-color: var(--accent); }
+        .map-subpopup-thumb {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 10;
+            border-radius: 6px;
+            overflow: hidden;
+            background: var(--border);
+            flex-shrink: 0;
+        }
+        /* PC: wider sub-popup with thumb beside the rows. */
+        @media (min-width: 701px) {
+            .map-subpopup:has(.map-subpopup-body--with-thumb) { width: 460px; }
+            .map-subpopup-body--with-thumb { flex-direction: row; align-items: stretch; }
+            .map-subpopup-body--with-thumb .map-subpopup-thumb {
+                width: 180px; aspect-ratio: auto; align-self: stretch;
+            }
+        }
+        .map-subpopup-thumb img {
+            width: 100%; height: 100%; object-fit: cover; display: block;
+        }
+        .map-subpopup-thumb-credit {
+            position: absolute; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0));
+            color: #fff;
+            font-size: 0.7rem;
+            padding: 12px 8px 5px;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 6px;
+        }
+        .map-subpopup-thumb-credit a { color: #fff; text-decoration: underline; text-decoration-color: rgba(255,255,255,0.4); }
+        .map-subpopup-thumb-credit a:hover { text-decoration-color: #fff; }
+        .thumb-sat-badge {
+            background: rgba(255,255,255,0.18);
+            border: 1px solid rgba(255,255,255,0.4);
+            padding: 1px 6px;
+            border-radius: 999px;
+            font-size: 0.62rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+        }
 
         /* Verse-text highlight applied while a place popup is open */
         .map-verse-highlight {

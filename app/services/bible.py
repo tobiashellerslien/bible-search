@@ -540,6 +540,9 @@ class BibleData:
             "       p.comment, p.semantic_type, p.preceding_article, "
             "       p.wikidata_id, p.wikipedia_url, "
             "       p.confidence, p.confidence_votes, "
+            "       p.thumb_file, p.thumb_credit, p.thumb_credit_url, "
+            "       p.thumb_description, p.thumb_is_satellite, p.thumb_placeholder, "
+            "       p.precision_meters, p.precision_description, "
             "       pv.chapter, pv.verse "
             "FROM place_verses pv JOIN places p ON p.id = pv.place_id "
             f"WHERE {' AND '.join(where)} "
@@ -552,6 +555,9 @@ class BibleData:
              comment, semantic_type, preceding_article,
              wikidata_id, wikipedia_url,
              confidence, confidence_votes,
+             thumb_file, thumb_credit, thumb_credit_url,
+             thumb_description, thumb_is_satellite, thumb_placeholder,
+             precision_meters, precision_description,
              ch, vs) in self.db.execute(sql, params):
             if non_eng:
                 _, ch, vs = self.vsf.from_eng(tx_vsf, book_usfm, ch, vs)
@@ -570,6 +576,23 @@ class BibleData:
                     "wikipedia_url": wikipedia_url,
                     "confidence": confidence,
                     "confidence_votes": confidence_votes,
+                    "thumb": (
+                        {
+                            "file": f"/static/place_thumbs/{thumb_file}",
+                            "credit": thumb_credit,
+                            "credit_url": thumb_credit_url,
+                            "description": thumb_description,
+                            "is_satellite": bool(thumb_is_satellite),
+                            "placeholder": thumb_placeholder,
+                        }
+                        if thumb_file
+                        else None
+                    ),
+                    "precision": (
+                        {"meters": precision_meters, "description": precision_description}
+                        if precision_meters is not None
+                        else None
+                    ),
                     "refs": [],
                 }
                 order.append(pid)
@@ -685,7 +708,10 @@ class BibleData:
         row = self.db.execute(
             "SELECT id, name, aliases, placemark, kind, geometry, confidence, "
             "       confidence_votes, comment, semantic_type, preceding_article, "
-            "       wikidata_id, wikipedia_url "
+            "       wikidata_id, wikipedia_url, "
+            "       thumb_file, thumb_credit, thumb_credit_url, thumb_description, "
+            "       thumb_is_satellite, thumb_placeholder, "
+            "       precision_meters, precision_description "
             "FROM places WHERE id=?",
             [place_id],
         ).fetchone()
@@ -693,7 +719,10 @@ class BibleData:
             return None
         (pid, name, aliases, placemark, kind, geometry, confidence,
          confidence_votes, comment, semantic_type, preceding_article,
-         wikidata_id, wikipedia_url) = row
+         wikidata_id, wikipedia_url,
+         thumb_file, thumb_credit, thumb_credit_url, thumb_description,
+         thumb_is_satellite, thumb_placeholder,
+         precision_meters, precision_description) = row
         ref_rows = self.db.execute(
             "SELECT pv.book_usfm, pv.chapter, pv.verse "
             "FROM place_verses pv JOIN books b ON b.usfm = pv.book_usfm "
@@ -723,6 +752,23 @@ class BibleData:
             "preceding_article": preceding_article,
             "wikidata_id": wikidata_id,
             "wikipedia_url": wikipedia_url,
+            "thumb": (
+                {
+                    "file": f"/static/place_thumbs/{thumb_file}",
+                    "credit": thumb_credit,
+                    "credit_url": thumb_credit_url,
+                    "description": thumb_description,
+                    "is_satellite": bool(thumb_is_satellite),
+                    "placeholder": thumb_placeholder,
+                }
+                if thumb_file
+                else None
+            ),
+            "precision": (
+                {"meters": precision_meters, "description": precision_description}
+                if precision_meters is not None
+                else None
+            ),
             "refs": refs,
         }
 
