@@ -662,7 +662,8 @@
             if (place.semantic_type) {
                 inner += `<div class="map-subpopup-row"><span class="map-subpopup-label">Type</span><div>${esc(translateType(place.semantic_type))}</div></div>`;
             }
-            if (place.precision && place.precision.meters != null) {
+            const isPolygonKind = place.kind === 'region' || place.kind === 'water';
+            if (!isPolygonKind && place.precision && place.precision.meters != null) {
                 const m = place.precision.meters;
                 const descRaw = place.precision.description;
                 const desc = descRaw ? ` <span class="map-subpopup-dim">(${esc(translatePrecision(descRaw))})</span>` : '';
