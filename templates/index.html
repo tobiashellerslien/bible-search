@@ -15,43 +15,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Bibelsøk – Søk i og studér Bibelen</title>
     <meta name="description" content="Gratis verktøy for bibelsøk og bibelstudie. Søk i Bibelen 2011, Norsk Bibel 88/07, Bibelen Guds Ord, ESV, NIV m.fl. Bibelkart, kommentarer, leksikon og mer.">
-    <link rel="canonical" href="https://bibelsøk.no/">
+    <link rel="canonical" href="https://xn--bibelsk-v1a.no/">
 
     <!-- Open Graph (link-preview i WhatsApp, iMessage, Signal, Discord, Facebook m.fl.) -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://bibelsøk.no/">
+    <meta property="og:url" content="https://xn--bibelsk-v1a.no/">
     <meta property="og:title" content="Bibelsøk – Søk i og studér Bibelen">
     <meta property="og:description" content="Gratis verktøy for bibelsøk og bibelstudie. Søk i Bibelen 2011, Norsk Bibel 88/07, Bibelen Guds Ord, ESV, NIV m.fl. Bibelkart, kommentarer, leksikon og mer.">
-    <meta property="og:image" content="https://bibelsøk.no/static/images/web-app-manifest-512x512.png">
-    <meta property="og:image:width" content="512">
-    <meta property="og:image:height" content="512">
+    <meta property="og:image" content="https://xn--bibelsk-v1a.no/static/images/logo-wide.png">
+    <meta property="og:image:width" content="1774">
+    <meta property="og:image:height" content="887">
     <meta property="og:locale" content="nb_NO">
     <meta property="og:site_name" content="Bibelsøk">
 
     <!-- Twitter Card (Twitter/X, Slack m.fl.) -->
-    <meta name="twitter:card" content="summary">
+    <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Bibelsøk – Søk i og studér Bibelen">
     <meta name="twitter:description" content="Gratis verktøy for bibelsøk og bibelstudie. Søk i Bibelen 2011, Norsk Bibel 88/07, Bibelen Guds Ord, ESV, NIV m.fl. Bibelkart, kommentarer, leksikon og mer.">
-    <meta name="twitter:image" content="https://bibelsøk.no/static/images/web-app-manifest-512x512.png">
+    <meta name="twitter:image" content="https://xn--bibelsk-v1a.no/static/images/logo-wide.png">
 
-    <!-- Strukturert data: gjør at Google kan vise innebygd søkeboks i søkeresultater -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebSite",
-      "name": "Bibelsøk",
-      "url": "https://bibelsøk.no/",
-      "description": "Søk fritt i Bibelen på norsk og engelsk",
-      "potentialAction": {
-        "@type": "SearchAction",
-        "target": {
-          "@type": "EntryPoint",
-          "urlTemplate": "https://bibelsøk.no/?q={search_term_string}"
-        },
-        "query-input": "required name=search_term_string"
-      }
-    }
-    </script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
           integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
@@ -63,18 +45,17 @@
     <script src="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.js.iife.js" defer></script>
 
     <!-- FAVICON -->
-    <link rel="icon" type="image/png" href="/static/images/favicon-96x96.png?v=20260514" sizes="96x96" />
-    <link rel="icon" type="image/svg+xml" href="/static/images/favicon.svg?v=20260514" />
-    <link rel="shortcut icon" href="/static/images/favicon.ico?v=20260514" />
-    <link rel="manifest" href="/static/images/site.webmanifest?v=20260514" />
+    <link rel="icon" type="image/png" href="/static/images/favicon-96x96.png?v=20260526" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/static/images/favicon.svg?v=20260526" />
+    <link rel="shortcut icon" href="/static/images/favicon.ico?v=20260526" />
+    <link rel="manifest" href="/static/images/site.webmanifest?v=20260526" />
     
     <!-- PWA -->
-    <link rel="apple-touch-icon" sizes="180x180" href="/static/images/apple-touch-icon.png?v=20260514" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/images/apple-touch-icon.png?v=20260526" />
     <meta name="apple-mobile-web-app-title" content="Bibelsøk" />
-     <meta name="theme-color" content="#F5F2EE">
+    <meta name="theme-color" content="#F5F2EE">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Bibelsøk">
     <meta name="mobile-web-app-capable" content="yes">
 
     <!-- SPLASH SCREENS -->
@@ -502,8 +483,8 @@
 <!-- Ekstern popup: anchored under #mvbExternal on PC, bottom-sheet on mobile -->
 <div id="externalPopup" class="external-popup" data-state="closed" aria-hidden="true">
     <div class="external-popup-inner">
-        <a class="external-link" id="extInterlinear" href="#" target="_blank" rel="noopener"><img src="{{ url_for('static', filename='images/biblehub.png') }}" class="external-link-logo" alt=""><span>Grunntekst</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>
-        <a class="external-link" id="extBibleref" href="#" target="_blank" rel="noopener"><img src="{{ url_for('static', filename='images/bibleref.png') }}" class="external-link-logo" alt=""><span>BibleRef</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>
+        <a class="external-link" id="extInterlinear" href="#" target="_blank" rel="noopener"><img src="{{ url_for('static', filename='images/biblehub.png') }}" class="external-link-logo" alt="BibleHub"><span>Grunntekst</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>
+        <a class="external-link" id="extBibleref" href="#" target="_blank" rel="noopener"><img src="{{ url_for('static', filename='images/bibleref.png') }}" class="external-link-logo" alt="BibleRef"><span>BibleRef</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>
         <a class="external-link" id="extSource" href="#" target="_blank" rel="noopener"><span>Kilde</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>
     </div>
 </div>
