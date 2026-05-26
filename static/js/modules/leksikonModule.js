@@ -496,7 +496,7 @@
     const moduleDef = {
         id: 'leksikon',
         title: 'Leksikon',
-        icon: '📕',
+        icon: '<img src="/static/images/lexicon.png" alt="" class="sidebar-module-icon-img">',
         async mount(container, ctx) {
             _container = container;
             _ctx = ctx;

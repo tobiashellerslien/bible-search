@@ -778,7 +778,7 @@
     const moduleDef = {
         id: 'commentary',
         title: 'Kommentar',
-        icon: '🖋️',
+        icon: '<img src="/static/images/pen.png" alt="" class="sidebar-module-icon-img">',
         async mount(container, ctx) {
             _container = container;
             _ctx = ctx;

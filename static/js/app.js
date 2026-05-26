@@ -1066,6 +1066,13 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
     // Study tray sits between header and body so it appears directly under the
     // study toggle in the header. Built up-front so it can be injected above
     // .verse-card-body while compare-active body still works as a flex row.
+    // credit for module icons:
+    // "https://www.flaticon.com/free-icons/pen-tool" "pen tool icons" Pen tool icons created by Those Icons - Flaticon
+    // "https://www.flaticon.com/free-icons/pin" "pin icons" Pin icons created by Freepik - Flaticon
+    // "https://www.flaticon.com/free-icons/theme" "theme icons" Theme icons created by alkhalifi design - Flaticon
+    // "https://www.flaticon.com/free-icons/book" "book icons" Book icons created by Freepik - Flaticon
+    // "https://www.flaticon.com/free-icons/list" "list icons" List icons created by Chanut - Flaticon
+
     let studyTrayHtml = '';
     if (block.book && block.verses.length > 0) {
         const placeCount = (block.places || []).length;
@@ -1075,11 +1082,11 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
         studyTrayHtml = `<div class="study-tray" data-open="${trayOpen ? 'true' : 'false'}" id="study-tray-${idx}">
             <div class="study-tray-row">
                 <div class="study-tray-inner">
-                    <button class="tray-btn" data-module="map"${mapDisabled ? ' disabled aria-disabled="true"' : ` onclick="openMapForBlock(${idx},null)"`} title="${mapTitle}"><span class="tray-btn-emoji">🗺️</span><span class="tray-btn-label">${mapLabel}</span></button>
-                    <button class="tray-btn" data-module="commentary" onclick="openCommentaryForBlock(${idx})" title="${escAttr(t('sidebar.commentary.title'))}"><span class="tray-btn-emoji">🖋️</span><span class="tray-btn-label"><span class="tray-label-long">Kommentar</span><span class="tray-label-short">Komment.</span></span></button>
-                    <button class="tray-btn" data-module="leksikon" onclick="openLeksikonForBlock(${idx})" title="${escAttr(t('sidebar.leksikon.title'))}"><span class="tray-btn-emoji">📕</span><span class="tray-btn-label">Leksikon</span></button>
-                    <button class="tray-btn" data-module="topics"${block.has_topics ? ` onclick="openTopicsForBlock(${idx})"` : ' disabled aria-disabled="true"'} title="${escAttr(block.has_topics ? t('sidebar.topics.title') : t('card.study.topics.empty'))}"><span class="tray-btn-emoji">🎨</span><span class="tray-btn-label">Tema</span></button>
-                    <button class="tray-btn" data-module="outline" onclick="openOutlineForBlock(${idx})" title="${escAttr(t('sidebar.outline.title'))}"><span class="tray-btn-emoji">📜</span><span class="tray-btn-label">Outline</span></button>
+                    <button class="tray-btn" data-module="map"${mapDisabled ? ' disabled aria-disabled="true"' : ` onclick="openMapForBlock(${idx},null)"`} title="${mapTitle}"><img class="tray-btn-emoji tray-btn-emoji-img" src="/static/images/map.png" alt=""><span class="tray-btn-label">${mapLabel}</span></button>
+                    <button class="tray-btn" data-module="commentary" onclick="openCommentaryForBlock(${idx})" title="${escAttr(t('sidebar.commentary.title'))}"><img class="tray-btn-emoji tray-btn-emoji-img" src="/static/images/pen.png" alt=""><span class="tray-btn-label"><span class="tray-label-long">Kommentar</span><span class="tray-label-short">Komment.</span></span></button>
+                    <button class="tray-btn" data-module="leksikon" onclick="openLeksikonForBlock(${idx})" title="${escAttr(t('sidebar.leksikon.title'))}"><img class="tray-btn-emoji tray-btn-emoji-img" src="/static/images/lexicon.png" alt=""><span class="tray-btn-label">Leksikon</span></button>
+                    <button class="tray-btn" data-module="topics"${block.has_topics ? ` onclick="openTopicsForBlock(${idx})"` : ' disabled aria-disabled="true"'} title="${escAttr(block.has_topics ? t('sidebar.topics.title') : t('card.study.topics.empty'))}"><img class="tray-btn-emoji tray-btn-emoji-img" src="/static/images/themes.png" alt=""><span class="tray-btn-label">Tema</span></button>
+                    <button class="tray-btn" data-module="outline" onclick="openOutlineForBlock(${idx})" title="${escAttr(t('sidebar.outline.title'))}"><img class="tray-btn-emoji tray-btn-emoji-img" src="/static/images/outline.png" alt=""><span class="tray-btn-label">Outline</span></button>
                     <button class="tray-btn" data-module="external" onclick="openExternalForBlock(${idx}, this)" title="Eksterne lenker"><img class="tray-btn-emoji tray-btn-emoji-img" src="/static/images/external.png" alt=""><span class="tray-btn-label">Ekstern</span></button>
                 </div>
             </div>
