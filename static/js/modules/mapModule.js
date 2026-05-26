@@ -1637,7 +1637,7 @@
     const moduleDef = {
         id: 'map',
         title: 'Kart',
-        icon: '🗺️',
+        icon: '<img src="/static/images/map.png" alt="" class="sidebar-module-icon-img">',
         mount(container, ctx) {
             _container = container;
             mountInto(container);

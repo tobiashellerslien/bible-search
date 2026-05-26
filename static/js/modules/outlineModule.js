@@ -378,7 +378,7 @@
     const moduleDef = {
         id: 'outline',
         title: 'Outline',
-        icon: '📜',
+        icon: '<img src="/static/images/outline.png" alt="" class="sidebar-module-icon-img">',
         async mount(container, ctx) {
             _container = container;
             _ctx = ctx;
