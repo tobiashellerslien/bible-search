@@ -1,6 +1,7 @@
 {
-  "name": "Bibelsøk",
+  "name": "Bibelsøk – Søk i og studér Bibelen",
   "short_name": "Bibelsøk",
+  "start_url": "/",
   "icons": [
     {
       "src": "/static/images/web-app-manifest-192x192.png?v=20260514",

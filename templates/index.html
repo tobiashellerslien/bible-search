@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="nb">
 <head>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-5YKEMWJRZ0"></script>
@@ -13,7 +13,45 @@
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Bibelsøk</title>
+    <title>Bibelsøk – Søk i og studér Bibelen</title>
+    <meta name="description" content="Gratis verktøy for bibelsøk og bibelstudie. Søk i Bibelen 2011, Norsk Bibel 88/07, Bibelen Guds Ord, ESV, NIV m.fl. Bibelkart, kommentarer, leksikon og mer.">
+    <link rel="canonical" href="https://bibelsøk.no/">
+
+    <!-- Open Graph (link-preview i WhatsApp, iMessage, Signal, Discord, Facebook m.fl.) -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://bibelsøk.no/">
+    <meta property="og:title" content="Bibelsøk – Søk i og studér Bibelen">
+    <meta property="og:description" content="Gratis verktøy for bibelsøk og bibelstudie. Søk i Bibelen 2011, Norsk Bibel 88/07, Bibelen Guds Ord, ESV, NIV m.fl. Bibelkart, kommentarer, leksikon og mer.">
+    <meta property="og:image" content="https://bibelsøk.no/static/images/web-app-manifest-512x512.png">
+    <meta property="og:image:width" content="512">
+    <meta property="og:image:height" content="512">
+    <meta property="og:locale" content="nb_NO">
+    <meta property="og:site_name" content="Bibelsøk">
+
+    <!-- Twitter Card (Twitter/X, Slack m.fl.) -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Bibelsøk – Søk i og studér Bibelen">
+    <meta name="twitter:description" content="Gratis verktøy for bibelsøk og bibelstudie. Søk i Bibelen 2011, Norsk Bibel 88/07, Bibelen Guds Ord, ESV, NIV m.fl. Bibelkart, kommentarer, leksikon og mer.">
+    <meta name="twitter:image" content="https://bibelsøk.no/static/images/web-app-manifest-512x512.png">
+
+    <!-- Strukturert data: gjør at Google kan vise innebygd søkeboks i søkeresultater -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Bibelsøk",
+      "url": "https://bibelsøk.no/",
+      "description": "Søk fritt i Bibelen på norsk og engelsk",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://bibelsøk.no/?q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
           integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
