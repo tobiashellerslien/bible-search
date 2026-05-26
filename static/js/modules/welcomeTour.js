@@ -98,7 +98,7 @@
             steps.push({
                 popover: {
                     title: '👆 Sveip for å bla',
-                    description: 'På mobil kan du sveipe <strong>venstre/høyre</strong> på et åpent kapittel eller vers for å bla videre. Prøv det!',
+                    description: 'På mobil kan du sveipe <strong>venstre/høyre</strong> på et åpent kapittel eller vers for å bla videre.',
                 },
             });
         }
@@ -118,8 +118,8 @@
                     + '</ul>'
                     + '<p class="tour-foot"><strong>To måter å åpne verktøyene på:</strong></p>'
                     + '<ul class="tour-list">'
-                    + '<li><strong>Marker vers</strong> — klikk/tap på ett eller flere vers, så dukker en verktøylinje opp med knapp for hvert studieverktøy. Best når du vil studere et spesifikt vers eller utvalg.</li>'
-                    + '<li><strong>«🎓 Studie»-knappen</strong> på hvert kort — åpner verktøyene for hele kapitlet eller den åpne passasjen.</li>'
+                    + '<li><strong>Klikk på vers</strong> — klikk/tap på ett eller flere vers, så dukker en verktøylinje opp med knapp for hvert studieverktøy. Best når du vil studere et spesifikt vers eller utvalg.</li>'
+                    + '<li><strong>«🎓 Studie»-knappen</strong> — åpner verktøyene for hele kapitlet eller den åpne passasjen.</li>'
                     + '</ul>'
                     + '<p class="tour-foot">På <strong>PC</strong> åpnes verktøyene i sidepanelet til høyre · på <strong>mobil</strong> sklir de opp fra bunnen.</p>',
             },

@@ -82,7 +82,7 @@ const I18N = {
             + '<li>Kart: satellittbilder © <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a> · gatekart © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · rendering med <a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>.</li>'
             + '<li>Åpen kildekode (MIT): <a href="https://github.com/tobiashellerslien/bible-search" target="_blank" rel="noopener">github.com/tobiashellerslien/bible-search</a> · <a href="https://bibel.tjelle.net/" target="_blank" rel="noopener" style="color:var(--text-muted)">konkurrerende tjeneste</a>.</li>',
         'feedback.title': 'Send tilbakemelding',
-        'feedback.intro': 'Alle tilbakemeldinger og kritikk settes stor pris på! Jeg ønsker at dette verktøyet skal bli best mulig — meldingen din havner rett på mobilen min.',
+        'feedback.intro': 'Alle tilbakemeldinger og kritikk settes stor pris på! Jeg ønsker at dette verktøyet skal bli best mulig. Meldingen din havner rett på mobilen min.',
         'feedback.category': 'Kategori',
         'feedback.cat.bug': '🐛 Feil',
         'feedback.cat.feature': '✨ Ny funksjon',
@@ -1735,7 +1735,7 @@ window.openAllXrefs = async function(btn, book, chapter, verse, version) {
 window.searchFromXref = function(label) {
     searchInput.value = label;
     updateSearchHighlight();
-    doSearch();
+    return doSearch();
 };
 
 function clearChapterTransition() {

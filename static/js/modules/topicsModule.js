@@ -446,27 +446,43 @@
                 renderTree(_currentTree);
             });
         });
-        // Lazy-load verses when a topic node opens.
+        // Lazy-load verses when a topic node opens. We fetch + render the
+        // verses *before* letting the panel animate open, so the content is
+        // already in place — otherwise a "Laster temaer…" placeholder would
+        // appear inside, then swap to verses, shoving the rest of the tree
+        // around twice on every expand.
         _container.querySelectorAll('.topic-node').forEach(det => {
-            det.addEventListener('toggle', async (e) => {
-                if (!det.open) return;
-                const versesEl = det.querySelector(':scope > .topic-body > .topic-verses');
+            const summary = det.querySelector(':scope > summary');
+            const versesEl = det.querySelector(':scope > .topic-body > .topic-verses');
+            const tid = Number(det.dataset.topicId);
+
+            async function loadVerses() {
                 if (!versesEl || versesEl.dataset.loaded === '1') return;
                 versesEl.dataset.loaded = '1';
-                const tid = Number(det.dataset.topicId);
-                versesEl.innerHTML = `<div class="topics-loading">${esc(tFn('sidebar.topics.loading'))}</div>`;
                 try {
                     const detail = await fetchTopicDetail(tid);
                     const verses = (detail && detail.verses) || [];
-                    if (!verses.length) {
-                        versesEl.innerHTML = '';
-                        return;
-                    }
+                    if (!verses.length) { versesEl.innerHTML = ''; return; }
                     renderVerseRows(versesEl, verses, false);
                 } catch (err) {
                     console.error(err);
-                    versesEl.innerHTML = `<div class="topics-empty">${esc(tFn('sidebar.topics.loading'))}</div>`;
+                    versesEl.innerHTML = '';
+                    versesEl.dataset.loaded = '0';
                 }
+            }
+
+            if (summary) {
+                summary.addEventListener('click', async (e) => {
+                    // Only defer the *opening* click on a not-yet-loaded node.
+                    if (det.open || !versesEl || versesEl.dataset.loaded === '1') return;
+                    e.preventDefault();
+                    await loadVerses();
+                    det.open = true;
+                });
+            }
+            // Fallback for programmatic opens (e.g. restored open state).
+            det.addEventListener('toggle', () => {
+                if (det.open) loadVerses();
             });
         });
         // Trigger chips: scroll to + flash every verse in the range that
