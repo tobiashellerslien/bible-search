@@ -133,10 +133,19 @@
     // ── Rendering helpers ───────────────────────────────────────────
     function renderBody(body) {
         if (!body) return '';
-        const html = esc(body)
+        // The server wraps inline scripture refs in <a class="leksikon-ref"
+        // data-ref="USFM.CH.VS"> anchors. Protect them from escaping (trusted
+        // HTML), escape the rest, apply italics/paragraphs, then restore.
+        const anchors = [];
+        const work = body.replace(/<a class="leksikon-ref"[^>]*>[\s\S]*?<\/a>/g, (m) => {
+            anchors.push(m);
+            return '@@R' + (anchors.length - 1) + '@@';
+        });
+        let html = esc(work)
             .replace(/_([^_\n]+)_/g, '<em>$1</em>')
             .replace(/\n{2,}/g, '</p><p>')
             .replace(/\n/g, '<br>');
+        html = html.replace(/@@R(\d+)@@/g, (_m, i) => anchors[Number(i)] || '');
         return `<p>${html}</p>`;
     }
 
@@ -259,6 +268,33 @@
         }).join('');
         setStatus(html);
         attachTriggerHandlers();
+        attachRefPreviewHandlers();
+    }
+
+    // Navigate the main view to a reference, then reopen the leksikon there —
+    // mirrors commentaryModule's openRefTarget.
+    async function openRefTarget(ref, label) {
+        if (typeof window.searchFromXref !== 'function') return;
+        const q = label || (window.RefPreviewPopup ? window.RefPreviewPopup.refLabel(ref) : ref);
+        // Mobile: the module overlay covers the reading area, so close it first
+        // to reveal the verse the user navigated to.
+        if (isMobileNow() && window.AppModuleHost && typeof window.AppModuleHost.closeModule === 'function') {
+            window.AppModuleHost.closeModule();
+            await window.searchFromXref(q);
+            return;
+        }
+        await window.searchFromXref(q);
+        await showForBlock(0);
+    }
+
+    // Inline scripture references in dictionary bodies: click — and hover on
+    // PC — opens the shared verse-preview popup with an "open" button.
+    function attachRefPreviewHandlers() {
+        if (!_container || !window.RefPreviewPopup) return;
+        window.RefPreviewPopup.bind(_container, 'a.leksikon-ref', {
+            getVersion: () => (_scope && _scope.range && _scope.range.version) || '',
+            onOpen: (ref, label) => openRefTarget(ref, label),
+        });
     }
 
     function attachTriggerHandlers() {
@@ -522,6 +558,7 @@
             _activeSource = null;
             _hasBeenShown = false;
             _entriesCache.clear();
+            if (window.RefPreviewPopup) window.RefPreviewPopup.hide();
             if (_container) {
                 const entriesEl = _container.querySelector('.leksikon-entries');
                 if (entriesEl) entriesEl.innerHTML = '';

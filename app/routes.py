@@ -15,6 +15,7 @@ from .services.bible import (
     get_search_stats,
     identify_book,
     is_reference_query,
+    linkify_dictionary_refs,
     parse_query,
     parse_search_query,
     quick_search,
@@ -547,6 +548,11 @@ def api_leksikon():
                 })
             entry["triggered_by"] = kept
         entries = [e for e in entries if e.get("triggered_by")]
+
+    # Wrap inline scripture refs (Easton/Smith prose) in anchors so the
+    # frontend can render the same verse-preview popup as commentaries.
+    for entry in entries:
+        entry["body"] = linkify_dictionary_refs(entry.get("body"))
 
     return jsonify({"entries": entries})
 

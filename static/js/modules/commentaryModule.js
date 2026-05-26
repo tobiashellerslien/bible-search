@@ -23,8 +23,6 @@
     // {commentary_id+entry-key -> bool} — remember per-entry open state across
     // refresh of the same commentary; cleared when switching commentary.
     let _expansionState = new Map();
-    // {book.ch.vs[-vs] -> preview text} for Scofield ref previews
-    const _previewCache = new Map();
 
     let _hasBeenShown = false;
     let _isMobile = false;
@@ -308,32 +306,6 @@
         return `${abbrev} ${parts[1]}:${parts.slice(2).join('.')}`;
     }
 
-    // Fetch up to two verses of preview text for a reference. Result cached as
-    // { label, verses:[{num,text}], more }.
-    async function fetchVersePreview(refStr) {
-        if (_previewCache.has(refStr)) return _previewCache.get(refStr);
-        const version = _scope && _scope.range && _scope.range.version;
-        const params = new URLSearchParams();
-        params.set('q', refLabel(refStr));
-        if (version) params.set('version', version);
-        const out = { label: refLabel(refStr), verses: [], more: false };
-        try {
-            const resp = await fetch('/api/search?' + params.toString());
-            const data = await resp.json();
-            if (data && data.type === 'reference' && Array.isArray(data.results)) {
-                const first = data.results[0];
-                if (first) {
-                    if (first.label) out.label = first.label;
-                    const vs = first.verses || [];
-                    out.verses = vs.slice(0, 2).map(v => ({ num: v.num, text: v.text }));
-                    out.more = vs.length > 2;
-                }
-            }
-        } catch { /* leave empty */ }
-        _previewCache.set(refStr, out);
-        return out;
-    }
-
     // Markdown render with collapsible H2 sections (Matthew Henry).
     function renderMarkdownWithCollapsibleH2(md) {
         if (!md) return '';
@@ -508,83 +480,7 @@
         attachRefPreviewHandlers();
     }
 
-    // ── Inline reference preview popup (shared by Scofield + M. Henry refs) ──
-    let _refPopupEl = null;
-    let _refPopupHideT = null;
-    let _refPopupShowT = null;
-    let _refPopupToken = 0;
-    let _refPopupAnchor = null;
-    // Pinned = opened by click; stays put until an outside click / another ref.
-    // Transient = opened by hover; auto-hides when the pointer leaves.
-    let _refPopupPinned = false;
-    const _refHoverCapable = !!(window.matchMedia && window.matchMedia('(hover: hover)').matches);
-
-    function ensureRefPopup() {
-        if (_refPopupEl) return _refPopupEl;
-        const el = document.createElement('div');
-        el.className = 'ref-preview-popup';
-        el.style.display = 'none';
-        el.innerHTML = '<div class="ref-popup-label"></div>'
-            + '<div class="ref-popup-body"></div>'
-            + '<button type="button" class="ref-popup-open"></button>';
-        document.body.appendChild(el);
-        el.addEventListener('mouseenter', () => {
-            if (_refPopupHideT) { clearTimeout(_refPopupHideT); _refPopupHideT = null; }
-        });
-        el.addEventListener('mouseleave', () => { if (!_refPopupPinned) scheduleHideRefPopup(); });
-        // Dismiss on outside-click / scroll / resize (attached once).
-        document.addEventListener('click', (e) => {
-            if (!_refPopupEl || _refPopupEl.style.display === 'none') return;
-            if (_refPopupEl.contains(e.target)) return;
-            if (e.target.closest && e.target.closest('a.scofield-ref, a.mh-ref')) return;
-            hideRefPopup();
-        }, true);
-        window.addEventListener('scroll', (e) => {
-            // Scrolling inside the popup body (to read more verses) must not
-            // dismiss a pinned popup; outer scrolling still does.
-            if (_refPopupEl && _refPopupEl.contains(e.target)) return;
-            hideRefPopup();
-        }, true);
-        window.addEventListener('resize', hideRefPopup);
-        _refPopupEl = el;
-        return el;
-    }
-
-    function positionRefPopup(pop, anchor) {
-        const r = anchor.getBoundingClientRect();
-        const vw = window.innerWidth, vh = window.innerHeight, margin = 12;
-        // Keep clear of the sidebar's vertical scrollbar on the right so it
-        // doesn't bleed through the popup when the ref sits near the edge.
-        const rightPad = margin + 14;
-        pop.style.maxWidth = Math.min(360, vw - margin - rightPad) + 'px';
-        const pr = pop.getBoundingClientRect();
-        // Prefer left-aligning to the ref; if that overflows the (scrollbar-
-        // padded) right edge, shift left so the full width stays on-screen.
-        let left = r.left;
-        const rightLimit = vw - pr.width - rightPad;
-        if (left > rightLimit) left = rightLimit;
-        if (left < margin) left = margin;
-        let top = r.bottom + 6;
-        if (top + pr.height > vh - margin) {
-            top = r.top - pr.height - 6;            // flip above the ref
-            if (top < margin) top = Math.max(margin, vh - pr.height - margin);
-        }
-        pop.style.left = left + 'px';
-        pop.style.top = top + 'px';
-    }
-
-    function hideRefPopup() {
-        if (_refPopupHideT) { clearTimeout(_refPopupHideT); _refPopupHideT = null; }
-        if (_refPopupEl) _refPopupEl.style.display = 'none';
-        _refPopupAnchor = null;
-        _refPopupPinned = false;
-    }
-
-    function scheduleHideRefPopup() {
-        if (_refPopupHideT) clearTimeout(_refPopupHideT);
-        _refPopupHideT = setTimeout(hideRefPopup, 220);
-    }
-
+    // ── Inline reference preview popup (shared RefPreviewPopup) ──
     // Navigate the main view to a reference, then reopen the commentary there.
     async function openRefTarget(ref) {
         if (!ref || typeof window.searchFromXref !== 'function') return;
@@ -600,38 +496,6 @@
         await window.searchFromXref(refLabel(ref));
         _selectedId = keepId;
         await showForBlock(0);
-    }
-
-    async function showRefPopup(anchor, pinned) {
-        const ref = anchor && anchor.dataset && anchor.dataset.ref;
-        if (!ref) return;
-        const pop = ensureRefPopup();
-        _refPopupAnchor = anchor;
-        _refPopupPinned = !!pinned;
-        if (_refPopupHideT) { clearTimeout(_refPopupHideT); _refPopupHideT = null; }
-        const token = ++_refPopupToken;
-        const labelEl = pop.querySelector('.ref-popup-label');
-        const bodyEl = pop.querySelector('.ref-popup-body');
-        const openBtn = pop.querySelector('.ref-popup-open');
-        labelEl.textContent = (anchor.textContent || '').trim() || refLabel(ref);
-        bodyEl.textContent = tFn('sidebar.commentary.loadingPreview');
-        bodyEl.classList.remove('is-empty');
-        openBtn.textContent = tFn('sidebar.commentary.openVerse');
-        openBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); hideRefPopup(); openRefTarget(ref); };
-        pop.style.display = '';
-        positionRefPopup(pop, anchor);
-        const data = await fetchVersePreview(ref);
-        if (token !== _refPopupToken) return;        // superseded by a newer hover/click
-        labelEl.textContent = data.label || refLabel(ref);
-        if (data.verses && data.verses.length) {
-            bodyEl.innerHTML = data.verses.map(v =>
-                `<span class="ref-popup-verse"><b>${esc(String(v.num))}</b>${esc(v.text)}</span>`
-            ).join(' ') + (data.more ? ' …' : '');
-        } else {
-            bodyEl.textContent = tFn('sidebar.commentary.empty');
-            bodyEl.classList.add('is-empty');
-        }
-        positionRefPopup(pop, anchor);
     }
 
     function attachRefPreviewHandlers() {
@@ -651,31 +515,12 @@
         });
         // Inline scripture references (Scofield + Matthew Henry full): click —
         // and hover on PC — opens a verse-preview popup with an "open" button.
-        _container.querySelectorAll('a.scofield-ref, a.mh-ref').forEach(a => {
-            // Click pins the popup open: it stays until an outside click or
-            // another ref. Clicking the same ref again keeps it open (never a
-            // toggle-close), so a hover-then-click never collapses the popup.
-            a.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (_refPopupShowT) { clearTimeout(_refPopupShowT); _refPopupShowT = null; }
-                showRefPopup(a, true);
+        if (window.RefPreviewPopup) {
+            window.RefPreviewPopup.bind(_container, 'a.scofield-ref, a.mh-ref', {
+                getVersion: () => (_scope && _scope.range && _scope.range.version) || '',
+                onOpen: (ref) => openRefTarget(ref),
             });
-            if (_refHoverCapable) {
-                a.addEventListener('mouseenter', () => {
-                    if (_refPopupShowT) clearTimeout(_refPopupShowT);
-                    _refPopupShowT = setTimeout(() => {
-                        // Don't downgrade an already-pinned popup on the same ref.
-                        const keepPinned = _refPopupPinned && _refPopupAnchor === a;
-                        showRefPopup(a, keepPinned);
-                    }, 140);
-                });
-                a.addEventListener('mouseleave', () => {
-                    if (_refPopupShowT) { clearTimeout(_refPopupShowT); _refPopupShowT = null; }
-                    if (!_refPopupPinned) scheduleHideRefPopup();
-                });
-            }
-        });
+        }
     }
 
     // ── Public API for triggers ─────────────────────────────────────
@@ -809,8 +654,7 @@
             // Keep _commentaries metadata (cheap to reuse). Wipe entries cache
             // so a fresh open re-fetches with current versification.
             _entriesCache.clear();
-            _previewCache.clear();
-            hideRefPopup();
+            if (window.RefPreviewPopup) window.RefPreviewPopup.hide();
             if (_container) {
                 const entriesEl = _container.querySelector('.commentary-entries');
                 if (entriesEl) entriesEl.innerHTML = '';
