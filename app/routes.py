@@ -46,6 +46,16 @@ def index():
     return render_template("index.html")
 
 
+@bp.get("/robots.txt")
+def robots_txt():
+    return send_from_directory(current_app.static_folder, "robots.txt")
+
+
+@bp.get("/sitemap.xml")
+def sitemap_xml():
+    return send_from_directory(current_app.static_folder, "sitemap.xml", mimetype="application/xml")
+
+
 @bp.get("/sw.js")
 def service_worker():
     import os
