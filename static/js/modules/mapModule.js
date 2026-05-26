@@ -538,11 +538,27 @@
         if (dx !== 0 || dy !== 0) _map.panBy([dx, dy], { animate: true });
     }
 
-    // Pan the map so the combined bbox of the main popup + sub-popup fits
-    // inside the map viewport. Called after the sub-popup is positioned.
+    // Size the Leaflet popup to the current map viewport so it never grows
+    // taller/wider than the map on small/low-resolution screens. Leaflet adds
+    // an internal scroll wrapper (.leaflet-popup-scrolled) when content exceeds
+    // maxHeight, so the whole popup stays inside the map and is fully readable.
+    function applyPopupSizing(popup) {
+        if (!_map || !popup) return;
+        const sz = _map.getSize();
+        popup.options.maxWidth = Math.round(Math.min(300, Math.max(200, sz.x - 24)));
+        popup.options.maxHeight = Math.round(Math.max(120, sz.y - 96));
+    }
+
+    // Pan the map so the freshly-opened sub-popup is fully visible. When the
+    // main popup + sub-popup together fit inside the map we bring the combined
+    // bbox into view; otherwise we prioritise the sub-popup (the new panel) so
+    // it is always fully readable even if the main popup gets pushed off.
     function fitSubPopupIntoView() {
         if (!_map || !_activeSubPopup) return;
         const mapRect = _map.getContainer().getBoundingClientRect();
+        const pad = 12;
+        const availW = mapRect.width - pad * 2;
+        const availH = mapRect.height - pad * 2;
         const subRect = _activeSubPopup.getBoundingClientRect();
         const popupEl = _activeSubPopup.closest('.leaflet-popup');
         let minX = subRect.left, minY = subRect.top, maxX = subRect.right, maxY = subRect.bottom;
@@ -553,7 +569,10 @@
             maxX = Math.max(maxX, pr.right);
             maxY = Math.max(maxY, pr.bottom);
         }
-        const pad = 16;
+        // If the combined bbox can't fit, target the sub-popup alone.
+        if ((maxX - minX) > availW || (maxY - minY) > availH) {
+            minX = subRect.left; minY = subRect.top; maxX = subRect.right; maxY = subRect.bottom;
+        }
         let dx = 0, dy = 0;
         if (maxX > mapRect.right - pad) dx = maxX - (mapRect.right - pad);
         else if (minX < mapRect.left + pad) dx = minX - (mapRect.left + pad);
@@ -704,16 +723,27 @@
         } else {
             document.body.appendChild(div);
         }
+        // Constrain the sub-popup to the map viewport so it can never grow
+        // larger than the map on small/low-resolution screens — the body
+        // scrolls instead (see .map-subpopup-body in CSS).
+        const mapRect = _map ? _map.getContainer().getBoundingClientRect() : null;
+        if (mapRect) {
+            div.style.maxWidth = Math.max(200, mapRect.width - 24) + 'px';
+            div.style.maxHeight = Math.max(140, mapRect.height - 24) + 'px';
+        }
         // Measure actual rendered width (CSS may scale up to 460px when thumb +
-        // PC), then clamp into the viewport.
+        // PC), then clamp into the map — not the full window, since the map may
+        // be a narrow sidebar.
         const pw = div.offsetWidth || 260;
+        const boundLeft  = mapRect ? mapRect.left + 8 : 8;
+        const boundRight = mapRect ? mapRect.right - 8 : window.innerWidth - 8;
         if (popup) {
             const p = popup.getBoundingClientRect();
-            const absLeft = Math.max(8, Math.min(window.innerWidth - pw - 8, a.left));
+            const absLeft = Math.max(boundLeft, Math.min(boundRight - pw, a.left));
             div.style.left = (absLeft - p.left) + 'px';
             div.style.top  = (a.bottom - p.top + 6) + 'px';
         } else {
-            const left = Math.max(8, Math.min(window.innerWidth - pw - 8, a.left));
+            const left = Math.max(boundLeft, Math.min(boundRight - pw, a.left));
             div.style.left = left + 'px';
             div.style.top  = (a.bottom + window.scrollY + 6) + 'px';
         }
@@ -991,6 +1021,8 @@
             if (!_entries.includes(entry)) return;
             applySelectionStyle(entry);
             if (opts.openPopup !== false && popupLatLng) {
+                const pop = entry.layer.getPopup && entry.layer.getPopup();
+                if (pop) applyPopupSizing(pop);
                 entry.layer.openPopup(popupLatLng);
             }
         };
