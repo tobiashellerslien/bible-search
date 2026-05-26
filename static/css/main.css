@@ -3314,6 +3314,13 @@
             color: var(--text);
             box-shadow: 0 3px 14px rgba(0,0,0,0.35);
         }
+        /* When a popup is taller than the map, Leaflet wraps the content in a
+           scrollable container. Keep its scroll contained and borders themed. */
+        .map-popup-wrap .leaflet-popup-scrolled {
+            overscroll-behavior: contain;
+            border-top-color: var(--border);
+            border-bottom-color: var(--border);
+        }
         .map-popup-wrap .leaflet-popup-close-button { color: var(--text-muted); }
         @media (hover: hover) {
 
@@ -3446,6 +3453,12 @@
                popup now so it inherits that. Force left so the Detaljer rows read
                correctly. */
             text-align: left;
+            /* Header fixed, body scrolls when max-height (set per map size in
+               openSubPopup) is reached. overflow:hidden clips the scrolled body
+               to the rounded corners. */
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
         .map-subpopup-header {
             display: flex;
@@ -3454,6 +3467,7 @@
             border-bottom: 1px solid var(--border);
             font-weight: 600;
             font-size: 0.85rem;
+            flex-shrink: 0;
         }
         .map-subpopup-title { flex: 1; }
         .map-subpopup-close {
@@ -3466,7 +3480,7 @@
         .map-subpopup-close:hover { color: var(--text); background: var(--hover-bg); }
 
         }
-        .map-subpopup-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+        .map-subpopup-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; overflow-x: hidden; min-height: 0; overscroll-behavior: contain; }
         .map-subpopup-rows { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
         .map-subpopup-row { display: flex; flex-direction: column; gap: 2px; }
         .map-subpopup-label {
