@@ -156,6 +156,8 @@ const I18N = {
         'sidebar.commentary.loading': 'Laster kommentar…',
         'sidebar.commentary.intro': 'Intro til {0}',
         'sidebar.commentary.refsTitle': 'Referanser',
+        'sidebar.commentary.loadingPreview': 'Laster…',
+        'sidebar.commentary.openVerse': 'Åpne',
         'sidebar.commentary.scope.tray': 'Kommentar til {0}',
         'sidebar.commentary.scope.mvb': 'Kommentar til markerte vers',
         'sidebar.commentary.expandToChapter': 'Vis for hele kapittelet',

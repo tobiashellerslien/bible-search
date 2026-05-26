@@ -4751,6 +4751,77 @@
         .commentary-md {
             font-family: var(--font-serif, var(--font-ui));
         }
+        a.mh-ref,
+        .commentary-scofield a.scofield-ref {
+            color: var(--accent);
+            text-decoration: none;
+            cursor: pointer;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        @media (hover: hover) {
+
+        a.mh-ref:hover,
+        .commentary-scofield a.scofield-ref:hover { text-decoration: underline; }
+
+        }
+        /* Inline reference preview popup (Scofield + M. Henry refs) */
+        .ref-preview-popup {
+            position: fixed;
+            z-index: 4000;
+            width: 320px;
+            max-width: calc(100vw - 26px);
+            background: var(--card-bg, var(--bg));
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.28);
+            padding: 10px 12px;
+            font-family: var(--font-ui);
+            font-size: 0.84rem;
+            line-height: 1.45;
+        }
+        .ref-popup-label {
+            font-family: 'Lora', Georgia, serif;
+            font-weight: 600;
+            font-size: 0.82rem;
+            color: var(--accent);
+            margin-bottom: 5px;
+        }
+        /* Match the main reading pane's verse formatting. */
+        .ref-popup-body {
+            font-family: var(--font-serif, var(--font-ui));
+            line-height: 1.85;
+            max-height: 9em;
+            overflow: auto;
+        }
+        .ref-popup-body.is-empty { color: var(--text-muted); font-style: italic; }
+        .ref-popup-verse b {
+            color: var(--verse-num);
+            font-size: 0.72em;
+            vertical-align: super;
+            font-weight: 600;
+            margin-right: 2px;
+            font-family: 'Lora', Georgia, serif;
+        }
+        .ref-popup-open {
+            display: inline-block;
+            margin-top: 8px;
+            padding: 4px 12px;
+            border: 1px solid var(--accent);
+            border-radius: 999px;
+            background: transparent;
+            color: var(--accent);
+            font-family: var(--font-ui);
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        @media (hover: hover) {
+
+        .ref-popup-open:hover { background: var(--accent); color: var(--accent-contrast, #fff); }
+
+        }
         .commentary-md p { margin: 0.4em 0; }
         .commentary-md ul, .commentary-md ol { margin: 0.4em 0; padding-left: 1.4em; }
         .commentary-md blockquote {

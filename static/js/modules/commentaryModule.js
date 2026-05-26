@@ -257,45 +257,40 @@
 
     function escAttrLocal(s) { return esc(s); }
 
-    // Parse `[ref:USFM.CH.VS[-VS|-CH.VS]]` markers + the "Referanser: " prefix
-    // out of a Scofield body. Returns {body, refs}.
-    function extractScofieldRefs(body) {
-        if (!body) return { body: '', refs: [] };
-        const re = /\[ref:([^\]]+)\]/g;
-        const refs = [];
-        let m;
-        while ((m = re.exec(body))) {
-            refs.push(m[1].trim());
-        }
-        // Strip the "Referanser: …" trailing line (case-insensitive). Also any
-        // standalone `[ref:…]` markers above (rare but possible).
-        let cleaned = body.replace(/\n*\s*Referanser:\s*(?:\[ref:[^\]]+\]\s*)+\s*$/i, '');
-        cleaned = cleaned.replace(/\[ref:[^\]]+\]/g, '').trimEnd();
-        return { body: cleaned, refs };
-    }
-
-    // Render a Scofield body to HTML: escape, replace `_(See Scofield "X")_`
-    // pointers with clickable links, then turn remaining `_..._` into <em>,
-    // and preserve paragraph breaks.
+    // Render a Scofield body to HTML. Bodies (from migrate_scofield_osis.py)
+    // carry inline `<a class="scofield-ref" data-ref="USFM.CH.VS">` reference
+    // anchors, `**bold**` catchwords, `_italic_`, `_(See Scofield "X")_`
+    // cross-note pointers and blank-line paragraphs. Protect the trusted ref
+    // anchors from escaping, escape the rest, then linkify pointers + emphasis.
     function renderScofieldBody(text) {
         if (!text) return '';
-        let html = esc(text);
+        // Protect inline reference anchors before escaping. The @@Rn@@ sentinel
+        // passes through esc() untouched and never collides with real text.
+        const anchors = [];
+        let work = text.replace(/<a class="scofield-ref"[^>]*>[\s\S]*?<\/a>/g, (m) => {
+            anchors.push(m);
+            return '@@R' + (anchors.length - 1) + '@@';
+        });
+        let html = esc(work);
         // "See Scofield" pointers (post-escape, quotes are &quot;)
         html = html.replace(
             /_?\(?See Scofield &quot;([^&]+?)&quot;\)?_?/g,
-            (_m, refLabel) => {
-                // Scofield separates book name and chapter:verse with a
-                // non-breaking space (U+00A0); normalise it so the reference
-                // parser recognises e.g. "2 Samuel 7:16" instead of erroring.
-                const normRef = refLabel.replace(/\u00a0/g, ' ');
+            (_m, ref) => {
+                // Scofield may separate book name and chapter:verse with a
+                // non-breaking space (U+00A0); normalise so the reference parser
+                // recognises e.g. "2 Samuel 7:16" instead of erroring.
+                const normRef = ref.replace(/\u00a0/g, ' ').trim();
                 const safeRef = normRef.replace(/'/g, '&#39;');
                 return `<a class="scofield-see-link" data-see-ref="${safeRef}" href="#" `
                     + `title="Åpne Scofield-note for ${safeRef}">`
                     + `📖 Se Scofield: ${safeRef}</a>`;
             }
         );
-        // Remaining `_..._` → <em>...</em> (single line, non-greedy)
+        // Bold catchwords, then remaining `_..._` italics (single line).
+        html = html.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
         html = html.replace(/_([^_\n]+?)_/g, '<em>$1</em>');
+        // Restore the protected reference anchors (trusted HTML).
+        html = html.replace(/@@R(\d+)@@/g, (_m, i) => anchors[Number(i)] || '');
         // Paragraph breaks
         const paragraphs = html.split(/\n{2,}/).map(p => p.replace(/\n/g, '<br>'));
         return paragraphs.map(p => `<p>${p}</p>`).join('');
@@ -313,33 +308,30 @@
         return `${abbrev} ${parts[1]}:${parts.slice(2).join('.')}`;
     }
 
-    // Use existing /api/search to grab a one-verse preview. Cache result.
-    async function fetchRefPreview(refStr) {
+    // Fetch up to two verses of preview text for a reference. Result cached as
+    // { label, verses:[{num,text}], more }.
+    async function fetchVersePreview(refStr) {
         if (_previewCache.has(refStr)) return _previewCache.get(refStr);
-        const label = refLabel(refStr);
         const version = _scope && _scope.range && _scope.range.version;
         const params = new URLSearchParams();
-        params.set('q', label);
+        params.set('q', refLabel(refStr));
         if (version) params.set('version', version);
+        const out = { label: refLabel(refStr), verses: [], more: false };
         try {
             const resp = await fetch('/api/search?' + params.toString());
             const data = await resp.json();
-            // /api/search returns {type:'reference', results:[block, ...]} where
-            // each block has .verses[{num, text, chapter}]. Pull first few verses.
-            let preview = '';
             if (data && data.type === 'reference' && Array.isArray(data.results)) {
                 const first = data.results[0];
-                if (first && first.verses && first.verses.length) {
-                    preview = first.verses.slice(0, 3).map(v => v.text).join(' ');
-                    if (first.verses.length > 3) preview += ' …';
+                if (first) {
+                    if (first.label) out.label = first.label;
+                    const vs = first.verses || [];
+                    out.verses = vs.slice(0, 2).map(v => ({ num: v.num, text: v.text }));
+                    out.more = vs.length > 2;
                 }
             }
-            _previewCache.set(refStr, preview);
-            return preview;
-        } catch {
-            _previewCache.set(refStr, '');
-            return '';
-        }
+        } catch { /* leave empty */ }
+        _previewCache.set(refStr, out);
+        return out;
     }
 
     // Markdown render with collapsible H2 sections (Matthew Henry).
@@ -403,9 +395,7 @@
         if (commentary.format === 'markdown') {
             bodyHtml = renderMarkdownWithCollapsibleH2(intro.body);
         } else {
-            const refsParsed = extractScofieldRefs(intro.body);
-            bodyHtml = `<div class="commentary-plain commentary-scofield">${renderScofieldBody(refsParsed.body)}</div>`
-                + (refsParsed.refs.length ? renderRefsToggle(refsParsed.refs) : '');
+            bodyHtml = `<div class="commentary-plain commentary-scofield">${renderScofieldBody(intro.body)}</div>`;
         }
         // Intro boxes always start collapsed.
         return `<details class="commentary-box intro-box" data-key="intro:${esc(intro.book)}">`
@@ -432,28 +422,12 @@
         if (commentary.format === 'markdown') {
             bodyHtml = renderMarkdownWithCollapsibleH2(entry.body);
         } else {
-            const refsParsed = extractScofieldRefs(entry.body);
-            bodyHtml = `<div class="commentary-plain commentary-scofield">${renderScofieldBody(refsParsed.body)}</div>`
-                + (refsParsed.refs.length ? renderRefsToggle(refsParsed.refs) : '');
+            bodyHtml = `<div class="commentary-plain commentary-scofield">${renderScofieldBody(entry.body)}</div>`;
         }
         const openAttr = opts && opts.open ? ' open' : '';
         return `<details class="commentary-box entry-box"${openAttr} data-key="${esc(entryKey(entry))}">`
             + `<summary>${esc(title)}</summary>`
             + `<div class="commentary-box-body">${bodyHtml}</div>`
-            + `</details>`;
-    }
-
-    function renderRefsToggle(refs) {
-        const items = refs.map(r => {
-            const label = refLabel(r);
-            return `<div class="xr-item commentary-ref-item" data-ref="${esc(r)}" data-label="${esc(label)}">`
-                + `<span class="xr-ref">${esc(label)}</span>`
-                + `<span class="xr-preview commentary-ref-preview"></span>`
-                + `</div>`;
-        }).join('');
-        return `<details class="commentary-refs">`
-            + `<summary>${esc(tFn('sidebar.commentary.refsTitle'))} (${refs.length})</summary>`
-            + `<div class="commentary-refs-list xr-panel-inner">${items}</div>`
             + `</details>`;
     }
 
@@ -534,44 +508,173 @@
         attachRefPreviewHandlers();
     }
 
+    // ── Inline reference preview popup (shared by Scofield + M. Henry refs) ──
+    let _refPopupEl = null;
+    let _refPopupHideT = null;
+    let _refPopupShowT = null;
+    let _refPopupToken = 0;
+    let _refPopupAnchor = null;
+    // Pinned = opened by click; stays put until an outside click / another ref.
+    // Transient = opened by hover; auto-hides when the pointer leaves.
+    let _refPopupPinned = false;
+    const _refHoverCapable = !!(window.matchMedia && window.matchMedia('(hover: hover)').matches);
+
+    function ensureRefPopup() {
+        if (_refPopupEl) return _refPopupEl;
+        const el = document.createElement('div');
+        el.className = 'ref-preview-popup';
+        el.style.display = 'none';
+        el.innerHTML = '<div class="ref-popup-label"></div>'
+            + '<div class="ref-popup-body"></div>'
+            + '<button type="button" class="ref-popup-open"></button>';
+        document.body.appendChild(el);
+        el.addEventListener('mouseenter', () => {
+            if (_refPopupHideT) { clearTimeout(_refPopupHideT); _refPopupHideT = null; }
+        });
+        el.addEventListener('mouseleave', () => { if (!_refPopupPinned) scheduleHideRefPopup(); });
+        // Dismiss on outside-click / scroll / resize (attached once).
+        document.addEventListener('click', (e) => {
+            if (!_refPopupEl || _refPopupEl.style.display === 'none') return;
+            if (_refPopupEl.contains(e.target)) return;
+            if (e.target.closest && e.target.closest('a.scofield-ref, a.mh-ref')) return;
+            hideRefPopup();
+        }, true);
+        window.addEventListener('scroll', (e) => {
+            // Scrolling inside the popup body (to read more verses) must not
+            // dismiss a pinned popup; outer scrolling still does.
+            if (_refPopupEl && _refPopupEl.contains(e.target)) return;
+            hideRefPopup();
+        }, true);
+        window.addEventListener('resize', hideRefPopup);
+        _refPopupEl = el;
+        return el;
+    }
+
+    function positionRefPopup(pop, anchor) {
+        const r = anchor.getBoundingClientRect();
+        const vw = window.innerWidth, vh = window.innerHeight, margin = 12;
+        // Keep clear of the sidebar's vertical scrollbar on the right so it
+        // doesn't bleed through the popup when the ref sits near the edge.
+        const rightPad = margin + 14;
+        pop.style.maxWidth = Math.min(360, vw - margin - rightPad) + 'px';
+        const pr = pop.getBoundingClientRect();
+        // Prefer left-aligning to the ref; if that overflows the (scrollbar-
+        // padded) right edge, shift left so the full width stays on-screen.
+        let left = r.left;
+        const rightLimit = vw - pr.width - rightPad;
+        if (left > rightLimit) left = rightLimit;
+        if (left < margin) left = margin;
+        let top = r.bottom + 6;
+        if (top + pr.height > vh - margin) {
+            top = r.top - pr.height - 6;            // flip above the ref
+            if (top < margin) top = Math.max(margin, vh - pr.height - margin);
+        }
+        pop.style.left = left + 'px';
+        pop.style.top = top + 'px';
+    }
+
+    function hideRefPopup() {
+        if (_refPopupHideT) { clearTimeout(_refPopupHideT); _refPopupHideT = null; }
+        if (_refPopupEl) _refPopupEl.style.display = 'none';
+        _refPopupAnchor = null;
+        _refPopupPinned = false;
+    }
+
+    function scheduleHideRefPopup() {
+        if (_refPopupHideT) clearTimeout(_refPopupHideT);
+        _refPopupHideT = setTimeout(hideRefPopup, 220);
+    }
+
+    // Navigate the main view to a reference, then reopen the commentary there.
+    async function openRefTarget(ref) {
+        if (!ref || typeof window.searchFromXref !== 'function') return;
+        // Mobile: the module overlay covers the reading area, so closing it
+        // reveals the verse the user just navigated to instead of stacking the
+        // commentary back on top.
+        if (isMobileNow() && window.AppModuleHost && typeof window.AppModuleHost.closeModule === 'function') {
+            window.AppModuleHost.closeModule();
+            await window.searchFromXref(refLabel(ref));
+            return;
+        }
+        const keepId = _selectedId;
+        await window.searchFromXref(refLabel(ref));
+        _selectedId = keepId;
+        await showForBlock(0);
+    }
+
+    async function showRefPopup(anchor, pinned) {
+        const ref = anchor && anchor.dataset && anchor.dataset.ref;
+        if (!ref) return;
+        const pop = ensureRefPopup();
+        _refPopupAnchor = anchor;
+        _refPopupPinned = !!pinned;
+        if (_refPopupHideT) { clearTimeout(_refPopupHideT); _refPopupHideT = null; }
+        const token = ++_refPopupToken;
+        const labelEl = pop.querySelector('.ref-popup-label');
+        const bodyEl = pop.querySelector('.ref-popup-body');
+        const openBtn = pop.querySelector('.ref-popup-open');
+        labelEl.textContent = (anchor.textContent || '').trim() || refLabel(ref);
+        bodyEl.textContent = tFn('sidebar.commentary.loadingPreview');
+        bodyEl.classList.remove('is-empty');
+        openBtn.textContent = tFn('sidebar.commentary.openVerse');
+        openBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); hideRefPopup(); openRefTarget(ref); };
+        pop.style.display = '';
+        positionRefPopup(pop, anchor);
+        const data = await fetchVersePreview(ref);
+        if (token !== _refPopupToken) return;        // superseded by a newer hover/click
+        labelEl.textContent = data.label || refLabel(ref);
+        if (data.verses && data.verses.length) {
+            bodyEl.innerHTML = data.verses.map(v =>
+                `<span class="ref-popup-verse"><b>${esc(String(v.num))}</b>${esc(v.text)}</span>`
+            ).join(' ') + (data.more ? ' …' : '');
+        } else {
+            bodyEl.textContent = tFn('sidebar.commentary.empty');
+            bodyEl.classList.add('is-empty');
+        }
+        positionRefPopup(pop, anchor);
+    }
+
     function attachRefPreviewHandlers() {
         if (!_container) return;
-        // Lazy-load previews when a "Referanser" details opens; click navigates.
-        _container.querySelectorAll('.commentary-refs').forEach(det => {
-            det.addEventListener('toggle', async () => {
-                if (!det.open) return;
-                const items = det.querySelectorAll('.commentary-ref-item');
-                for (const it of items) {
-                    if (it.dataset.previewed === '1') continue;
-                    it.dataset.previewed = '1';
-                    const ref = it.dataset.ref;
-                    const preview = await fetchRefPreview(ref);
-                    const previewEl = it.querySelector('.commentary-ref-preview');
-                    if (previewEl) previewEl.textContent = preview || '';
-                }
-            }, { once: false });
-        });
-        _container.querySelectorAll('.commentary-ref-item').forEach(it => {
-            it.addEventListener('click', () => {
-                const label = it.dataset.label;
-                if (typeof window.searchFromXref === 'function') window.searchFromXref(label);
-            });
-        });
+        // "See Scofield" cross-note pointers navigate to the referenced Scofield
+        // note (then reopen the commentary there) on PC and mobile alike.
         _container.querySelectorAll('.scofield-see-link').forEach(el => {
             el.addEventListener('click', async (e) => {
                 e.preventDefault();
                 const ref = el.dataset.seeRef;
                 if (!ref || typeof window.searchFromXref !== 'function') return;
-                // Remember which commentary we're reading (Scofield) so we can
-                // re-open it on the verse we jump to.
                 const keepId = _selectedId;
-                // Navigate the main view to the referenced verse, then open the
-                // commentary for that verse so the note auto-expands — on both
-                // PC (sidebar) and mobile (module host), not just by accident.
                 await window.searchFromXref(ref);
                 _selectedId = keepId;
                 await showForBlock(0);
             });
+        });
+        // Inline scripture references (Scofield + Matthew Henry full): click —
+        // and hover on PC — opens a verse-preview popup with an "open" button.
+        _container.querySelectorAll('a.scofield-ref, a.mh-ref').forEach(a => {
+            // Click pins the popup open: it stays until an outside click or
+            // another ref. Clicking the same ref again keeps it open (never a
+            // toggle-close), so a hover-then-click never collapses the popup.
+            a.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (_refPopupShowT) { clearTimeout(_refPopupShowT); _refPopupShowT = null; }
+                showRefPopup(a, true);
+            });
+            if (_refHoverCapable) {
+                a.addEventListener('mouseenter', () => {
+                    if (_refPopupShowT) clearTimeout(_refPopupShowT);
+                    _refPopupShowT = setTimeout(() => {
+                        // Don't downgrade an already-pinned popup on the same ref.
+                        const keepPinned = _refPopupPinned && _refPopupAnchor === a;
+                        showRefPopup(a, keepPinned);
+                    }, 140);
+                });
+                a.addEventListener('mouseleave', () => {
+                    if (_refPopupShowT) { clearTimeout(_refPopupShowT); _refPopupShowT = null; }
+                    if (!_refPopupPinned) scheduleHideRefPopup();
+                });
+            }
         });
     }
 
@@ -707,6 +810,7 @@
             // so a fresh open re-fetches with current versification.
             _entriesCache.clear();
             _previewCache.clear();
+            hideRefPopup();
             if (_container) {
                 const entriesEl = _container.querySelector('.commentary-entries');
                 if (entriesEl) entriesEl.innerHTML = '';
