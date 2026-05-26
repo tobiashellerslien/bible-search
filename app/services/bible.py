@@ -133,6 +133,107 @@ for _usfm, _order, _name, _aliases in BOOKS:
 SORTED_ALIASES = sorted(ALIAS_MAP.keys(), key=len, reverse=True)
 USFM_TO_ALIASES = {u: al for u, _, _, al in BOOKS}
 
+
+# ── Inline scripture-reference linkifier (dictionary bodies) ──────────────────
+# Easton/Smith dictionary bodies carry raw scripture refs in prose:
+#   Easton  →  abbreviated, period-suffixed:  "Ex. 6:20", "1 Chr. 2:10",
+#              "Rev. 1:8,11; 21:6", and bare continuations "(2:1,4; 7:7)"
+#              whose book is implied by the most recent ref in the text.
+#   Smith   →  full names in parens:          "(Genesis 8:4)", "(2 Kings 19:37)"
+# We wrap each ref in <a class="leksikon-ref" data-ref="USFM.CH.VS"> so the
+# frontend can render the same hover/click verse-preview popup as commentaries.
+
+# A book head: "Song of Solomon"/"Song of Songs", or an optional 1-3 number
+# prefix + a single capitalised word with an optional trailing period.
+_REF_BOOK = r"(?:Song\s+of\s+(?:Solomon|Songs)|(?:[1-3]\s+)?[A-Z][A-Za-z]+\.?)"
+# A ref spec: chapter:verse, optional verse-range, then ,/; continuations.
+# A bare continuation verse must not be the leading number of a following
+# numbered book ("Gen. 1:1; 2 Kings 5:5" → the "2" begins a new ref, it is not
+# verse 2 of Genesis 1), hence the (?!\s+[A-Z]) guard.
+_REF_SPEC = (
+    r"\d+:\d+(?:\s*[–-]\s*\d+)?"
+    r"(?:\s*[,;]\s*(?:\d+:\d+|\d+(?!\s+[A-Z]))(?:\s*[–-]\s*\d+)?)*"
+)
+_REF_RE = re.compile(
+    r"(?P<book>" + _REF_BOOK + r")\s+(?P<spec>" + _REF_SPEC + r")"
+    r"|"
+    r"\((?P<bare>" + _REF_SPEC + r")\)"
+)
+# One numeric token inside a spec: "1:8" or "8" with an optional range tail.
+_REF_TOKEN_RE = re.compile(r"\d+(?::\d+)?(?:\s*[–-]\s*\d+)?")
+
+
+def _resolve_ref_book(raw):
+    """Map a matched book token ("Ex.", "1 Chr.", "Genesis", "2 Kings") to USFM."""
+    s = re.sub(r"\s+", " ", raw.strip().rstrip(".").lower())
+    if s in ALIAS_MAP:
+        return ALIAS_MAP[s]
+    s2 = s.replace(".", "")
+    if s2 in ALIAS_MAP:
+        return ALIAS_MAP[s2]
+    s3 = s2.replace(" ", "")          # "1 chr" → "1chr"
+    return ALIAS_MAP.get(s3)
+
+
+def _anchors_for_spec(usfm, lead, spec):
+    """Turn a ref spec into HTML, wrapping each numeric token in an anchor.
+
+    `lead` is the book text (+ whitespace) folded into the first anchor; it is
+    empty for bare continuation specs.
+    """
+    out = []
+    cur_ch = None
+    first = True
+    i = 0
+    while i < len(spec):
+        m = _REF_TOKEN_RE.match(spec, i)
+        if not m:
+            out.append(spec[i])          # separator / whitespace, verbatim
+            i += 1
+            continue
+        tok = m.group(0)
+        head = re.match(r"(\d+):(\d+)", tok)
+        if head:
+            cur_ch = int(head.group(1))
+            vs = int(head.group(2))
+        else:
+            vs = int(re.match(r"\d+", tok).group(0))
+        inner = (lead + tok) if first else tok
+        if cur_ch is not None:
+            out.append(
+                f'<a class="leksikon-ref" data-ref="{usfm}.{cur_ch}.{vs}">{inner}</a>'
+            )
+        else:
+            out.append(inner)
+        first = False
+        i = m.end()
+    return "".join(out)
+
+
+def linkify_dictionary_refs(body):
+    """Wrap inline scripture references in a dictionary body with <a> anchors."""
+    if not body:
+        return body
+    last = {"usfm": None}
+
+    def repl(m):
+        if m.group("book") is not None:
+            usfm = _resolve_ref_book(m.group("book"))
+            if not usfm:
+                return m.group(0)
+            last["usfm"] = usfm
+            book = m.group("book")
+            spec = m.group("spec")
+            gap = m.group(0)[len(book):len(m.group(0)) - len(spec)]
+            return _anchors_for_spec(usfm, book + gap, spec)
+        # Bare parenthetical continuation — inherit the most recent book.
+        usfm = last["usfm"]
+        if not usfm:
+            return m.group(0)
+        return "(" + _anchors_for_spec(usfm, "", m.group("bare")) + ")"
+
+    return _REF_RE.sub(repl, body)
+
 _OT = ["GEN","EXO","LEV","NUM","DEU","JOS","JDG","RUT","1SA","2SA","1KI","2KI",
        "1CH","2CH","EZR","NEH","EST","JOB","PSA","PRO","ECC","SNG",
        "ISA","JER","LAM","EZK","DAN","HOS","JOL","AMO","OBA","JON","MIC",

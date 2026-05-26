@@ -4768,6 +4768,7 @@
             font-family: var(--font-serif, var(--font-ui));
         }
         a.mh-ref,
+        a.leksikon-ref,
         .commentary-scofield a.scofield-ref {
             color: var(--accent);
             text-decoration: none;
@@ -4778,6 +4779,7 @@
         @media (hover: hover) {
 
         a.mh-ref:hover,
+        a.leksikon-ref:hover,
         .commentary-scofield a.scofield-ref:hover { text-decoration: underline; }
 
         }
