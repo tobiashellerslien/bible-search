@@ -603,7 +603,7 @@
         await loadAndRender();
     }
 
-    // Open module for marked verses (MVB ✒️ button).
+    // Open module for marked verses (MVB 🖋️ button).
     async function showForMarkedVerses(markedVerses) {
         if (!markedVerses || !markedVerses.length) return;
         // Compute encompassing range across marked verses.
@@ -675,7 +675,7 @@
     const moduleDef = {
         id: 'commentary',
         title: 'Kommentar',
-        icon: '✒️',
+        icon: '🖋️',
         async mount(container, ctx) {
             _container = container;
             _ctx = ctx;

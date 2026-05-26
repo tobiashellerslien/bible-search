@@ -109,7 +109,7 @@
                 description: 'Når du har et åpent kapittel eller vers får du tilgang til:'
                     + '<ul class="tour-list">'
                     + '<li>🗺️ <strong>Kart</strong> — bibelske steder på satellittkart</li>'
-                    + '<li>✒️ <strong>Kommentar</strong> — Scofield + Matthew Henry</li>'
+                    + '<li>🖋️ <strong>Kommentar</strong> — Scofield + Matthew Henry</li>'
                     + '<li>📕 <strong>Leksikon</strong> — Easton, Smith, Hitchcock</li>'
                     + '<li>🎨 <strong>Temaer</strong> — bibelske temaer som passer teksten</li>'
                     + '<li>📜 <strong>Outline</strong> — strukturert oversikt over boka</li>'

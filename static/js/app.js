@@ -144,7 +144,7 @@ const I18N = {
         'card.study.interlinear': 'Grunntekst',
         'card.study.bibleref': 'BibleRef',
         'card.study.source': 'Kilde',
-        'card.study.commentary': '✒️ Kommentar',
+        'card.study.commentary': '🖋️ Kommentar',
         'card.study.leksikon': '📕 Leksikon',
         'card.study.outline': '📜 Outline',
         'sidebar.outline.title': 'Outline',
@@ -1074,7 +1074,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
             <div class="study-tray-row">
                 <div class="study-tray-inner">
                     <button class="tray-btn" data-module="map"${mapDisabled ? ' disabled aria-disabled="true"' : ` onclick="openMapForBlock(${idx},null)"`} title="${mapTitle}"><span class="tray-btn-emoji">🗺️</span><span class="tray-btn-label">${mapLabel}</span></button>
-                    <button class="tray-btn" data-module="commentary" onclick="openCommentaryForBlock(${idx})" title="${escAttr(t('sidebar.commentary.title'))}"><span class="tray-btn-emoji">✒️</span><span class="tray-btn-label"><span class="tray-label-long">Kommentar</span><span class="tray-label-short">Komment.</span></span></button>
+                    <button class="tray-btn" data-module="commentary" onclick="openCommentaryForBlock(${idx})" title="${escAttr(t('sidebar.commentary.title'))}"><span class="tray-btn-emoji">🖋️</span><span class="tray-btn-label"><span class="tray-label-long">Kommentar</span><span class="tray-label-short">Komment.</span></span></button>
                     <button class="tray-btn" data-module="leksikon" onclick="openLeksikonForBlock(${idx})" title="${escAttr(t('sidebar.leksikon.title'))}"><span class="tray-btn-emoji">📕</span><span class="tray-btn-label">Leksikon</span></button>
                     <button class="tray-btn" data-module="topics"${block.has_topics ? ` onclick="openTopicsForBlock(${idx})"` : ' disabled aria-disabled="true"'} title="${escAttr(block.has_topics ? t('sidebar.topics.title') : t('card.study.topics.empty'))}"><span class="tray-btn-emoji">🎨</span><span class="tray-btn-label">Tema</span></button>
                     <button class="tray-btn" data-module="outline" onclick="openOutlineForBlock(${idx})" title="${escAttr(t('sidebar.outline.title'))}"><span class="tray-btn-emoji">📜</span><span class="tray-btn-label">Outline</span></button>
