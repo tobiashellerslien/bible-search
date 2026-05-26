@@ -284,7 +284,11 @@
         html = html.replace(
             /_?\(?See Scofield &quot;([^&]+?)&quot;\)?_?/g,
             (_m, refLabel) => {
-                const safeRef = refLabel.replace(/'/g, '&#39;');
+                // Scofield separates book name and chapter:verse with a
+                // non-breaking space (U+00A0); normalise it so the reference
+                // parser recognises e.g. "2 Samuel 7:16" instead of erroring.
+                const normRef = refLabel.replace(/\u00a0/g, ' ');
+                const safeRef = normRef.replace(/'/g, '&#39;');
                 return `<a class="scofield-see-link" data-see-ref="${safeRef}" href="#" `
                     + `title="Åpne Scofield-note for ${safeRef}">`
                     + `📖 Se Scofield: ${safeRef}</a>`;
@@ -554,12 +558,19 @@
             });
         });
         _container.querySelectorAll('.scofield-see-link').forEach(el => {
-            el.addEventListener('click', (e) => {
+            el.addEventListener('click', async (e) => {
                 e.preventDefault();
                 const ref = el.dataset.seeRef;
-                if (ref && typeof window.searchFromXref === 'function') {
-                    window.searchFromXref(ref);
-                }
+                if (!ref || typeof window.searchFromXref !== 'function') return;
+                // Remember which commentary we're reading (Scofield) so we can
+                // re-open it on the verse we jump to.
+                const keepId = _selectedId;
+                // Navigate the main view to the referenced verse, then open the
+                // commentary for that verse so the note auto-expands — on both
+                // PC (sidebar) and mobile (module host), not just by accident.
+                await window.searchFromXref(ref);
+                _selectedId = keepId;
+                await showForBlock(0);
             });
         });
     }

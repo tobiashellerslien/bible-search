@@ -1557,14 +1557,9 @@
         .tray-btn:hover:not([disabled]):not([data-active]) { background: var(--accent-dim); color: var(--accent); }
 
         }
-        @media (hover: hover) {
-
-        .tray-btn[data-active],
-        .tray-btn[data-active]:hover {
+        .tray-btn[data-active] {
             background: var(--accent);
             color: #fff;
-        }
-
         }
         .tray-btn[disabled],
         .tray-btn[aria-disabled="true"] {
@@ -2352,7 +2347,7 @@
         @media (max-width: 700px) { .pc-only { display: none !important; } }
 
         /* Feedback modal */
-        .feedback-form { display: flex; flex-direction: column; gap: 14px; }
+        .feedback-form { display: flex; flex-direction: column; gap: 14px; margin-top: 18px; }
         .feedback-field { display: flex; flex-direction: column; gap: 4px; }
         .feedback-label {
             font-size: 0.78rem;
@@ -4399,14 +4394,9 @@
         .mvb-module-btn:hover:not([disabled]):not([data-active]) { background: var(--accent-dim); color: var(--accent); }
 
         }
-        @media (hover: hover) {
-
-        .mvb-module-btn[data-active],
-        .mvb-module-btn[data-active]:hover {
+        .mvb-module-btn[data-active] {
             background: var(--accent);
             color: #fff;
-        }
-
         }
         .mvb-module-btn[disabled],
         .mvb-module-btn[aria-disabled="true"] {
