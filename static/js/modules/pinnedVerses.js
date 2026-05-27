@@ -55,6 +55,9 @@
         const abbrev = (typeof window.bookAbbrev === 'function')
             ? window.bookAbbrev(p.book)
             : p.book;
+        if (p.ch_start === p.ch_end && typeof window.fmtVerseRef === 'function') {
+            return window.fmtVerseRef(p.book, abbrev, p.ch_start, p.vs_start, p.vs_end);
+        }
         const range = (p.vs_start === p.vs_end && p.ch_start === p.ch_end)
             ? `${p.ch_start}:${p.vs_start}`
             : (p.ch_start === p.ch_end

@@ -19,6 +19,7 @@ from .services.bible import (
     parse_query,
     parse_search_query,
     quick_search,
+    ref_label,
     resolve_block,
     search_text,
     strip_scope_from_query,
@@ -295,12 +296,12 @@ def api_crossrefs():
             nav_vs_end, nav_ch_end = nv_e, nc_e
         elif to_vs_end is not None:
             nb, nc, nv_s, nv_e = bible_data.normalize_reference(version_id, to_book, to_ch, to_vs_start, to_vs_end)
-            label = f"{USFM_TO_NAME.get(nb, nb)} {nc}:{nv_s}-{nv_e}"
+            label = ref_label(nb, nc, nv_s, nv_e)
             nav_book, nav_ch, nav_vs = nb, nc, nv_s
             nav_vs_end, nav_ch_end = nv_e, None
         else:
             nb, nc, nv_s, _ = bible_data.normalize_reference(version_id, to_book, to_ch, to_vs_start)
-            label = f"{USFM_TO_NAME.get(nb, nb)} {nc}:{nv_s}"
+            label = ref_label(nb, nc, nv_s)
             nav_book, nav_ch, nav_vs = nb, nc, nv_s
             nav_vs_end, nav_ch_end = None, None
 
