@@ -30,7 +30,7 @@
                         + '<li><code>tro</code> — vanlig søk matcher alle ord som <em>starter</em> med dette (tro, tror, troen, trofast …)</li>'
                         + '<li><code>"evig liv"</code> — eksakt frase</li>'
                         + '<li><code>nåde -dom</code> — ekskluder ord</li>'
-                        + '<li><code>nåde | frelse</code> — enten/eller</li>'
+                        + '<li><code>nåde + frelse</code> — enten/eller (også <code>|</code>)</li>'
                         + '<li><code>GT: ord</code> — filter på testament</li>'
                         + '<li><code>Johannes: ord</code> — filter på bok</li>'
                         + '</ul><p class="tour-foot">Se hjelp-sida for hele listen.</p>',

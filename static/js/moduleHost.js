@@ -2,7 +2,12 @@
    Replaces the old multi-module AppDrawer. ≤700px only. */
 window.AppModuleHost = (() => {
     const MOBILE_BP = 701;
-    function isMobile() { return window.innerWidth < MOBILE_BP; }
+    function isMobile() {
+        if (window.innerWidth < MOBILE_BP) return true;
+        // Touch device in portrait at tablet width → mobile drawer layout.
+        if (typeof window.isTabletPortrait === 'function') return window.isTabletPortrait();
+        return window.matchMedia('(pointer: coarse) and (orientation: portrait)').matches;
+    }
 
     const state = {
         active: null,           // {id, def, ctx}
@@ -264,6 +269,11 @@ window.AppModuleHost = (() => {
         initDrag();
         window.addEventListener('resize', () => {
             if (!isMobile() && state.active) closeModule();
+        });
+        window.addEventListener('orientationchange', () => {
+            setTimeout(() => {
+                if (!isMobile() && state.active) closeModule();
+            }, 150);
         });
     }
 

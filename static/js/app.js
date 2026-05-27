@@ -37,7 +37,7 @@ const I18N = {
         'help.row.exactWord': 'Eksakt ord',
         'help.row.exactPhrase': 'Eksakt frase',
         'help.row.exclude': 'Ekskluder ord med -',
-        'help.row.either': 'Enten/eller-ord',
+        'help.row.either': 'Enten/eller (også: |)',
         'help.row.bothWords': 'Begge ord (AND, implisitt)',
         'help.section.applyFilters': 'Bruk filter',
         'help.row.gt': 'Gamle Testamentet (også: OT:)',
@@ -155,6 +155,7 @@ const I18N = {
         'sidebar.commentary.empty': 'Ingen kommentarer for denne teksten',
         'sidebar.commentary.loading': 'Laster kommentar…',
         'sidebar.commentary.intro': 'Intro til {0}',
+        'sidebar.commentary.overview': 'Oversikt',
         'sidebar.commentary.refsTitle': 'Referanser',
         'sidebar.commentary.loadingPreview': 'Laster…',
         'sidebar.commentary.openVerse': 'Åpne',
@@ -238,7 +239,7 @@ const I18N = {
         'searchResults.collapseAll': 'skjul alle',
         'searchResults.showAll': 'vis alle {0}',
         'searchResults.loadingAll': 'laster…',
-        'searchResults.statsBtn': '📊 statistikk',
+        'searchResults.statsBtn': 'statistikk',
         'loading.errorGeneric': 'Feil',
         'loading.errorBody': 'Kunne ikke koble til server.',
         'loading.searchingTitle': 'Søker...',
@@ -1220,7 +1221,7 @@ function _reRenderMainVerseText(idx) {
 }
 
 function equalizeVerseHeights(idx) {
-    if (window.innerWidth < 701) return;
+    if (window.innerWidth < 701 || document.body.classList.contains('tablet-portrait')) return;
     const cs = cardCompare[idx];
     if (!cs || !cs.alignMode || !cs.visible || cs.mode !== 'single') return;
     const card = document.getElementById(`card-${idx}`);
@@ -1341,7 +1342,7 @@ window.toggleCardCompare = async function(idx) {
             // jumps instantly to narrow width, and only the section's opacity fades.
             const card = document.getElementById(`card-${idx}`);
             const wrap = card && card.closest('.card-swipe-wrap');
-            const isPcCompareActive = !!(card && card.classList.contains('compare-active') && window.innerWidth >= 701);
+            const isPcCompareActive = !!(card && card.classList.contains('compare-active') && window.innerWidth >= 701 && !document.body.classList.contains('tablet-portrait'));
             if (isPcCompareActive && wrap) wrap.style.transition = 'none';
             if (section) section.classList.remove('visible');
             updateWideMode();
@@ -2135,7 +2136,7 @@ function openExternalPopup(opts) {
     // Position: anchored to trigger on PC (above when there's more room above —
     // MVB sits at the bottom of the viewport so its popup opens upward),
     // bottom-sheet on mobile.
-    const isMobile = window.innerWidth <= 700;
+    const isMobile = window.innerWidth <= 700 || document.body.classList.contains('tablet-portrait');
     popup.classList.toggle('external-popup-mobile', isMobile);
     if (!isMobile && opts && opts.anchor) {
         const r = opts.anchor.getBoundingClientRect();
@@ -2260,7 +2261,7 @@ function initMarkedVersesBar() {
 
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape') return;
-        if (window.innerWidth <= 700) return; // mobile dismisses via swipe, not Esc
+        if (window.innerWidth <= 700 || document.body.classList.contains('tablet-portrait')) return; // mobile/tablet-portrait dismisses via swipe
         if (document.body.classList.contains('mvb-on')) {
             clearAllMarkedVerses();
             e.preventDefault();
@@ -2629,12 +2630,13 @@ function renderTextSearch(results, query, bookTotals) {
         return;
     }
 
+    // attribution stats icon: https://www.flaticon.com/free-icons/graph" Graph icons created by Bamicon - Flaticon
     const countKey = totalAcross === 1 ? 'searchResults.count' : 'searchResults.countPlural';
     html += `<div class="search-controls">
         <div class="search-result-count">${escHtml(t(countKey, totalAcross, query))}</div>
         <div class="search-controls-actions">
             <button class="card-action-btn" id="expandCollapseBtn" onclick="toggleGroups()">${escHtml(t('searchResults.expandAll'))}</button>
-            <button class="stats-btn" onclick="openStats('${escAttr(query)}')">${escHtml(t('searchResults.statsBtn'))}</button>
+            <button class="stats-btn" onclick="openStats('${escAttr(query)}')"><img src="/static/images/stats.png" class="stats-icon" alt="" aria-hidden="true"> ${escHtml(t('searchResults.statsBtn'))}</button>
         </div>
     </div>`;
 
@@ -2655,7 +2657,7 @@ function renderTextSearch(results, query, bookTotals) {
         html += `<div class="book-group" data-book="${escHtml(code)}">
             <div class="book-group-header${openClass}" onclick="toggleGroup(this)">
                 <span>${escHtml(bName)}<span class="book-group-count">(${total})</span></span>
-                <span class="chevron">&#9654;</span>
+                <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M4 2L8 6L4 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
             <div class="book-group-items${openClass}"${pendingAttr}></div>
         </div>`;
@@ -2858,7 +2860,7 @@ function renderAllVersionsTextSearch(results, query) {
         html += `<div class="book-group">
             <div class="book-group-header" onclick="toggleGroup(this)">
                 <span>${escHtml(versionLabel(vName))}<span class="book-group-count">(${vResults.length})</span></span>
-                <span class="chevron">&#9654;</span>
+                <svg class="chevron" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M4 2L8 6L4 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </div>
             <div class="book-group-items">`;
 

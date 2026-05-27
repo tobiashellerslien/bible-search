@@ -133,7 +133,7 @@
                    autocomplete="off" autocorrect="off" spellcheck="false">
             <button class="search-clear-btn" id="searchClearBtn" data-i18n-title="search.clear">&times;</button>
         </div>
-        <!-- Custom picker shown on desktop; native select shown on mobile -->
+        <!-- Custom picker -->
         <div class="version-picker" id="versionPicker">
             <button class="vp-trigger" id="versionPickerBtn" type="button" onclick="toggleVersionPicker()">
                 <div class="vp-trigger-text">
@@ -278,7 +278,7 @@
                 <div class="help-row"><span class="help-key">"tro"</span><span class="help-desc" data-i18n="help.row.exactWord">Eksakt ord</span></div>
                 <div class="help-row"><span class="help-key">"evig liv"</span><span class="help-desc" data-i18n="help.row.exactPhrase">Eksakt frase</span></div>
                 <div class="help-row"><span class="help-key">nåde -dom</span><span class="help-desc" data-i18n="help.row.exclude">Ekskluder med -</span></div>
-                <div class="help-row"><span class="help-key">nåde | frelse</span><span class="help-desc" data-i18n="help.row.either">Enten/eller</span></div>
+                <div class="help-row"><span class="help-key">nåde + frelse</span><span class="help-desc" data-i18n="help.row.either">Enten/eller (også: |)</span></div>
                 <div class="help-row"><span class="help-key">nåde frelse</span><span class="help-desc" data-i18n="help.row.bothWords">Begge ord (implisitt AND)</span></div>
                 <div class="help-row"><span class="help-key">Johannes: nåde</span><span class="help-desc" data-i18n="help.row.bookScope">Søk innenfor én bok</span></div>
             </div>
@@ -387,6 +387,7 @@
 <div class="chart-tooltip" id="chartTooltip"></div>
 
 <!-- Settings modal -->
+<!-- attribution icons: Light icons created by Freepik - Flaticon, Darkmode icons created by Rizki Ahmad Fauzi - Flaticon-->
 <div class="modal-overlay" id="settingsModal">
     <div class="modal-panel">
         <div class="modal-header">
@@ -399,8 +400,8 @@
                 <div class="settings-row">
                     <span class="settings-label" data-i18n="settings.darkMode">Dark mode</span>
                     <div class="dm-toggle" id="darkToggle" role="group">
-                        <button class="dm-btn" id="dmLight">&#9728; Lys</button>
-                        <button class="dm-btn" id="dmDark">&#9790; Mørk</button>
+                        <button class="dm-btn" id="dmLight"><img src="{{ url_for('static', filename='images/lightmode.png') }}" class="dm-icon" alt="" aria-hidden="true"> Lys</button>
+                        <button class="dm-btn" id="dmDark"><img src="{{ url_for('static', filename='images/darkmode.png') }}" class="dm-icon" alt="" aria-hidden="true"> Mørk</button>
                     </div>
                 </div>
                 <div class="settings-row">
