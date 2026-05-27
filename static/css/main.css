@@ -13,6 +13,9 @@
             --error-bg: #fdf0f0;
             --verse-num: #2870e8;
             --highlight: #c94444;
+            --hover-bg: rgba(0,0,0,0.06);
+            --card-bg-alt: #f0ede9;
+            --text-dim: #9a9a9a;
             --shadow: 0 2px 8px rgba(0,0,0,0.08);
             --shadow-lg: 0 8px 32px rgba(0,0,0,0.14);
             --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
@@ -46,6 +49,9 @@
             --error-bg: #2e1a1a;
             --verse-num: #5aafff;
             --highlight: #e05555;
+            --hover-bg: rgba(255,255,255,0.08);
+            --card-bg-alt: #32323a;
+            --text-dim: #707080;
             --shadow: 0 2px 8px rgba(0,0,0,0.35);
             --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
         }
@@ -2635,7 +2641,7 @@
             font-family: var(--font-ui);
             color: var(--text);
             pointer-events: none;
-            z-index: 920;
+            z-index: 2300;
             display: none;
             box-shadow: var(--shadow);
         }

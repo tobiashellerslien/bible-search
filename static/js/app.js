@@ -134,16 +134,11 @@ const I18N = {
         'card.alignVerses': 'juster',
         'card.alignVerses.title': 'Juster vers side ved side',
         'card.allVersionsOption': '— Alle oversettelser —',
-        'card.readChapter': '📖 Les kapittel',
-        'card.mapBtn': '🗺️ Kart ({0})',
         'card.mapBtn.title': 'Se {0} sted(er) på kart',
         'card.study': '🎓 Studie',
         'card.study.title': 'Vis/skjul studie-verktøy',
         'card.study.map': '🗺️ Kart',
         'card.study.map.empty': 'Ingen steder i denne teksten',
-        'card.study.interlinear': 'Grunntekst',
-        'card.study.bibleref': 'BibleRef',
-        'card.study.source': 'Kilde',
         'card.study.commentary': '🖋️ Kommentar',
         'card.study.leksikon': '📕 Leksikon',
         'card.study.outline': '📜 Outline',
@@ -193,7 +188,6 @@ const I18N = {
         'card.collapseChapter': 'Tilbake til vers',
         'card.navPrev': 'Forrige',
         'card.navNext': 'Neste',
-        'swipeHint.text': 'Sveip for å bla',
         'card.compareLoading': 'Laster...',
         'card.compareNotFound': 'Ikke funnet',
         'card.compareFailed': 'Lasting feilet',
@@ -207,14 +201,10 @@ const I18N = {
         'annot.openAll': 'Åpne alle →',
         'annot.loading': 'Laster…',
         'annot.error': 'Feil',
-        'chip.verseSingle': 'vers {0}',
-        'chip.verseRange': 'vers {0}–{1}',
-        'chip.verseCrossCh': 'vers {0}:{1}–{2}:{3}',
         'chapterNav.prevCh': 'Forrige kapittel',
         'chapterNav.nextCh': 'Neste kapittel',
         'chapterNav.prevVs': 'Forrige vers',
         'chapterNav.nextVs': 'Neste vers',
-        'verseNum.titleFmt': '{0} {1}:{2}',
         'toast.copied': 'Kopiert!',
         'toast.linkCopied': 'Lenke kopiert!',
         'toast.copyFailed': 'Kopiering feilet',
@@ -248,7 +238,6 @@ const I18N = {
         'ac.filter': 'filter',
         'ac.searchInBook': 'søk i bok',
         'verse.chapterHeading': 'Kapittel {0}',
-        'verse.openVerse': 'Åpne vers',
         'quickSearch.toggle': 'Hurtigsøk — direkte treff mens du skriver',
         'quickSearch.hint': 'Hurtigsøk — skriv minst 3 tegn',
         'quickSearch.none': 'Ingen treff.',
@@ -295,11 +284,11 @@ function applyI18n() {
 // allVersionsList is populated in init() — [{id, name, full_name, language}, ...]
 // versionSelect values are String(id) throughout the app.
 function versionLabel(v) {
-    const ver = allVersionsList.find(x => String(x.id) === String(v));
+    const ver = _versionsMap.get(String(v));
     return ver ? ver.name : String(v);
 }
 function versionLang(v) {
-    const ver = allVersionsList.find(x => String(x.id) === String(v));
+    const ver = _versionsMap.get(String(v));
     return ver ? ver.language : 'no';
 }
 
@@ -349,7 +338,7 @@ const BOOK_DISPLAY_OVERRIDES_NO = { PSA: 'Salmene' };
 const BOOK_DISPLAY_OVERRIDES_EN_SINGULAR = { PSA: 'Psalm' };
 
 function isOTBook(code) {
-    const b = booksData.find(x => x.code === code);
+    const b = _booksMap.get(code);
     return b ? b.testament === 'OT' : false;
 }
 
@@ -409,11 +398,11 @@ const VALID_GROUP_PREFIXES = new Set([
 const FONT_SIZES = [null, '0.85rem', '1.0rem', '1.1rem', '1.3rem', '1.5rem'];
 
 function bookChapterCount(code) {
-    const b = booksData.find(x => x.code === code);
+    const b = _booksMap.get(code);
     return b ? (b.chapters || 0) : 0;
 }
 function bookTotalVerses(code) {
-    const b = booksData.find(x => x.code === code);
+    const b = _booksMap.get(code);
     if (!b || !b.verse_counts) return 0;
     return Object.values(b.verse_counts).reduce((a, n) => a + n, 0);
 }
@@ -440,12 +429,14 @@ let studyTrayOpen = false;
 let cardExpandedState = {};    // idx -> { originalBlock } when expanded from verse to chapter
 let currentView = 'normal';
 let booksData = [];
+let _booksMap = new Map();
 let allVersionsCache = null;
 let textSearchCache = null;
 let textSearchGroupData = {};
 let allVersionsTextCache = null;
 let currentChapterInfo = null;
 let allVersionsList = [];
+let _versionsMap = new Map();
 let currentAccent = (() => {
     const raw = localStorage.getItem('accentColor');
     if (raw === 'custom') return 'custom';
@@ -531,6 +522,7 @@ async function init() {
         return ia - ib;
     });
     allVersionsList = data.versions; // [{id, name, full_name, language}, ...]
+    _versionsMap = new Map(allVersionsList.map(v => [String(v.id), v]));
     data.versions.forEach(v => {
         versionSelect.add(new Option(v.name, String(v.id)));
     });
@@ -579,7 +571,7 @@ function buildVersionPicker() {
 
 function updateVersionPickerDisplay() {
     const vid = versionSelect.value;
-    const ver = allVersionsList.find(x => String(x.id) === vid);
+    const ver = _versionsMap.get(vid);
     const nameEl = document.getElementById('versionPickerName');
     if (nameEl) nameEl.textContent = ver ? ver.name : '—';
     document.querySelectorAll('#versionPickerList .vp-item').forEach(el => {
@@ -605,13 +597,14 @@ async function loadBooks() {
     const resp = await fetch(`/api/books?version=${encodeURIComponent(version)}`);
     const data = await resp.json();
     booksData = data.books;
+    _booksMap = new Map(booksData.map(b => [b.code, b]));
     refreshBookDropdown();
 }
 
 function refreshBookDropdown() {
     // Re-render Bla panel if it's currently showing book/chapter list — book names
     // and chapter counts can change with version. Validates blaBook still exists.
-    if (blaBook && !booksData.find(b => b.code === blaBook)) {
+    if (blaBook && !_booksMap.has(blaBook)) {
         blaBook = null;
         if (blaStep === 'chapter') blaStep = 'book';
     }
@@ -660,7 +653,7 @@ function renderBlaPanel() {
             `<div class="bla-grid bla-grid-books">${tiles}</div>`;
     } else if (blaStep === 'chapter') {
         const lang = versionLang(versionSelect.value);
-        const book = booksData.find(b => b.code === blaBook);
+        const book = _booksMap.get(blaBook);
         if (!book) { blaStep = 'book'; renderBlaPanel(); return; }
         let tiles = '';
         for (let i = 1; i <= book.chapters; i++) {
@@ -684,7 +677,7 @@ document.getElementById('blaStepper')?.addEventListener('click', e => {
         blaStep = 'chapter';
         renderBlaPanel();
     } else if (t.dataset.blaChapter) {
-        const book = booksData.find(b => b.code === blaBook);
+        const book = _booksMap.get(blaBook);
         if (!book) return;
         searchInput.value = `${book.name} ${t.dataset.blaChapter}`;
         updateSearchHighlight();
@@ -697,7 +690,7 @@ document.getElementById('blaStepper')?.addEventListener('click', e => {
     }
 });
 
-setInterval(() => fetch('/api/heartbeat').catch(() => {}), 30000);
+setInterval(() => fetch('/api/heartbeat').catch(() => {}), 300000);
 
 // ── URL / History ──
 function buildURL(q, version, mode) {
@@ -839,7 +832,8 @@ async function doSearch(pushHistory = true, resetAC = true) {
             } else if (err && err.code === 'invalid_query') {
                 showSearchWarning(t('search.invalidQuery'));
             } else {
-                resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), typeof err === 'string' ? err : JSON.stringify(err));
+                console.error('Search error:', err);
+                resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), t('loading.errorBody'));
             }
             return;
         }
@@ -967,17 +961,15 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
     const cardId = `card-${idx}`;
     const cs = cardCompare[idx];
     const compareVisible = !!(cs && cs.visible);
-    const defaultCompareVer = allVersionsList.find(v => String(v.id) !== ver);
+    const defaultCompareVer = allVersionsList.find(v => String(v.id) !== ver); // first != current
     const compareVer = cs ? cs.version : (defaultCompareVer ? String(defaultCompareVer.id) : ver);
-
-    const chipHtml = '';
 
     // Compute swipe nav metadata for this card
     let swipeAttrs = '';
     if (block.book && block.verses.length > 0) {
         const _ch = block.verses[0].chapter;
         const _bName = bookRefName(block.book);
-        const _maxCh = (booksData.find(b => b.code === block.book) || {}).chapters || 0;
+        const _maxCh = (_booksMap.get(block.book) || {}).chapters || 0;
         const _isVerseView = !block.is_chapter;
         const _allSameCh = block.verses.every(v => v.chapter === _ch);
         if (_allSameCh && _maxCh > 0) {
@@ -1001,7 +993,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
     if (block.book && block.verses.length > 0) {
         const _ch = block.verses[0].chapter;
         const _bName = bookRefName(block.book);
-        const _maxCh = (booksData.find(b => b.code === block.book) || {}).chapters || 0;
+        const _maxCh = (_booksMap.get(block.book) || {}).chapters || 0;
         const _isVerseView = !block.is_chapter;
         const _allSameCh = block.verses.every(v => v.chapter === _ch);
         if (_allSameCh && _maxCh > 0) {
@@ -1049,7 +1041,6 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
             <div class="verse-card-header-main">
                 <div class="verse-card-header-left">
                     <span class="verse-card-label">${escHtml(displayLabel)}</span>
-                    ${chipHtml}
                 </div>
                 <div class="verse-card-header-actions">
                     ${block.book && block.verses.length > 0 ? `<button class="copy-btn block-pin-btn" data-card-idx="${idx}" onclick="pinBlock(${idx})" title="Fest blokk" aria-label="Fest blokk"><img src="/static/images/pin.png" class="copy-icon" alt=""></button>` : ''}
@@ -1171,7 +1162,8 @@ function renderCompareBody(idx) {
 
     if (!cs.data) { body.innerHTML = `<span class="compare-loading">${escHtml(t('card.compareLoading'))}</span>`; return; }
     if (cs.data.error) {
-        body.innerHTML = `<span style="color:var(--error);font-size:0.85rem;">${escHtml(cs.data.error)}</span>`;
+        console.error('Compare error:', cs.data.error);
+        body.innerHTML = `<span style="color:var(--error);font-size:0.85rem;">${escHtml(t('card.compareFailed'))}</span>`;
         return;
     }
     const compLang = versionLang(cs.version);
@@ -1836,7 +1828,7 @@ function clearAllMarkedVerses() {
 
 // Book order lookup: returns a sort key for a USFM code using booksData
 function _bookOrder(usfm) {
-    const idx = booksData.findIndex(b => b.code === usfm);
+    const idx = booksData.indexOf(_booksMap.get(usfm));
     return idx >= 0 ? idx : 999;
 }
 
@@ -2037,9 +2029,10 @@ function _mvbCopyText() {
     const ref = buildMvbRefString();
     const verLabel = versionSelect ? (' ' + (versionSelect.options[versionSelect.selectedIndex]?.text || '')) : '';
     const full = `${text}\n\n${ref}${verLabel}`;
+    if (!navigator.clipboard) { showToast(t('toast.clipboardUnavailable')); return; }
     navigator.clipboard.writeText(full).then(() => {
         showToast(t('toast.copied'));
-    }).catch(() => {});
+    }).catch(() => showToast(t('toast.copyFailed')));
 }
 
 // ── Module active-state plumbing ─────────────────────────────────────
@@ -2218,8 +2211,8 @@ async function mvbShare() {
     }
     try {
         await navigator.clipboard.writeText(url);
-        showToast('Lenke kopiert');
-    } catch { showToast('Kunne ikke dele lenke'); }
+        showToast(t('toast.linkCopied'));
+    } catch { showToast(t('toast.copyFailed')); }
 }
 
 // Initialize MVB buttons (called once after DOM ready)
@@ -2817,7 +2810,7 @@ window.searchAllVersionsText = async function(query) {
     try {
         const resp = await fetch(`/api/all_text_search?q=${encodeURIComponent(query)}`);
         const data = await resp.json();
-        if (data.error) { resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), data.error); return; }
+        if (data.error) { console.error('All versions text search error:', data.error); resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), t('loading.errorBody')); return; }
         allVersionsTextCache = { results: data.results, query: data.query };
         renderAllVersionsTextSearch(data.results, data.query);
     } catch {
@@ -2985,7 +2978,7 @@ window.toggleChapterExpand = async function(idx) {
         mainData[idx] = expandState.originalBlock;
         delete cardExpandedState[idx];
         if (cardCompare[idx]) { cardCompare[idx].data = null; cardCompare[idx].allData = null; }
-        await animateCardCollapse(idx);
+        await animateCardHeightChange(idx);
         try { updateUrlFromCards(); } catch {}
         if (idx === 0) {
             try { window.AppSidebar && window.AppSidebar.notifyMainBlockChanged(); } catch {}
@@ -3019,7 +3012,7 @@ window.toggleChapterExpand = async function(idx) {
         // (instant visual feedback) but defer scrollIntoView until the animation
         // settles — otherwise the still-clipped/animating max-height makes the
         // scroll target a moving target and smooth-scroll lands in the wrong spot.
-        const animPromise = animateCardExpand(idx);
+        const animPromise = animateCardHeightChange(idx);
         const card = document.getElementById(`card-${idx}`);
         let firstLine = null;
         if (card) {
@@ -3113,10 +3106,10 @@ function animateCardHeightChange(idx) {
         });
     });
 }
-const animateCardExpand = animateCardHeightChange;
-const animateCardCollapse = animateCardHeightChange;
+window.clearHighlightAndMarked = function() {
+    clearAllMarkedVerses();
+};
 
-// ── Read chapter (legacy, kept for any callers) ──
 window.readChapter = async function(bookCode, chapter, bName, highlightKeys) {
     searchInput.value = `${bName} ${chapter}`;
     updateSearchHighlight();
@@ -3141,17 +3134,13 @@ window.readChapter = async function(bookCode, chapter, bName, highlightKeys) {
     }
 };
 
-window.clearHighlightAndMarked = function() {
-    clearAllMarkedVerses();
-};
-
 // ── All versions (reference) ──
 async function executeAllVersions(label) {
     currentView = 'all_versions';
     try {
         const resp = await fetch(`/api/all_versions?q=${encodeURIComponent(label)}`);
         const data = await resp.json();
-        if (data.error) { resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), data.error); return; }
+        if (data.error) { console.error('All versions error:', data.error); resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), t('loading.errorBody')); return; }
         renderAllVersions(data.results, label);
     } catch { resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), t('allVersions.failed')); }
 }
@@ -3205,7 +3194,8 @@ window.copyBlock = function(blockIdx) {
     const text = block.verses.map(v => v.text).join(' ').trim();
     const label = translateLabel(block.label, block.book, lang);
     const full = `${text}\n\n${label} ${versionLabel(ver)}`;
-    navigator.clipboard.writeText(full).then(() => showToast(t('toast.copied')));
+    if (!navigator.clipboard) { showToast(t('toast.clipboardUnavailable')); return; }
+    navigator.clipboard.writeText(full).then(() => showToast(t('toast.copied'))).catch(() => showToast(t('toast.copyFailed')));
 };
 
 function _blockPinSpec(blockIdx) {
@@ -3251,11 +3241,11 @@ window.shareBlock = function(blockIdx) {
     const url = `${window.location.origin}${buildURL(ref, ver)}`;
     if (navigator.share) {
         navigator.share({ title: ref, text: ref, url }).catch(() => {
-            navigator.clipboard.writeText(url).then(() => showToast('Lenke kopiert')).catch(() => {});
+            navigator.clipboard.writeText(url).then(() => showToast(t('toast.linkCopied'))).catch(() => showToast(t('toast.copyFailed')));
         });
         return;
     }
-    navigator.clipboard.writeText(url).then(() => showToast('Lenke kopiert')).catch(() => {});
+    navigator.clipboard.writeText(url).then(() => showToast(t('toast.linkCopied'))).catch(() => showToast(t('toast.copyFailed')));
 };
 
 function refreshBlockPinButtons() {
@@ -3529,9 +3519,9 @@ function wireChartTooltips() {
         bar.addEventListener('mousemove', e => {
             chartTooltip.classList.add('visible');
             const nc = parseFloat(bar.dataset.nc);
-            let tip = `<strong>${bar.dataset.name}</strong>${bar.dataset.count} hits`;
-            if (statsNormMode === 'per_chapter') tip += ` (${nc.toFixed(2)}/ch)`;
-            else if (statsNormMode === 'per_verse') tip += ` (${nc.toFixed(4)}/vs)`;
+            let tip = `<strong>${escHtml(bar.dataset.name)}</strong>${escHtml(t('stats.unitHits', bar.dataset.count))}`;
+            if (statsNormMode === 'per_chapter') tip += ` (${escHtml(t('stats.unitChapter', nc.toFixed(2)))})`;
+            else if (statsNormMode === 'per_verse') tip += ` (${escHtml(t('stats.unitVerse', nc.toFixed(4)))})`;
             chartTooltip.innerHTML = tip;
             chartTooltip.style.left = (e.clientX + 14) + 'px';
             chartTooltip.style.top = (e.clientY - 8) + 'px';
@@ -3625,7 +3615,7 @@ function renderQuickSearch(data, tokens) {
 resultsWrapper.addEventListener('click', e => {
     const row = e.target.closest('.quick-row');
     if (!row) return;
-    const ref = fmtVerseRef(row.dataset.book, row.dataset.book, Number(row.dataset.chapter), Number(row.dataset.verse));
+    const ref = fmtVerseRef(row.dataset.book, bookRefName(row.dataset.book), Number(row.dataset.chapter), Number(row.dataset.verse));
     setQuickMode(false);
     searchInput.value = ref;
     updateSearchHighlight();
@@ -3936,7 +3926,7 @@ async function queueArrowNav(dir) {
             _arrowNavPending = null;
             if (!currentChapterInfo) break;
             const { book, chapter, bookName: bName, isVerseView, firstVerse, lastVerse } = currentChapterInfo;
-            const maxCh = (booksData.find(b => b.code === book) || {}).chapters || 0;
+            const maxCh = (_booksMap.get(book) || {}).chapters || 0;
             if (isVerseView) {
                 if (d === 'prev') await goVerse(book, chapter, firstVerse, bName, 'prev');
                 else await goVerse(book, chapter, lastVerse, bName, 'next');
@@ -4339,7 +4329,7 @@ function bookName(code, lang) {
     if (effectiveLang === 'en' && ENG_NAMES[code]) return ENG_NAMES[code];
     const override = BOOK_DISPLAY_OVERRIDES_NO[code];
     if (override) return override;
-    const b = booksData.find(x => x.code === code);
+    const b = _booksMap.get(code);
     return b ? b.name : code;
 }
 
@@ -4347,13 +4337,13 @@ function bookNameSingular(code, lang) {
     if (!code) return '';
     const effectiveLang = lang || versionLang(versionSelect.value);
     if (effectiveLang === 'en') return BOOK_DISPLAY_OVERRIDES_EN_SINGULAR[code] || ENG_NAMES[code] || code;
-    const b = booksData.find(x => x.code === code);
+    const b = _booksMap.get(code);
     return b ? b.name : code;
 }
 
 function bookRefName(code) {
     if (!code) return '';
-    const b = booksData.find(x => x.code === code);
+    const b = _booksMap.get(code);
     return b ? b.name : code;
 }
 
@@ -4376,7 +4366,7 @@ window.fmtVerseRef = fmtVerseRef;
 
 window.bookAbbrev = function (code) {
     if (!code) return '';
-    const b = booksData.find(x => x.code === code);
+    const b = _booksMap.get(code);
     return b && b.abbrev_no ? b.abbrev_no : (b ? b.name : code);
 };
 
@@ -4386,19 +4376,19 @@ function translateLabel(label, bookCode, lang) {
     if (effectiveLang === 'no') return label;
     const engName = BOOK_DISPLAY_OVERRIDES_EN_SINGULAR[bookCode] || ENG_NAMES[bookCode];
     if (!engName) return label;
-    const b = booksData.find(x => x.code === bookCode);
+    const b = _booksMap.get(bookCode);
     const norwName = b ? b.name : null;
     if (norwName && label.startsWith(norwName)) return engName + label.slice(norwName.length);
     return label;
 }
 
 function maxVerseInChapter(bookCode, chapter) {
-    const b = booksData.find(x => x.code === bookCode);
+    const b = _booksMap.get(bookCode);
     return b && b.verse_counts ? (b.verse_counts[chapter] || 0) : 0;
 }
 
 window.goVerse = async function(bookCode, chapter, verse, bName, direction, cardIdx) {
-    const maxCh = (booksData.find(b => b.code === bookCode) || {}).chapters || 0;
+    const maxCh = (_booksMap.get(bookCode) || {}).chapters || 0;
     let targetCh = chapter, targetVerse = verse;
     if (direction === 'prev') {
         if (verse > 1) {

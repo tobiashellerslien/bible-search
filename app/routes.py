@@ -4,6 +4,8 @@ import re
 import time
 from datetime import datetime, timezone
 
+import requests as _requests
+
 from flask import Blueprint, current_app, jsonify, render_template, request, send_from_directory
 
 from .services.bible import (
@@ -768,6 +770,8 @@ def api_feedback():
     ip = (request.headers.get("X-Forwarded-For", request.remote_addr or "") or "").split(",")[0].strip()
     ip_hash = hashlib.sha256(ip.encode("utf-8")).hexdigest()[:16] if ip else "anon"
     now = time.time()
+    for k in [k for k, v in _FEEDBACK_LAST_SUBMIT.items() if now - v >= _FEEDBACK_RATE_LIMIT_SEC]:
+        del _FEEDBACK_LAST_SUBMIT[k]
     last = _FEEDBACK_LAST_SUBMIT.get(ip_hash, 0)
     if now - last < _FEEDBACK_RATE_LIMIT_SEC:
         wait = int(_FEEDBACK_RATE_LIMIT_SEC - (now - last))
@@ -786,7 +790,6 @@ def api_feedback():
     )
 
     try:
-        import requests as _requests
         resp = _requests.post(
             f"https://api.telegram.org/bot{token}/sendMessage",
             json={"chat_id": chat_id, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True},

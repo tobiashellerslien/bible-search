@@ -981,18 +981,18 @@ class BibleData:
         return out
 
     def _topic_path(self, topic_id):
-        """Walk parent chain → list of names from root to leaf."""
-        names = []
-        cur = topic_id
-        while cur is not None:
-            row = self.db.execute(
-                "SELECT name, parent_id FROM topics WHERE id=?", [cur]
-            ).fetchone()
-            if not row:
-                break
-            names.append(row[0])
-            cur = row[1]
-        return list(reversed(names))
+        """Return [root, …, leaf] name list using a single recursive CTE."""
+        rows = self.db.execute(
+            """WITH RECURSIVE anc(id, name, parent_id, depth) AS (
+                   SELECT id, name, parent_id, 0 FROM topics WHERE id=?
+                   UNION ALL
+                   SELECT t.id, t.name, t.parent_id, anc.depth+1
+                   FROM topics t JOIN anc ON t.id = anc.parent_id
+               )
+               SELECT name FROM anc ORDER BY depth DESC""",
+            [topic_id],
+        ).fetchall()
+        return [r[0] for r in rows]
 
     # ── Topics: range aggregation for the Topics module ──────────────
     def _ensure_topic_own_counts(self):
