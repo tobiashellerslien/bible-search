@@ -534,10 +534,11 @@
 
         // Open-state rules:
         //   intros: always closed
-        //   non-intro entries: open if only one, else closed
-        //   MVB (PC and mobile): entries overlapping marked verses are open
+        //   oversikt (chapter-level overview, verse_start == null): always closed
+        //   verse entries: open if only one, else closed
+        //   MVB (PC and mobile): verse entries overlapping marked verses are open
         const nonIntro = entries;
-        const onlyOne = nonIntro.length === 1;
+        const onlyOne = nonIntro.filter(e => e.verse_start != null).length === 1;
         const isMvb = (_scope.source === 'mvb-pc' || _scope.source === 'mvb-mobile');
         // Concise: one whole-chapter markdown doc per entry. Unwrap it into
         // top-level section boxes instead of nesting under one chapter box.
@@ -570,9 +571,10 @@
             }
         } else {
             for (const entry of nonIntro) {
+                const isOversikt = entry.verse_start == null;
                 let open = false;
-                if (onlyOne) open = true;
-                if (isMvb && entryOverlapsMarked(entry, _scope.markedVerses)) open = true;
+                if (!isOversikt && onlyOne) open = true;
+                if (!isOversikt && isMvb && entryOverlapsMarked(entry, _scope.markedVerses)) open = true;
                 html += buildEntryHtml(commentary, entry, { open });
             }
         }
