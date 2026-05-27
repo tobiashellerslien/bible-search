@@ -33,8 +33,11 @@
         const abbrev = (typeof window.bookAbbrev === 'function')
             ? window.bookAbbrev(book) : book;
         if (parts.length === 1) return abbrev;
-        if (parts.length === 2) return `${abbrev} ${parts[1]}`;
-        return `${abbrev} ${parts[1]}:${parts.slice(2).join('.')}`;
+        const single = typeof window.isSingleChapterBook === 'function'
+            && window.isSingleChapterBook(book);
+        if (parts.length === 2) return single ? abbrev : `${abbrev} ${parts[1]}`;
+        const versePart = parts.slice(2).join('.');
+        return single ? `${abbrev} ${versePart}` : `${abbrev} ${parts[1]}:${versePart}`;
     }
 
     // Fetch up to two verses of preview text for a reference. Result cached as

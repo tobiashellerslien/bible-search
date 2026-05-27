@@ -62,9 +62,8 @@
         const lang = (typeof window.versionLang === 'function') ? window.versionLang(version) : 'no';
         const bName = (typeof window.bookName === 'function') ? window.bookName(block.book, lang) : block.book;
         let label;
-        if (block.is_chapter && ch_start === ch_end) label = `${bName} ${ch_start}`;
-        else if (ch_start === ch_end && vs_start === vs_end) label = `${bName} ${ch_start}:${vs_start}`;
-        else if (ch_start === ch_end) label = `${bName} ${ch_start}:${vs_start}-${vs_end}`;
+        if (block.is_chapter && ch_start === ch_end) label = window.fmtVerseRef(block.book, bName, ch_start);
+        else if (ch_start === ch_end) label = window.fmtVerseRef(block.book, bName, ch_start, vs_start, vs_end);
         else label = `${bName} ${ch_start}:${vs_start}-${ch_end}:${vs_end}`;
         return { book: block.book, ch_start, vs_start, ch_end, vs_end, version, label };
     }
@@ -179,7 +178,7 @@
             ? window.versionLang(_scope.range.version) : 'no';
         const bName = (typeof window.bookName === 'function')
             ? window.bookName(book, lang) : book;
-        return `${bName} ${chapter}:${verse}`;
+        return window.fmtVerseRef(book, bName, chapter, verse);
     }
 
     function refLabelFromVerseSpec(v) {
@@ -187,10 +186,7 @@
             ? window.versionLang(_scope.range.version) : 'no';
         const bName = (typeof window.bookName === 'function')
             ? window.bookName(v.book_usfm, lang) : v.book_usfm;
-        if (v.verse_end && v.verse_end !== v.verse_start) {
-            return `${bName} ${v.chapter}:${v.verse_start}-${v.verse_end}`;
-        }
-        return `${bName} ${v.chapter}:${v.verse_start}`;
+        return window.fmtVerseRef(v.book_usfm, bName, v.chapter, v.verse_start, v.verse_end);
     }
 
     function buildTriggerChips(node) {
@@ -514,9 +510,7 @@
                         ? window.versionLang(_scope.range.version) : 'no';
                     const bName = (typeof window.bookName === 'function')
                         ? window.bookName(book, lang) : book;
-                    const label = (vsEnd !== vsStart)
-                        ? `${bName} ${chapter}:${vsStart}-${vsEnd}`
-                        : `${bName} ${chapter}:${vsStart}`;
+                    const label = window.fmtVerseRef(book, bName, chapter, vsStart, vsEnd);
                     if (typeof window.searchFromXref === 'function') window.searchFromXref(label);
                 }
             });
@@ -636,11 +630,9 @@
         const version = (window.versionSelect && String(window.versionSelect.value)) || '';
         const lang = (typeof window.versionLang === 'function') ? window.versionLang(version) : 'no';
         const bName = (typeof window.bookName === 'function') ? window.bookName(first.book, lang) : first.book;
-        const label = (first.chapter === last.chapter && first.verse === last.verse)
-            ? `${bName} ${first.chapter}:${first.verse}`
-            : (first.chapter === last.chapter
-                ? `${bName} ${first.chapter}:${first.verse}-${last.verse}`
-                : `${bName} ${first.chapter}:${first.verse}-${last.chapter}:${last.verse}`);
+        const label = (first.chapter === last.chapter)
+            ? window.fmtVerseRef(first.book, bName, first.chapter, first.verse, last.verse)
+            : `${bName} ${first.chapter}:${first.verse}-${last.chapter}:${last.verse}`;
         const range = {
             book: first.book,
             ch_start: first.chapter, vs_start: first.verse,

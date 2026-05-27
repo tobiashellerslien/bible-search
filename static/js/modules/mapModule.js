@@ -1333,7 +1333,7 @@
                             ch_start: r.chapter, vs_start: r.verse,
                             ch_end: r.chapter,   vs_end: r.verse,
                             version,
-                            label: `${bName} ${r.chapter}:${r.verse}`,
+                            label: window.fmtVerseRef(code, bName, r.chapter, r.verse),
                         }));
                         // New search — replace existing view rather than append.
                         await window.insertBlocksIntoView(specs, { replace: true });

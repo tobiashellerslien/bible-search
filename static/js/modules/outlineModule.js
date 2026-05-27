@@ -55,10 +55,7 @@
     function refLabelShort(ref) {
         const bName = bookShort(ref.book);
         const c1 = ref.ch_start, v1 = ref.vs_start, c2 = ref.ch_end, v2 = ref.vs_end;
-        if (c1 === c2) {
-            if (v1 === v2) return `${bName} ${c1}:${v1}`;
-            return `${bName} ${c1}:${v1}-${v2}`;
-        }
+        if (c1 === c2) return window.fmtVerseRef(ref.book, bName, c1, v1, v2);
         return `${bName} ${c1}:${v1}-${c2}:${v2}`;
     }
 
@@ -66,10 +63,7 @@
     function refLabelNav(ref) {
         const bName = bookDisplay(ref.book);
         const c1 = ref.ch_start, v1 = ref.vs_start, c2 = ref.ch_end, v2 = ref.vs_end;
-        if (c1 === c2) {
-            if (v1 === v2) return `${bName} ${c1}:${v1}`;
-            return `${bName} ${c1}:${v1}-${v2}`;
-        }
+        if (c1 === c2) return window.fmtVerseRef(ref.book, bName, c1, v1, v2);
         return `${bName} ${c1}:${v1}-${c2}:${v2}`;
     }
 

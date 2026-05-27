@@ -1502,7 +1502,7 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
 
         html += `<span class="verse-line">`;
         if (showNums) {
-            html += `<span class="verse-num" onclick="openSingleVerse('${bookCodeSafe}',${v.chapter},${v.num},'${refName}','${escAttr(ver || '')}')" title="${escAttr(bookRefName(bookCode))} ${v.chapter}:${v.num}">${v.num}</span>`;
+            html += `<span class="verse-num" onclick="openSingleVerse('${bookCodeSafe}',${v.chapter},${v.num},'${refName}','${escAttr(ver || '')}')" title="${escAttr(fmtVerseRef(bookCode, bookRefName(bookCode), v.chapter, v.num))}">${v.num}</span>`;
         }
         const fnText = footnoteMap[v.chapter]?.[v.num];
         if (bookCodeSafe) {
@@ -1815,7 +1815,7 @@ window.openSingleVerse = async function(bookCode, chapter, verse, bName, verToSw
         const cur = history.state || {};
         try { history.replaceState({ ...cur, savedTextSearch: { openBooks, scrollY: window.scrollY } }, '', window.location.href); } catch {}
     }
-    searchInput.value = `${bName} ${chapter}:${verse}`;
+    searchInput.value = fmtVerseRef(bookCode, bName, chapter, verse);
     updateSearchHighlight();
     await doSearch();
 };
@@ -1888,7 +1888,8 @@ function buildMvbRefString() {
     const parts = byBookChap.map(g => {
         const bookName = bookRefName(g.book) || g.book;
         const rangeParts = g.ranges.map(r => r.start === r.end ? String(r.start) : `${r.start}-${r.end}`);
-        return `${bookName} ${g.chapter}:${rangeParts.join(', ')}`;
+        const joined = rangeParts.join(', ');
+        return isSingleChapterBook(g.book) ? `${bookName} ${joined}` : `${bookName} ${g.chapter}:${joined}`;
     });
     return parts.join(' · ');
 }
@@ -1897,9 +1898,7 @@ function buildMvbQuery(forCompare) {
     const groups = getMarkedVersesGroups();
     const parts = groups.map(g => {
         const bookName = bookRefName(g.book) || g.book;
-        return g.vsStart === g.vsEnd
-            ? `${bookName} ${g.chapter}:${g.vsStart}`
-            : `${bookName} ${g.chapter}:${g.vsStart}-${g.vsEnd}`;
+        return fmtVerseRef(g.book, bookName, g.chapter, g.vsStart, g.vsEnd);
     });
     return parts.join(';');
 }
@@ -1908,9 +1907,7 @@ function _getMvbPinSpecs() {
     const version = String(versionSelect ? versionSelect.value : '');
     return getMarkedVersesGroups().map(g => {
         const bookName = bookRefName(g.book) || g.book;
-        const label = g.vsStart === g.vsEnd
-            ? `${bookName} ${g.chapter}:${g.vsStart}`
-            : `${bookName} ${g.chapter}:${g.vsStart}-${g.vsEnd}`;
+        const label = fmtVerseRef(g.book, bookName, g.chapter, g.vsStart, g.vsEnd);
         const text = g.verses.map(v => v.text).join(' ').slice(0, 400);
         return {
             book: g.book,
@@ -2200,11 +2197,7 @@ window.closeExternalPopup = closeExternalPopup;
 function buildShareUrl() {
     const groups = getMarkedVersesGroups();
     if (!groups.length) return null;
-    const refParts = groups.map(g => {
-        const bName = bookRefName(g.book);
-        if (g.vsStart === g.vsEnd) return `${bName} ${g.chapter}:${g.vsStart}`;
-        return `${bName} ${g.chapter}:${g.vsStart}-${g.vsEnd}`;
-    });
+    const refParts = groups.map(g => fmtVerseRef(g.book, bookRefName(g.book), g.chapter, g.vsStart, g.vsEnd));
     const q = refParts.join('; ');
     const v = versionSelect ? versionSelect.value : '';
     return `${window.location.origin}${buildURL(q, v)}`;
@@ -3248,11 +3241,11 @@ window.shareBlock = function(blockIdx) {
     const bName = bookRefName(block.book);
     const ch = block.verses[0].chapter;
     let ref;
-    if (block.is_chapter) ref = `${bName} ${ch}`;
+    if (block.is_chapter) ref = fmtVerseRef(block.book, bName, ch);
     else {
         const first = block.verses[0].num;
         const last = block.verses[block.verses.length - 1].num;
-        ref = (first === last) ? `${bName} ${ch}:${first}` : `${bName} ${ch}:${first}-${last}`;
+        ref = fmtVerseRef(block.book, bName, ch, first, last);
     }
     const ver = versionSelect ? versionSelect.value : '';
     const url = `${window.location.origin}${buildURL(ref, ver)}`;
@@ -3632,7 +3625,7 @@ function renderQuickSearch(data, tokens) {
 resultsWrapper.addEventListener('click', e => {
     const row = e.target.closest('.quick-row');
     if (!row) return;
-    const ref = `${row.dataset.book} ${row.dataset.chapter}:${row.dataset.verse}`;
+    const ref = fmtVerseRef(row.dataset.book, row.dataset.book, Number(row.dataset.chapter), Number(row.dataset.verse));
     setQuickMode(false);
     searchInput.value = ref;
     updateSearchHighlight();
@@ -4364,6 +4357,23 @@ function bookRefName(code) {
     return b ? b.name : code;
 }
 
+// Books with only one chapter — references drop the chapter and show just the
+// verse number (e.g. "Judas 2", not "Judas 1:2").
+const SINGLE_CHAPTER_BOOKS = new Set(['OBA', 'PHM', '2JN', '3JN', 'JUD']);
+function isSingleChapterBook(code) { return SINGLE_CHAPTER_BOOKS.has(code); }
+window.isSingleChapterBook = isSingleChapterBook;
+
+// Build a verse-reference label, collapsing the chapter for single-chapter books.
+// `bName` is the already-resolved (and possibly language-swapped) display name;
+// pass `vsStart == null` for a whole-book/chapter label.
+function fmtVerseRef(bookCode, bName, chapter, vsStart, vsEnd) {
+    const single = SINGLE_CHAPTER_BOOKS.has(bookCode);
+    if (vsStart == null) return single ? bName : `${bName} ${chapter}`;
+    const tail = (vsEnd != null && vsEnd !== vsStart) ? `${vsStart}-${vsEnd}` : `${vsStart}`;
+    return single ? `${bName} ${tail}` : `${bName} ${chapter}:${tail}`;
+}
+window.fmtVerseRef = fmtVerseRef;
+
 window.bookAbbrev = function (code) {
     if (!code) return '';
     const b = booksData.find(x => x.code === code);
@@ -4410,7 +4420,7 @@ window.goVerse = async function(bookCode, chapter, verse, bName, direction, card
             return; // at very end
         }
     }
-    const targetRef = `${bName} ${targetCh}:${targetVerse}`;
+    const targetRef = fmtVerseRef(bookCode, bName, targetCh, targetVerse);
     if (typeof cardIdx === 'number' && mainData && mainData[cardIdx]) {
         await navigateCardToRef(cardIdx, targetRef, direction, null);
         return;
@@ -4497,7 +4507,7 @@ function updateUrlFromCards() {
         if (!b || !b.book || !b.verses || b.verses.length === 0) return null;
         const bName = bookRefName(b.book);
         const ch = b.verses[0].chapter;
-        if (b.is_chapter) return `${bName} ${ch}`;
+        if (b.is_chapter) return fmtVerseRef(b.book, bName, ch);
         const first = b.verses[0].num;
         const last = b.verses[b.verses.length - 1].num;
         const allSameCh = b.verses.every(v => v.chapter === ch);
@@ -4505,7 +4515,7 @@ function updateUrlFromCards() {
             const lastCh = b.verses[b.verses.length - 1].chapter;
             return `${bName} ${ch}:${first}-${lastCh}:${last}`;
         }
-        return first === last ? `${bName} ${ch}:${first}` : `${bName} ${ch}:${first}-${last}`;
+        return fmtVerseRef(b.book, bName, ch, first, last);
     }).filter(Boolean);
     if (refs.length === 0) return;
     const composite = refs.join('; ');
@@ -4850,11 +4860,8 @@ window.scrollToBlockIdx = function(target) {
     if (typeof target === 'object' && target && target.book) {
         const ref = target.label || (() => {
             const bName = bookRefName(target.book);
-            if (target.ch_start === target.ch_end && target.vs_start === target.vs_end) {
-                return `${bName} ${target.ch_start}:${target.vs_start}`;
-            }
             if (target.ch_start === target.ch_end) {
-                return `${bName} ${target.ch_start}:${target.vs_start}-${target.vs_end}`;
+                return fmtVerseRef(target.book, bName, target.ch_start, target.vs_start, target.vs_end);
             }
             return `${bName} ${target.ch_start}:${target.vs_start}-${target.ch_end}:${target.vs_end}`;
         })();
@@ -4884,7 +4891,7 @@ window.blockToRefLabel = function(block) {
     if (!block || !block.book || !block.verses || block.verses.length === 0) return null;
     const bName = (typeof bookRefName === 'function') ? bookRefName(block.book) : block.book;
     const ch = block.verses[0].chapter;
-    if (block.is_chapter) return `${bName} ${ch}`;
+    if (block.is_chapter) return fmtVerseRef(block.book, bName, ch);
     const first = block.verses[0].num;
     const last = block.verses[block.verses.length - 1].num;
     const allSameCh = block.verses.every(v => v.chapter === ch);
@@ -4892,7 +4899,7 @@ window.blockToRefLabel = function(block) {
         const lastCh = block.verses[block.verses.length - 1].chapter;
         return `${bName} ${ch}:${first}-${lastCh}:${last}`;
     }
-    return first === last ? `${bName} ${ch}:${first}` : `${bName} ${ch}:${first}-${last}`;
+    return fmtVerseRef(block.book, bName, ch, first, last);
 };
 
 // Isolate a block by replacing mainData with just that block. Use this when

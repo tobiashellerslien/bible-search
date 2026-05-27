@@ -111,11 +111,9 @@
             ? window.bookName(block.book, lang) : block.book;
         let label;
         if (block.is_chapter && ch_start === ch_end) {
-            label = `${bName} ${ch_start}`;
-        } else if (ch_start === ch_end && vs_start === vs_end) {
-            label = `${bName} ${ch_start}:${vs_start}`;
+            label = window.fmtVerseRef(block.book, bName, ch_start);
         } else if (ch_start === ch_end) {
-            label = `${bName} ${ch_start}:${vs_start}-${vs_end}`;
+            label = window.fmtVerseRef(block.book, bName, ch_start, vs_start, vs_end);
         } else {
             label = `${bName} ${ch_start}:${vs_start}-${ch_end}:${vs_end}`;
         }
@@ -301,9 +299,12 @@
         const abbrev = (typeof window.bookAbbrev === 'function')
             ? window.bookAbbrev(book) : book;
         if (parts.length === 1) return abbrev;
-        if (parts.length === 2) return `${abbrev} ${parts[1]}`;
+        const single = typeof window.isSingleChapterBook === 'function'
+            && window.isSingleChapterBook(book);
+        if (parts.length === 2) return single ? abbrev : `${abbrev} ${parts[1]}`;
         // Has at least book.chapter.verse(-verse)
-        return `${abbrev} ${parts[1]}:${parts.slice(2).join('.')}`;
+        const versePart = parts.slice(2).join('.');
+        return single ? `${abbrev} ${versePart}` : `${abbrev} ${parts[1]}:${versePart}`;
     }
 
     // Parse a markdown string to HTML (marked), with a plain-text fallback.
@@ -416,10 +417,8 @@
             title = entry.chapter > 0
                 ? tFn('sidebar.commentary.overview')
                 : `${bName} ${entry.chapter}`;
-        } else if (entry.verse_end == null || entry.verse_end === entry.verse_start) {
-            title = `${bName} ${entry.chapter}:${entry.verse_start}`;
         } else {
-            title = `${bName} ${entry.chapter}:${entry.verse_start}-${entry.verse_end}`;
+            title = window.fmtVerseRef(range.book, bName, entry.chapter, entry.verse_start, entry.verse_end);
         }
         let bodyHtml;
         if (commentary.format === 'markdown') {
@@ -621,11 +620,9 @@
             ? window.versionLang(version) : 'no';
         const bName = (typeof window.bookName === 'function')
             ? window.bookName(first.book, lang) : first.book;
-        const label = (first.chapter === last.chapter && first.verse === last.verse)
-            ? `${bName} ${first.chapter}:${first.verse}`
-            : (first.chapter === last.chapter
-                ? `${bName} ${first.chapter}:${first.verse}-${last.verse}`
-                : `${bName} ${first.chapter}:${first.verse}-${last.chapter}:${last.verse}`);
+        const label = (first.chapter === last.chapter)
+            ? window.fmtVerseRef(first.book, bName, first.chapter, first.verse, last.verse)
+            : `${bName} ${first.chapter}:${first.verse}-${last.chapter}:${last.verse}`;
         const range = {
             book: first.book,
             ch_start: first.chapter, vs_start: first.verse,

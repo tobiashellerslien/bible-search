@@ -133,6 +133,24 @@ for _usfm, _order, _name, _aliases in BOOKS:
 SORTED_ALIASES = sorted(ALIAS_MAP.keys(), key=len, reverse=True)
 USFM_TO_ALIASES = {u: al for u, _, _, al in BOOKS}
 
+# Books with only one chapter. References collapse to just the verse number
+# ("Judas 2" = verse 2, not "Judas 1:2"), and a bare number after the book
+# ("Judas 3") is read as a verse in the single chapter, never as a chapter.
+SINGLE_CHAPTER_BOOKS = {"OBA", "PHM", "2JN", "3JN", "JUD"}
+
+
+def ref_label(book, chapter, vs_start=None, vs_end=None):
+    """Build a display reference label, collapsing the chapter for single-chapter
+    books (e.g. "Judas 2" rather than "Judas 1:2", "Judas" for the whole book)."""
+    name = USFM_TO_NAME.get(book, book)
+    single = book in SINGLE_CHAPTER_BOOKS
+    if vs_start is None:
+        return name if single else f"{name} {chapter}"
+    if vs_end is not None and vs_end != vs_start:
+        return (f"{name} {vs_start}-{vs_end}" if single
+                else f"{name} {chapter}:{vs_start}-{vs_end}")
+    return f"{name} {vs_start}" if single else f"{name} {chapter}:{vs_start}"
+
 
 # ── Inline scripture-reference linkifier (dictionary bodies) ──────────────────
 # Easton/Smith dictionary bodies carry raw scripture refs in prose:
@@ -842,7 +860,7 @@ class BibleData:
                 "book_usfm": book_usfm,
                 "chapter": ch,
                 "verse": vs,
-                "ref_label": f"{USFM_TO_NAME.get(book_usfm, book_usfm)} {ch}:{vs}",
+                "ref_label": ref_label(book_usfm, ch, vs),
             })
         return {
             "id": pid,
@@ -1210,10 +1228,7 @@ class BibleData:
                WHERE topic_id=? ORDER BY sort_order""",
             [tid],
         ):
-            if vs_e and vs_e != vs_s:
-                label = f"{USFM_TO_NAME.get(book, book)} {ch}:{vs_s}-{vs_e}"
-            else:
-                label = f"{USFM_TO_NAME.get(book, book)} {ch}:{vs_s}"
+            label = ref_label(book, ch, vs_s, vs_e)
             verses.append({
                 "book_usfm": book, "chapter": ch,
                 "verse_start": vs_s, "verse_end": vs_e, "ref_label": label,
@@ -1330,26 +1345,33 @@ def parse_query(query):
             ctx_chapter = ref["ch_end"]
             ctx_had_verse = True
         elif ref["type"] == "verse_range":
-            label = f"{book_name} {ref['chapter']}:{ref['vs_start']}-{ref['vs_end']}"
+            label = ref_label(book, ref["chapter"], ref["vs_start"], ref["vs_end"])
             blocks.append({"book": book, "label": label, "type": "verse_range", "chapter": ref["chapter"], "vs_start": ref["vs_start"], "vs_end": ref["vs_end"]})
             ctx_chapter = ref["chapter"]
             ctx_had_verse = True
         elif ref["type"] == "verse_range_to_end":
-            label = f"{book_name} {ref['chapter']}:{ref['vs_start']}-end"
+            label = f"{ref_label(book, ref['chapter'], ref['vs_start'])}-end"
             blocks.append({"book": book, "label": label, "type": "verse_range_to_end", "chapter": ref["chapter"], "vs_start": ref["vs_start"]})
             ctx_chapter = ref["chapter"]
             ctx_had_verse = True
         elif ref["type"] == "single_verse":
-            label = f"{book_name} {ref['chapter']}:{ref['verse']}"
+            label = ref_label(book, ref["chapter"], ref["verse"])
             blocks.append({"book": book, "label": label, "type": "single_verse", "chapter": ref["chapter"], "verse": ref["verse"]})
             ctx_chapter = ref["chapter"]
             ctx_had_verse = True
         elif ref["type"] == "chapter_range":
+            # Single-chapter books have no chapter ranges — a "2-5" is a verse range
+            # within the lone chapter (e.g. "Judas 2-5" = verses 2–5).
+            if book in SINGLE_CHAPTER_BOOKS:
+                label = ref_label(book, 1, ref["ch_start"], ref["ch_end"])
+                blocks.append({"book": book, "label": label, "type": "verse_range", "chapter": 1, "vs_start": ref["ch_start"], "vs_end": ref["ch_end"]})
+                ctx_chapter = 1
+                ctx_had_verse = True
             # If the previous block established verse-level context (e.g. "gen 1:1;2-5"),
             # a bare numeric range like "2-5" should be read as a verse range in the
             # current chapter, not a chapter range. The user can always escalate
             # specificity (e.g. "gen 1;2:3"), but never silently de-escalate.
-            if ctx_had_verse and ctx_chapter is not None and not book_code:
+            elif ctx_had_verse and ctx_chapter is not None and not book_code:
                 label = f"{book_name} {ctx_chapter}:{ref['ch_start']}-{ref['ch_end']}"
                 blocks.append({"book": book, "label": label, "type": "verse_range", "chapter": ctx_chapter, "vs_start": ref["ch_start"], "vs_end": ref["ch_end"]})
                 # context unchanged: still in verse-level for ctx_chapter
@@ -1360,7 +1382,13 @@ def parse_query(query):
                 ctx_had_verse = False
         elif ref["type"] == "number":
             val = ref["value"]
-            if ctx_had_verse and ctx_chapter is not None:
+            if book in SINGLE_CHAPTER_BOOKS:
+                # "Judas 3" is verse 3 of the lone chapter, never chapter 3.
+                label = ref_label(book, 1, val)
+                blocks.append({"book": book, "label": label, "type": "single_verse", "chapter": 1, "verse": val})
+                ctx_chapter = 1
+                ctx_had_verse = True
+            elif ctx_had_verse and ctx_chapter is not None:
                 label = f"{book_name} {ctx_chapter}:{val}"
                 blocks.append({"book": book, "label": label, "type": "single_verse", "chapter": ctx_chapter, "verse": val})
             else:
@@ -1402,8 +1430,7 @@ def _resolve_block_core(bible_data, version_id, block):
         result_verses = [{"num": v, "chapter": block["chapter"], "text": t} for v, t in verses]
         # Re-derive label from the resolved chapter/verse so compare-mode shows
         # the mapped reference (e.g. NB88 3:1 → KJV 2:28) rather than the source.
-        book_name = USFM_TO_NAME.get(book, book)
-        base = {**base, "label": f"{book_name} {block['chapter']}:{block['verse']}"}
+        base = {**base, "label": ref_label(book, block["chapter"], block["verse"])}
         _annotate_xrefs(bible_data, version_id, book, result_verses)
         return {**base, "verses": result_verses, "headings": headings, "footnotes": footnotes, "places": places}
     elif btype == "verse_range":
@@ -1414,8 +1441,7 @@ def _resolve_block_core(bible_data, version_id, block):
         if result_verses:
             a, z = result_verses[0]["num"], result_verses[-1]["num"]
             ch = block["chapter"]
-            book_name = USFM_TO_NAME.get(book, book)
-            base = {**base, "label": f"{book_name} {ch}:{a}" if a == z else f"{book_name} {ch}:{a}-{z}"}
+            base = {**base, "label": ref_label(book, ch, a, z)}
         headings = bible_data.get_headings(version_id, book, block["chapter"], block["chapter"], block["vs_start"], block["vs_end"])
         footnotes = bible_data.get_footnotes(version_id, book, block["chapter"], block["chapter"], block["vs_start"], block["vs_end"])
         places = bible_data.get_places_for_range(book, block["chapter"], block["vs_start"], block["chapter"], block["vs_end"], translation_id=version_id)
@@ -1432,8 +1458,7 @@ def _resolve_block_core(bible_data, version_id, block):
         result_verses = [{"num": v, "chapter": ch, "text": t} for v, t in verses]
         if result_verses:
             a, z = result_verses[0]["num"], result_verses[-1]["num"]
-            book_name = USFM_TO_NAME.get(book, book)
-            base = {**base, "label": f"{book_name} {ch}:{a}" if a == z else f"{book_name} {ch}:{a}-{z}"}
+            base = {**base, "label": ref_label(book, ch, a, z)}
         headings = bible_data.get_headings(version_id, book, ch, ch, block["vs_start"], max_v)
         footnotes = bible_data.get_footnotes(version_id, book, ch, ch, block["vs_start"], max_v)
         places = bible_data.get_places_for_range(book, ch, block["vs_start"], ch, max_v, translation_id=version_id)
@@ -1817,7 +1842,7 @@ def search_text(bible_data, version_id, query, per_book=20, book_filter=None):
             rows = rows[:cap]
         for chapter, verse, text in rows:
             results.append({
-                "ref": f"{USFM_TO_NAME.get(book_usfm, book_usfm)} {chapter}:{verse}",
+                "ref": ref_label(book_usfm, chapter, verse),
                 "book": book_usfm,
                 "chapter": chapter,
                 "verse": verse,
@@ -1869,7 +1894,7 @@ def quick_search(bible_data, version_id, query, limit=25):
     rows = rows[:limit]
     results = [
         {
-            "ref": f"{USFM_TO_NAME.get(book_usfm, book_usfm)} {chapter}:{verse}",
+            "ref": ref_label(book_usfm, chapter, verse),
             "book": book_usfm,
             "chapter": chapter,
             "verse": verse,
