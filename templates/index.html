@@ -13,15 +13,15 @@
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Bibelsøk – Søk i og studér Bibelen</title>
-    <meta name="description" content="Gratis verktøy for bibelsøk og bibelstudie. Søk i Bibelen 2011, Norsk Bibel 88/07, Bibelen Guds Ord, ESV, NIV m.fl. Bibelkart, kommentarer, leksikon og mer.">
-    <link rel="canonical" href="https://xn--bibelsk-v1a.no/">
+    <title>{{ og_title }}</title>
+    <meta name="description" content="{{ og_description }}">
+    <link rel="canonical" href="{{ og_url }}">
 
     <!-- Open Graph (link-preview i WhatsApp, iMessage, Signal, Discord, Facebook m.fl.) -->
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://xn--bibelsk-v1a.no/">
-    <meta property="og:title" content="Bibelsøk – Søk i og studér Bibelen">
-    <meta property="og:description" content="Gratis verktøy for bibelsøk og bibelstudie. Søk i Bibelen 2011, Norsk Bibel 88/07, Bibelen Guds Ord, ESV, NIV m.fl. Bibelkart, kommentarer, leksikon og mer.">
+    <meta property="og:url" content="{{ og_url }}">
+    <meta property="og:title" content="{{ og_title }}">
+    <meta property="og:description" content="{{ og_description }}">
     <meta property="og:image" content="https://xn--bibelsk-v1a.no/static/images/logo-wide.png">
     <meta property="og:image:width" content="1774">
     <meta property="og:image:height" content="887">
@@ -30,8 +30,8 @@
 
     <!-- Twitter Card (Twitter/X, Slack m.fl.) -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Bibelsøk – Søk i og studér Bibelen">
-    <meta name="twitter:description" content="Gratis verktøy for bibelsøk og bibelstudie. Søk i Bibelen 2011, Norsk Bibel 88/07, Bibelen Guds Ord, ESV, NIV m.fl. Bibelkart, kommentarer, leksikon og mer.">
+    <meta name="twitter:title" content="{{ og_title }}">
+    <meta name="twitter:description" content="{{ og_description }}">
     <meta name="twitter:image" content="https://xn--bibelsk-v1a.no/static/images/logo-wide.png">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">

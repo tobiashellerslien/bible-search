@@ -45,7 +45,32 @@ def _resolve_version_id(bible_data, raw):
 
 @bp.get("/")
 def index():
-    return render_template("index.html")
+    og_title = "Bibelsøk – Søk i og studér Bibelen"
+    og_description = "Gratis verktøy for bibelsøk og bibelstudie. Søk i Bibelen 2011, Norsk Bibel 88/07, Bibelen Guds Ord, ESV, NIV m.fl. Bibelkart, kommentarer, leksikon og mer."
+    og_url = "https://xn--bibelsk-v1a.no/"
+    query = request.args.get("q", "").strip()
+    if query and is_reference_query(query):
+        try:
+            bible_data = _bible_data()
+            version_id = _resolve_version_id(bible_data, request.args.get("v"))
+            blocks = parse_query(query)
+            if blocks:
+                block = resolve_block(bible_data, version_id, blocks[0])
+                label = block.get("label", "")
+                verses = block.get("verses", [])
+                if label and verses:
+                    verse_text = " ".join(v.get("text", "") for v in verses).strip()
+                    if len(verse_text) > 300:
+                        verse_text = verse_text[:297] + "…"
+                    version_name = bible_data.translations.get(version_id, {}).get("name", "")
+                    og_title = f"{label} – Bibelsøk"
+                    og_description = f"{verse_text} ({version_name})" if version_name else verse_text
+                    og_url = f"https://xn--bibelsk-v1a.no/?q={request.args.get('q', '')}"
+                    if request.args.get("v"):
+                        og_url += f"&v={request.args.get('v')}"
+        except Exception:
+            pass
+    return render_template("index.html", og_title=og_title, og_description=og_description, og_url=og_url)
 
 
 @bp.get("/robots.txt")
