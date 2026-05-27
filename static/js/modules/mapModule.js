@@ -387,6 +387,7 @@
     }
 
     // ── popup ──
+    // attribution icons: Info icons created by Stockio - Flaticon
     function buildPopupHtml(place) {
         const c = colorForPlace(place);
         const rawArticle = place.preceding_article || '';
@@ -420,9 +421,9 @@
 
         const dis = (cond) => cond ? '' : ' disabled aria-disabled="true"';
         html += `<div class="popup-actions">`;
-        html += `<button class="popup-pill" data-act="stats" type="button"${dis(hasStats)}>📊 Andre bibelsteder</button>`;
-        html += `<button class="popup-pill" data-act="details" type="button"${dis(hasDetails)}>ℹ️ Detaljer</button>`;
-        html += `<button class="popup-pill" data-act="links" type="button"${dis(hasLinks)}>🔗 Lenker</button>`;
+        html += `<button class="popup-pill" data-act="stats" type="button"${dis(hasStats)}><img src="/static/images/stats.png" class="popup-pill-icon" alt="" aria-hidden="true"> Andre bibelsteder</button>`;
+        html += `<button class="popup-pill" data-act="details" type="button"${dis(hasDetails)}><img src="/static/images/info.png" class="popup-pill-icon" alt="" aria-hidden="true"> Detaljer</button>`;
+        html += `<button class="popup-pill" data-act="links" type="button"${dis(hasLinks)}><img src="/static/images/external.png" class="popup-pill-icon" alt="" aria-hidden="true"> Lenker</button>`;
         html += `</div>`;
 
         // Refs within current block — each ref is a button so the user can jump to that verse.
@@ -1254,7 +1255,7 @@
     }
     function renderPlaceStats(place) {
         const title = document.getElementById('statsModalTitle');
-        if (title) title.textContent = `Statistikk: ${place.name}`;
+        if (title) title.textContent = `Andre bibelsteder: ${place.name}`;
         const modeSel = document.getElementById('statsModeSelect');
         if (modeSel) modeSel.style.display = 'none';
 

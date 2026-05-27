@@ -306,51 +306,78 @@
         return `${abbrev} ${parts[1]}:${parts.slice(2).join('.')}`;
     }
 
-    // Markdown render with collapsible H2 sections (Matthew Henry).
-    function renderMarkdownWithCollapsibleH2(md) {
-        if (!md) return '';
+    // Parse a markdown string to HTML (marked), with a plain-text fallback.
+    function parseMarkdown(text) {
         const marked = window.marked;
-        // Split body on H2 boundaries. Anything before the first H2 is a
-        // pre-section; each H2 + following content becomes a collapsible block.
-        const lines = md.split('\n');
+        if (!marked) return `<pre class="commentary-plain">${esc(text)}</pre>`;
+        try { return marked.parse(text, { breaks: true, gfm: true }); }
+        catch { return `<pre class="commentary-plain">${esc(text)}</pre>`; }
+    }
+
+    // Split a markdown body on H2 (`## …`) boundaries. Returns
+    // { preface, sections:[{heading, body}] } where preface is any content
+    // before the first H2.
+    function splitMarkdownH2Sections(md) {
+        const lines = (md || '').split('\n');
+        const preface = [];
         const sections = [];
-        let preface = [];
         let current = null;
         for (const line of lines) {
             const h2 = line.match(/^##\s+(.+?)\s*$/);
             if (h2 && !line.startsWith('###')) {
                 if (current) sections.push(current);
-                else if (preface.length) sections.push({ heading: null, lines: preface });
-                preface = [];
                 current = { heading: h2[1], lines: [] };
+            } else if (current) {
+                current.lines.push(line);
             } else {
-                if (current) current.lines.push(line);
-                else preface.push(line);
+                preface.push(line);
             }
         }
         if (current) sections.push(current);
-        else if (preface.length) sections.push({ heading: null, lines: preface });
-
-        const parse = (text) => {
-            if (!marked) return `<pre class="commentary-plain">${esc(text)}</pre>`;
-            try { return marked.parse(text, { breaks: true, gfm: true }); }
-            catch { return `<pre class="commentary-plain">${esc(text)}</pre>`; }
+        return {
+            preface: preface.join('\n'),
+            sections: sections.map(s => ({ heading: s.heading, body: s.lines.join('\n').trim() })),
         };
+    }
 
+    // Matthew Henry's chapter-level overview is labelled "Chapter Outline" /
+    // "Psalm Outline" in concise bodies; surface it under one consistent label
+    // so concise and full read alike.
+    function sectionTitle(heading) {
+        if (/outline\s*$/i.test((heading || '').trim())) {
+            return tFn('sidebar.commentary.overview');
+        }
+        return heading;
+    }
+
+    // Markdown render with collapsible H2 sections (used for Matthew Henry full
+    // verse entries and book intros).
+    function renderMarkdownWithCollapsibleH2(md) {
+        if (!md) return '';
+        const { preface, sections } = splitMarkdownH2Sections(md);
         let html = '';
+        const pre = preface.trim();
+        if (pre) html += `<div class="commentary-md">${parseMarkdown(pre)}</div>`;
         for (const sec of sections) {
-            const body = sec.lines.join('\n').trim();
-            if (sec.heading == null) {
-                if (body) html += `<div class="commentary-md">${parse(body)}</div>`;
-                continue;
-            }
-            const bodyHtml = body ? parse(body) : '';
+            const bodyHtml = sec.body ? parseMarkdown(sec.body) : '';
             html += `<details class="commentary-md-h2">`
                 + `<summary>${esc(sec.heading)}</summary>`
                 + `<div class="commentary-md-h2-body">${bodyHtml}</div>`
                 + `</details>`;
         }
         return html;
+    }
+
+    // Render one H2 section of a chapter-granularity commentary (concise) as a
+    // top-level box, matching the full edition's per-entry boxes.
+    function buildSectionBox(entry, sectionIdx, heading, body, opts) {
+        const bodyHtml = `<div class="commentary-md">${parseMarkdown(body)}</div>`;
+        const openAttr = opts && opts.open ? ' open' : '';
+        const key = `${entry.chapter}.sec.${sectionIdx}`;
+        return `<details class="commentary-box entry-box"${openAttr} data-key="${esc(key)}">`
+            + `<summary>${esc(sectionTitle(heading))}</summary>`
+            + `<div class="commentary-box-body">${bodyHtml}</div>`
+            + `</details>`;
     }
 
     function entryKey(entry) {
@@ -384,7 +411,11 @@
             ? window.bookName(range.book, lang) : range.book;
         let title;
         if (entry.verse_start == null) {
-            title = `${bName} ${entry.chapter}`;
+            // Chapter-level overview entry (Matthew Henry full): a descriptive
+            // label, not the bare reference, so it reads like the concise edition.
+            title = entry.chapter > 0
+                ? tFn('sidebar.commentary.overview')
+                : `${bName} ${entry.chapter}`;
         } else if (entry.verse_end == null || entry.verse_end === entry.verse_start) {
             title = `${bName} ${entry.chapter}:${entry.verse_start}`;
         } else {
@@ -461,15 +492,42 @@
         const nonIntro = entries;
         const onlyOne = nonIntro.length === 1;
         const isMvb = (_scope.source === 'mvb-pc' || _scope.source === 'mvb-mobile');
+        // Concise: one whole-chapter markdown doc per entry. Unwrap it into
+        // top-level section boxes instead of nesting under one chapter box.
+        const isChapterDoc = commentary.format === 'markdown' && commentary.granularity === 'chapter';
 
         let html = '';
         for (const intro of intros) html += buildIntroHtml(commentary, intro);
 
-        for (const entry of nonIntro) {
-            let open = false;
-            if (onlyOne) open = true;
-            if (isMvb && entryOverlapsMarked(entry, _scope.markedVerses)) open = true;
-            html += buildEntryHtml(commentary, entry, { open });
+        if (isChapterDoc) {
+            const lang = (typeof window.versionLang === 'function')
+                ? window.versionLang(_scope.range.version) : 'no';
+            const bName = (typeof window.bookName === 'function')
+                ? window.bookName(_scope.range.book, lang) : _scope.range.book;
+            const multiChapter = nonIntro.length > 1;
+            for (const entry of nonIntro) {
+                const { preface, sections } = splitMarkdownH2Sections(entry.body);
+                // Across several chapters, label which chapter follows; for a
+                // single chapter the scope label already says it.
+                if (multiChapter) {
+                    html += `<div class="commentary-chapter-heading">${esc(bName)} ${entry.chapter}</div>`;
+                }
+                // Drop the redundant `# Book N` H1; keep any genuine preface prose.
+                const prefaceProse = preface.replace(/^#\s+.*$/m, '').trim();
+                if (prefaceProse) {
+                    html += `<div class="commentary-md commentary-section-preface">${parseMarkdown(prefaceProse)}</div>`;
+                }
+                sections.forEach((sec, i) => {
+                    html += buildSectionBox(entry, i, sec.heading, sec.body, { open: false });
+                });
+            }
+        } else {
+            for (const entry of nonIntro) {
+                let open = false;
+                if (onlyOne) open = true;
+                if (isMvb && entryOverlapsMarked(entry, _scope.markedVerses)) open = true;
+                html += buildEntryHtml(commentary, entry, { open });
+            }
         }
 
         if (!intros.length && !nonIntro.length) {

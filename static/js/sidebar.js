@@ -74,6 +74,21 @@ window.AppModuleBus = (function () {
     const MIN_WIDTH_PX_FLOOR = 280;
     const MAX_WIDTH_VW = 57;
 
+    // Touch device in portrait mode at tablet width → use mobile drawer layout.
+    function isTabletPortrait() {
+        return window.innerWidth >= DESKTOP_BP
+            && window.matchMedia('(pointer: coarse) and (orientation: portrait)').matches;
+    }
+
+    function isDesktop() { return window.innerWidth >= DESKTOP_BP && !isTabletPortrait(); }
+
+    function updateLayoutClass() {
+        document.body.classList.toggle('tablet-portrait', isTabletPortrait());
+    }
+
+    // Expose so other scripts (app.js, moduleHost.js) can query without re-detecting.
+    window.isTabletPortrait = isTabletPortrait;
+
     const state = {
         open: false,
         modules: [], // [{def, instance, container, collapsed, mounted, wrap}]
@@ -81,8 +96,6 @@ window.AppModuleBus = (function () {
         observer: null,
         listeners: new Map(),
     };
-
-    function isDesktop() { return window.innerWidth >= DESKTOP_BP; }
 
     function emit(event, payload) {
         const set = state.listeners.get(event);
@@ -623,9 +636,19 @@ window.AppModuleBus = (function () {
         if (closeBtn) closeBtn.addEventListener('click', close);
         attachResizeHandle();
         updateSidebarTop();
+        updateLayoutClass();
         window.addEventListener('resize', () => {
+            updateLayoutClass();
             if (!isDesktop() && state.open) close();
             updateSidebarTop();
+        });
+        window.addEventListener('orientationchange', () => {
+            // Delay: iOS updates innerWidth after orientationchange fires.
+            setTimeout(() => {
+                updateLayoutClass();
+                if (!isDesktop() && state.open) close();
+                updateSidebarTop();
+            }, 150);
         });
     }
 

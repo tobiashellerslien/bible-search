@@ -1471,6 +1471,7 @@
         .card-action-btn {
             padding: 4px 10px;
             font-size: 0.75rem;
+            line-height: 1.4;
             font-family: var(--font-ui);
             background: transparent;
             border: 1px solid var(--border);
@@ -1891,7 +1892,7 @@
         }
         .book-group-header .chevron {
             transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.3, 1);
-            font-size: 0.75em;
+            flex-shrink: 0;
             color: var(--text-muted);
         }
         .book-group-header.open .chevron { transform: rotate(90deg); }
@@ -2581,6 +2582,7 @@
         .stats-btn {
             padding: 4px 10px;
             font-size: 0.75rem;
+            line-height: 1.4;
             font-family: var(--font-ui);
             background: var(--accent-dim);
             border: 1px solid var(--accent);
@@ -2699,6 +2701,24 @@
         }
         .dm-btn + .dm-btn { border-left: 1px solid var(--border); }
         .dm-btn.active { background: var(--accent-dim); color: var(--accent); }
+        .dm-icon {
+            width: 14px;
+            height: 14px;
+            vertical-align: middle;
+            margin-bottom: 1px;
+            opacity: 0.6;
+        }
+        .dm-btn.active .dm-icon { opacity: 1; filter: invert(32%) sepia(100%) saturate(400%) hue-rotate(180deg) brightness(90%); }
+        [data-theme="dark"] .dm-icon { filter: invert(1); }
+        [data-theme="dark"] .dm-btn.active .dm-icon { filter: invert(1) sepia(60%) saturate(300%) hue-rotate(170deg) brightness(120%); }
+        .stats-icon {
+            width: 13px;
+            height: 13px;
+            vertical-align: middle;
+            margin-bottom: 1px;
+            opacity: 0.75;
+        }
+        [data-theme="dark"] .stats-icon { filter: invert(1); }
         @media (hover: hover) {
 
         .dm-btn:hover:not(.active) { background: rgba(0,0,0,0.04); }
@@ -3404,6 +3424,16 @@
             font-family: var(--font-ui);
             transition: background 0.15s, color 0.15s, border-color 0.15s;
         }
+        .popup-pill-icon {
+            width: 11px;
+            height: 11px;
+            vertical-align: middle;
+            margin-bottom: 1px;
+            opacity: 0.6;
+        }
+        [data-theme="dark"] .popup-pill-icon { filter: invert(1); }
+        .map-popup .popup-pill:hover .popup-pill-icon,
+        .map-popup .popup-pill:focus .popup-pill-icon { opacity: 0.9; }
         @media (hover: hover) {
 
         .map-popup .popup-pill:hover { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
@@ -3725,6 +3755,7 @@
             z-index: 10;
             background: transparent;
             transition: background 0.15s ease;
+            touch-action: none;
         }
         @media (hover: hover) {
 
@@ -4607,6 +4638,135 @@
             .module-host { display: none !important; }
         }
 
+        /* ── Tablet portrait (e.g. iPad portrait): use mobile drawer layout ── */
+        body.tablet-portrait .app-sidebar { display: none !important; }
+        body.tablet-portrait.sidebar-open { padding-right: 0 !important; }
+        body.tablet-portrait .pc-only { display: none !important; }
+
+        body.tablet-portrait .module-host {
+            display: flex !important;
+            flex-direction: column;
+            position: fixed;
+            left: 16px;
+            right: 16px;
+            top: 12vh;
+            bottom: calc(var(--mvb-h, 0px) + var(--pin-h, 0px));
+            z-index: 100;
+            background: var(--card-bg, var(--bg));
+            border-top: 1px solid var(--border);
+            border-left: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            border-radius: 14px 14px 0 0;
+            box-shadow: 0 -8px 18px -8px rgba(0,0,0,0.22);
+            overflow: hidden;
+            transform: translateY(calc(100% + var(--mvb-h, 0px) + var(--pin-h, 0px)));
+            transition: transform 0.32s cubic-bezier(.2,.8,.2,1),
+                        bottom 0.32s cubic-bezier(.2,.8,.2,1),
+                        visibility 0s linear 0.32s;
+            will-change: transform, bottom;
+            pointer-events: none;
+            visibility: hidden;
+        }
+        body.tablet-portrait .module-host[data-state="open"] {
+            transform: translateY(0);
+            pointer-events: auto;
+            visibility: visible;
+            transition: transform 0.32s cubic-bezier(.2,.8,.2,1),
+                        bottom 0.32s cubic-bezier(.2,.8,.2,1),
+                        visibility 0s linear 0s;
+        }
+        body.tablet-portrait.module-open.mvb-on .module-host {
+            box-shadow: 0 -8px 18px -8px rgba(0,0,0,0.22);
+        }
+        body.tablet-portrait .module-host-handle {
+            flex-shrink: 0;
+            padding: 14px 14px 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: grab;
+            touch-action: none;
+            position: relative;
+        }
+        body.tablet-portrait .module-host-grab {
+            width: 44px;
+            height: 5px;
+            border-radius: 3px;
+            background: var(--border);
+        }
+        body.tablet-portrait .module-host-body {
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+            padding: 0 12px 12px;
+            padding-bottom: calc(12px + var(--safe-area-bottom, 0px));
+            display: flex;
+            flex-direction: column;
+        }
+        body.tablet-portrait .module-host-body > * { flex: 1; min-height: 0; }
+        body.tablet-portrait .module-host-body .map-module-root {
+            height: auto;
+            max-height: none;
+            min-height: 0;
+        }
+
+        /* MVB: inset 16px from edges, rounded top corners, fuse seam when module-host is open */
+        body.tablet-portrait .marked-verses-bar {
+            left: 16px;
+            right: 16px;
+            max-width: none;
+            width: auto;
+            border-radius: 14px 14px 0 0;
+            border-left: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            transform: translateY(100%);
+            padding: 10px 18px 18px;
+            padding-bottom: calc(18px + env(safe-area-inset-bottom));
+            box-shadow: 0 -6px 18px rgba(0,0,0,0.18);
+        }
+        body.tablet-portrait .marked-verses-bar.mvb-visible {
+            transform: translateY(var(--mvb-shift, 0px));
+        }
+        body.tablet-portrait.module-open .marked-verses-bar {
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+            border-top-color: transparent;
+            box-shadow: none;
+        }
+
+        /* Pinned strip: inset 16px from edges */
+        body.tablet-portrait .pinned-strip {
+            left: 16px;
+            right: 16px;
+            max-width: none;
+            width: auto;
+            border-radius: 14px 14px 0 0;
+            border-left: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            transform: translateY(calc(100% + var(--mvb-h, 0px)));
+        }
+        body.tablet-portrait .pinned-strip[data-state="open"] {
+            transform: translateY(var(--mvb-shift, 0px));
+        }
+
+        /* Side-nav: swipe-reveal behind card (like mobile) — touch device doesn't need hover arrows */
+        body.tablet-portrait .side-nav {
+            top: 50%;
+            bottom: auto;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 40px;
+            font-size: 1.5rem;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.1s linear;
+            color: var(--accent);
+            z-index: 0;
+        }
+        body.tablet-portrait .side-nav-prev { left: 12px; right: auto; }
+        body.tablet-portrait .side-nav-next { right: 12px; left: auto; }
+        body.tablet-portrait .verse-card { z-index: 1; }
+
         /* ── Commentary module ── */
         .sidebar-module[data-module-id="commentary"] .sidebar-module-body,
         .commentary-module {
@@ -4766,6 +4926,16 @@
         }
         .commentary-md {
             font-family: var(--font-serif, var(--font-ui));
+        }
+        /* Chapter divider when a concise commentary spans several chapters. */
+        .commentary-chapter-heading {
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: var(--text);
+            margin: 8px 2px 2px;
+        }
+        .commentary-section-preface {
+            padding: 0 2px;
         }
         a.mh-ref,
         a.leksikon-ref,
