@@ -1806,6 +1806,7 @@
             margin-top: 16px;
             margin-bottom: 12px;
             flex-wrap: wrap;
+            padding-left: 14px;
         }
         .search-controls-actions {
             display: flex;
@@ -2650,7 +2651,7 @@
 
         /* ── Stats mode select ── */
         .stats-mode-select {
-            padding: 4px 8px;
+            padding: 4px 26px 4px 8px;
             font-size: 0.8rem;
             font-family: var(--font-ui);
             border: 1px solid var(--border);
@@ -2659,8 +2660,14 @@
             color: var(--text);
             cursor: pointer;
             margin-left: auto;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            background-size: 10px 6px;
         }
-        .stats-mode-select:focus { border-color: var(--accent); }
+        .stats-mode-select:focus { border-color: var(--accent); outline: none; }
 
         /* ── Settings modal ── */
         .settings-section {
