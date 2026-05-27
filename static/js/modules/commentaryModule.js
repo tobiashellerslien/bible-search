@@ -287,9 +287,57 @@
         html = html.replace(/_([^_\n]+?)_/g, '<em>$1</em>');
         // Restore the protected reference anchors (trusted HTML).
         html = html.replace(/@@R(\d+)@@/g, (_m, i) => anchors[Number(i)] || '');
-        // Paragraph breaks
-        const paragraphs = html.split(/\n{2,}/).map(p => p.replace(/\n/g, '<br>'));
-        return paragraphs.map(p => `<p>${p}</p>`).join('');
+        // Blank-line separated blocks. Within a block, a run of lines starting
+        // with an optionally-indented "- " becomes a (possibly nested) <ul>;
+        // other lines join with <br> into a <p>. Indentation (2 spaces/level,
+        // preserved by the importer) drives sublist nesting.
+        const out = [];
+        for (const block of html.split(/\n{2,}/)) {
+            const lines = block.split('\n');
+            let para = [];
+            const flushPara = () => {
+                if (para.length) { out.push(`<p>${para.join('<br>')}</p>`); para = []; }
+            };
+            let i = 0;
+            while (i < lines.length) {
+                if (/^\s*-\s+/.test(lines[i])) {
+                    flushPara();
+                    const items = [];
+                    while (i < lines.length && /^\s*-\s+/.test(lines[i])) {
+                        const m = lines[i].match(/^(\s*)-\s+([\s\S]*)$/);
+                        items.push({ indent: m[1].length, html: m[2] });
+                        i++;
+                    }
+                    out.push(buildScofieldList(items));
+                } else {
+                    para.push(lines[i]);
+                    i++;
+                }
+            }
+            flushPara();
+        }
+        return out.join('');
+    }
+
+    // Turn a flat [{indent, html}] item list (indent = leading-space count) into
+    // nested <ul class="scofield-list">. A deeper-indented run attaches as a
+    // sublist of the item above it.
+    function buildScofieldList(items) {
+        let pos = 0;
+        function level(minIndent) {
+            let html = '<ul class="scofield-list">';
+            while (pos < items.length && items[pos].indent >= minIndent) {
+                const it = items[pos];
+                pos++;
+                let inner = it.html;
+                if (pos < items.length && items[pos].indent > it.indent) {
+                    inner += level(items[pos].indent);
+                }
+                html += `<li>${inner}</li>`;
+            }
+            return html + '</ul>';
+        }
+        return level(items[0].indent);
     }
 
     function refLabel(refStr) {
