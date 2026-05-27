@@ -13,7 +13,7 @@ En rask og kraftig bibelsøkeapp. Slå opp vers etter referanse, søk i hele tek
 | `nåde` | Fritekstsøk (delstreng) |
 | `"tro"` | Kun eksakt ord (ikke "troende") |
 | `"evig liv"` | Eksakt frase |
-| `nåde OR frelse` | Ett av ordene |
+| `nåde + frelse` | Ett av ordene |
 | `nåde -dom` | Ekskluder ord |
 | `GT: frelser` | Avgrens til GT / NT / bokgruppe |
 | `Johannes: lys` | Avgrens til én bok |
