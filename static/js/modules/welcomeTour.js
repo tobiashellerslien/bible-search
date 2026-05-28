@@ -27,13 +27,14 @@
                 popover: {
                     title: '🔍 Søke-operatorer',
                     description: '<ul class="tour-list">'
-                        + '<li><code>tro</code> — vanlig søk matcher alle ord som <em>starter</em> med dette (tro, tror, troen, trofast …)</li>'
-                        + '<li><code>"evig liv"</code> — eksakt frase</li>'
-                        + '<li><code>nåde -dom</code> — ekskluder ord</li>'
+                        + '<li><code>tro</code> — prefix-søk: matcher <em>tro</em>, <em>tror</em>, <em>troen</em>, <em>trofast</em> …</li>'
+                        + '<li><code>"tro"</code> — eksakt ord — bare «tro», ikke «tror» eller «trofast»</li>'
+                        + '<li><code>evig liv</code> — begge ordene (AND), i hvilken som helst rekkefølge</li>'
+                        + '<li><code>"evig liv"</code> — eksakt frase — begge ordene, i den rekkefølgen</li>'
+                        + '<li><code>nåde -dom</code> — ekskluder ord med <code>-</code></li>'
                         + '<li><code>nåde + frelse</code> — enten/eller (også <code>|</code>)</li>'
-                        + '<li><code>GT: ord</code> — filter på testament</li>'
-                        + '<li><code>Johannes: ord</code> — filter på bok</li>'
-                        + '</ul><p class="tour-foot">Se hjelp-sida for hele listen.</p>',
+                        + '<li><code>GT: ord</code> · <code>Johannes: ord</code> — begrens til testament eller bok</li>'
+                        + '</ul><p class="tour-foot">Se hjelp-sida (❓) for hele listen.</p>',
                     side: 'bottom', align: 'start',
                 },
             },
