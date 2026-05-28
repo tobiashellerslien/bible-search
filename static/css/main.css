@@ -3345,6 +3345,14 @@
             background: var(--bg);
             display: flex;
             flex-direction: column;
+            /* Respect notch / status bar in PWA standalone mode so the menu
+               header (with X close button) and top-right tool buttons stay
+               tappable. */
+            padding-top: env(safe-area-inset-top);
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
+            padding-bottom: env(safe-area-inset-bottom);
+            box-sizing: border-box;
         }
         .map-fullscreen[hidden] { display: none; }
         body.map-fullscreen-on { overflow: hidden; }
