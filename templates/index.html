@@ -15,7 +15,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{{ og_title }}</title>
     <meta name="description" content="{{ og_description }}">
-    <link rel="canonical" href="{{ og_url }}">
+    <link rel="canonical" href="{{ canonical_url or og_url }}">
+    {% if robots_noindex %}<meta name="robots" content="noindex, follow">{% endif %}
+
+    {% if prerendered_block %}
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "headline": {{ prerendered_block.label | tojson }},
+      "inLanguage": "nb-NO",
+      "isPartOf": {
+        "@type": "WebSite",
+        "name": "Bibelsøk",
+        "url": "https://xn--bibelsk-v1a.no/"
+      },
+      "mainEntityOfPage": {{ canonical_url | tojson }},
+      "articleBody": {{ (prerendered_block.verses | map(attribute='text') | join(' ')) | tojson }}
+    }
+    </script>
+    {% endif %}
 
     <!-- Open Graph (link-preview i WhatsApp, iMessage, Signal, Discord, Facebook m.fl.) -->
     <meta property="og:type" content="website">
@@ -236,7 +255,26 @@
 </div>
 
 <div class="results-wrapper" id="resultsWrapper">
-    <div class="empty-state" id="emptyState">
+    {% if prerendered_block %}
+    <article class="prerendered-block" id="prerenderedBlock" aria-hidden="false">
+        <header class="prerendered-header">
+            <h1 class="prerendered-label">{{ prerendered_block.label }}</h1>
+        </header>
+        <div class="prerendered-body">
+            {% for v in prerendered_block.verses %}
+                {% for h in v.headings %}<h2 class="prerendered-heading">{{ h }}</h2>{% endfor %}
+                <p class="prerendered-verse"><sup class="prerendered-vnum">{{ v.num }}</sup> <span class="prerendered-vtext">{{ v.text }}</span></p>
+            {% endfor %}
+        </div>
+        <noscript>
+            <p><a href="/">Gå til Bibelsøk-forsiden</a> for å søke videre. Aktiver JavaScript for full funksjonalitet (kart, kommentarer, leksikon).</p>
+        </noscript>
+    </article>
+    {% endif %}
+    {# emptyState is always present so app.js can capture its outerHTML at module
+       load. Hidden when a prerendered block is shown — the SPA will re-show it
+       on goHome(). #}
+    <div class="empty-state" id="emptyState"{% if prerendered_block %} hidden{% endif %}>
         <h2 data-i18n="empty.title">Søk i Bibelen</h2>
         <p class="empty-tagline" data-i18n="empty.tagline">Referenser, fulltekstsøk, studieverktøy  — på tvers av oversettelser.</p>
         <blockquote class="empty-verse" onclick="goToEmptyVerse()" style="cursor:pointer;">
@@ -245,6 +283,10 @@
         </blockquote>
     </div>
 </div>
+
+{% if boot_query %}
+<script id="bootState" type="application/json">{{ {"q": boot_query, "v": boot_version, "noindex": robots_noindex} | tojson }}</script>
+{% endif %}
 
 <aside id="appSidebar" class="app-sidebar" aria-label="Festede elementer">
     <div class="sidebar-resize-handle" id="sidebarResizeHandle" aria-hidden="true"></div>

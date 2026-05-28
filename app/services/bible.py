@@ -118,6 +118,28 @@ USFM_TO_ABBREV_NO = {
     "REV":"Åp",
 }
 
+# URL slugs: lowercase Norwegian abbreviations, ASCII-folded (ø→o, å→a, æ→a).
+# Used to build canonical paths like /bibel/joh/3, /bibel/1kron/5, /bibel/hoys/2,
+# /bibel/ap/22. PSA uses "salme" (singular, matching "Salme 23" convention).
+USFM_TO_SLUG = {
+    "GEN":"1mos","EXO":"2mos","LEV":"3mos","NUM":"4mos","DEU":"5mos",
+    "JOS":"jos","JDG":"dom","RUT":"rut","1SA":"1sam","2SA":"2sam",
+    "1KI":"1kong","2KI":"2kong","1CH":"1kron","2CH":"2kron",
+    "EZR":"esra","NEH":"neh","EST":"est","JOB":"job","PSA":"salme",
+    "PRO":"ord","ECC":"fork","SNG":"hoys","ISA":"jes",
+    "JER":"jer","LAM":"klag","EZK":"esek","DAN":"dan","HOS":"hos",
+    "JOL":"joel","AMO":"amos","OBA":"obad","JON":"jona","MIC":"mika",
+    "NAM":"nah","HAB":"hab","ZEP":"sef","HAG":"hag","ZEC":"sak",
+    "MAL":"mal","MAT":"matt","MRK":"mark","LUK":"luk","JHN":"joh",
+    "ACT":"apg","ROM":"rom","1CO":"1kor","2CO":"2kor",
+    "GAL":"gal","EPH":"ef","PHP":"fil","COL":"kol",
+    "1TH":"1tess","2TH":"2tess","1TI":"1tim","2TI":"2tim",
+    "TIT":"tit","PHM":"filem","HEB":"heb","JAS":"jak","1PE":"1pet",
+    "2PE":"2pet","1JN":"1joh","2JN":"2joh","3JN":"3joh","JUD":"jud",
+    "REV":"ap",
+}
+SLUG_TO_USFM = {slug: usfm for usfm, slug in USFM_TO_SLUG.items()}
+
 ALIAS_MAP = {}
 USFM_TO_NAME = {}
 USFM_TO_ORDER = {}
@@ -150,6 +172,91 @@ def ref_label(book, chapter, vs_start=None, vs_end=None):
         return (f"{name} {vs_start}-{vs_end}" if single
                 else f"{name} {chapter}:{vs_start}-{vs_end}")
     return f"{name} {vs_start}" if single else f"{name} {chapter}:{vs_start}"
+
+
+# ── Canonical URL helpers ─────────────────────────────────────────────────────
+# Path-form: /bibel/<slug>/<chapter>[/<vs>|<vs_start>-<vs_end>]
+# Only the simple shapes (whole chapter, single verse, verse range within one
+# chapter) are expressible as a clean path. Multi-chapter ranges and multi-block
+# (;) queries fall back to ?q=.
+
+def build_canonical_path(block):
+    """Return the canonical /bibel/... path for a single resolved block, or None
+    if the block can't be expressed in path form (errors, cross_chapter,
+    chapter_range, verse_range_to_end). Single-chapter books still use a normal
+    /bibel/<slug>/1[/<vs>] form (the chapter number is always present in path)."""
+    if not block or "error" in block:
+        return None
+    book = block.get("book")
+    slug = USFM_TO_SLUG.get(book)
+    if not slug:
+        return None
+    btype = block.get("type")
+    if btype == "whole_chapter":
+        ch = block.get("chapter")
+        if not ch:
+            return None
+        return f"/bibel/{slug}/{ch}"
+    if btype == "single_verse":
+        ch = block.get("chapter")
+        vs = block.get("verse")
+        if not ch or not vs:
+            return None
+        return f"/bibel/{slug}/{ch}/{vs}"
+    if btype == "verse_range":
+        ch = block.get("chapter")
+        vs_s = block.get("vs_start")
+        vs_e = block.get("vs_end")
+        if not ch or not vs_s or not vs_e:
+            return None
+        if vs_s == vs_e:
+            return f"/bibel/{slug}/{ch}/{vs_s}"
+        return f"/bibel/{slug}/{ch}/{vs_s}-{vs_e}"
+    return None
+
+
+def parse_canonical_path(book_slug, chapter, range_str=None):
+    """Turn a path /bibel/<slug>/<chapter>[/<range_str>] into a block dict that
+    resolve_block() can consume. Returns None on invalid input.
+
+    range_str forms:
+      None          → whole chapter
+      "16"          → single verse
+      "16-18"       → verse range
+    """
+    if not book_slug or not chapter:
+        return None
+    book = SLUG_TO_USFM.get(book_slug.lower())
+    if not book:
+        return None
+    try:
+        ch = int(chapter)
+    except (TypeError, ValueError):
+        return None
+    if ch < 1:
+        return None
+    book_name = USFM_TO_NAME.get(book, book)
+
+    if range_str is None or range_str == "":
+        if book in SINGLE_CHAPTER_BOOKS:
+            return {"book": book, "label": book_name, "type": "whole_chapter",
+                    "chapter": 1, "is_single_chapter_book": True}
+        return {"book": book, "label": f"{book_name} {ch}",
+                "type": "whole_chapter", "chapter": ch}
+
+    m = re.fullmatch(r"(\d+)(?:-(\d+))?", range_str)
+    if not m:
+        return None
+    vs_s = int(m.group(1))
+    vs_e = int(m.group(2)) if m.group(2) else None
+    if vs_s < 1 or (vs_e is not None and vs_e < vs_s):
+        return None
+
+    if vs_e is None or vs_e == vs_s:
+        return {"book": book, "label": ref_label(book, ch, vs_s),
+                "type": "single_verse", "chapter": ch, "verse": vs_s}
+    return {"book": book, "label": ref_label(book, ch, vs_s, vs_e),
+            "type": "verse_range", "chapter": ch, "vs_start": vs_s, "vs_end": vs_e}
 
 
 # ── Inline scripture-reference linkifier (dictionary bodies) ──────────────────

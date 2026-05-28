@@ -9,15 +9,19 @@ import requests as _requests
 from flask import Blueprint, current_app, jsonify, render_template, request, send_from_directory
 
 from .services.bible import (
+    SLUG_TO_USFM,
     USFM_TO_ABBREV_NO,
     USFM_TO_ALIASES,
     USFM_TO_ENG,
     USFM_TO_NAME,
+    USFM_TO_SLUG,
     USFM_TO_TESTAMENT,
+    build_canonical_path,
     get_search_stats,
     identify_book,
     is_reference_query,
     linkify_dictionary_refs,
+    parse_canonical_path,
     parse_query,
     parse_search_query,
     quick_search,
@@ -26,6 +30,11 @@ from .services.bible import (
     search_text,
     strip_scope_from_query,
 )
+
+# Canonical version for /bibel/... URLs (and the dynamic sitemap). Other
+# translations get a <link rel="canonical"> pointing to this version's URL,
+# so Google indexes one URL per chapter instead of N copies.
+CANONICAL_VERSION_ID = 102  # NB88 — Norsk Bibel 88/07
 
 bp = Blueprint("main", __name__)
 
@@ -45,12 +54,92 @@ def _resolve_version_id(bible_data, raw):
     return next(iter(bible_data.translations), None)
 
 
+def _canonical_version_id(bible_data):
+    """ID of the version used for canonical URLs / sitemap (NB88 if available)."""
+    if CANONICAL_VERSION_ID in bible_data.translations:
+        return CANONICAL_VERSION_ID
+    return next(iter(bible_data.translations), None)
+
+
+def _seo_for_block(bible_data, version_id, block, resolved):
+    """Build SEO metadata + a template-friendly prerendered structure for the
+    given resolved block. resolved is the dict returned by resolve_block()."""
+    label = resolved.get("label") or ""
+    verses = resolved.get("verses") or []
+    headings = resolved.get("headings") or []
+    version_name = bible_data.translations.get(version_id, {}).get("name", "")
+
+    verse_text_joined = " ".join(v.get("text", "") for v in verses).strip()
+    description = verse_text_joined
+    if len(description) > 300:
+        description = description[:297] + "…"
+    if version_name:
+        description = f"{description} ({version_name})" if description else f"Les {label} i {version_name}."
+
+    og_title = f"{label} – Bibelsøk" if label else "Bibelsøk"
+    canonical_path = build_canonical_path(block) or "/"
+    canonical_version = _canonical_version_id(bible_data)
+    # Canonical URL always points to the canonical version, without a ?v= param
+    # when the caller is already viewing it — duplicates funnel to one URL.
+    canonical_url = f"https://xn--bibelsk-v1a.no{canonical_path}"
+
+    # Headings are positional ("render before verse N"). Group them with verses
+    # for clean template rendering.
+    headings_by_pos = {}
+    for h in headings:
+        key = (h.get("chapter"), h.get("verse"))
+        headings_by_pos.setdefault(key, []).append(h.get("text", ""))
+    rendered_verses = []
+    for v in verses:
+        key = (v.get("chapter"), v.get("num"))
+        rendered_verses.append({
+            "chapter": v.get("chapter"),
+            "num": v.get("num"),
+            "text": v.get("text", ""),
+            "headings": headings_by_pos.pop(key, []),
+        })
+
+    prerendered = {
+        "label": label,
+        "book": resolved.get("book"),
+        "verses": rendered_verses,
+        "is_chapter": resolved.get("is_chapter", False),
+    }
+
+    return {
+        "og_title": og_title,
+        "og_description": description or "Les Bibelen — fritt søk, kart, kommentarer og leksikon.",
+        "og_url": canonical_url,
+        "canonical_url": canonical_url,
+        "prerendered_block": prerendered,
+        "is_canonical_version": (version_id == canonical_version),
+    }
+
+
 @bp.get("/")
 def index():
     og_title = "Bibelsøk – Les, søk og studér Bibelen"
     og_description = "Gratis verktøy for bibelsøk og bibelstudie. Søk i Bibelen 2011, Norsk Bibel 88/07, Bibelen Guds Ord, ESV m.fl. Interaktivt bibelkart, kommentarer, leksikon og mer."
     og_url = "https://xn--bibelsk-v1a.no/"
     query = request.args.get("q", "").strip()
+
+    # If the query is a simple, single-block reference that maps cleanly to a
+    # canonical /bibel/<slug>/<ch>[/<vs>] URL, 301-redirect there so all
+    # incoming traffic (shared links, OG previews) funnels to the canonical
+    # form. Multi-block (;) and multi-chapter ranges stay on /?q=.
+    if query and is_reference_query(query) and ";" not in query:
+        try:
+            parsed_blocks = parse_query(query)
+            if len(parsed_blocks) == 1 and "error" not in parsed_blocks[0]:
+                canonical_path = build_canonical_path(parsed_blocks[0])
+                if canonical_path:
+                    from flask import redirect
+                    v = request.args.get("v")
+                    target = canonical_path + (f"?v={v}" if v else "")
+                    return redirect(target, code=301)
+        except Exception:
+            pass
+
     if query and is_reference_query(query):
         try:
             bible_data = _bible_data()
@@ -72,7 +161,99 @@ def index():
                         og_url += f"&v={request.args.get('v')}"
         except Exception:
             pass
-    return render_template("index.html", og_title=og_title, og_description=og_description, og_url=og_url)
+    return render_template(
+        "index.html",
+        og_title=og_title,
+        og_description=og_description,
+        og_url=og_url,
+        canonical_url=og_url,
+        prerendered_block=None,
+        is_canonical_version=True,
+        boot_query=None,
+        boot_version=None,
+        robots_noindex=False,
+    )
+
+
+@bp.get("/bibel/<book_slug>/<int:chapter>")
+@bp.get("/bibel/<book_slug>/<int:chapter>/<range_str>")
+def bibel_path(book_slug, chapter, range_str=None):
+    """Canonical path URL for a chapter / verse / verse range.
+    Examples: /bibel/joh/3, /bibel/joh/3/16, /bibel/joh/3/16-18.
+    Multi-chapter ranges and multi-block (;) queries are not expressible here
+    and stay on /?q=."""
+    block = parse_canonical_path(book_slug, chapter, range_str)
+    if block is None:
+        from flask import abort
+        abort(404)
+    bible_data = _bible_data()
+    # Default to canonical version (NB88) for /bibel/... URLs when no ?v= is
+    # specified — this is what shared links and Google index point to.
+    raw_v = request.args.get("v")
+    if raw_v:
+        version_id = _resolve_version_id(bible_data, raw_v)
+    else:
+        version_id = _canonical_version_id(bible_data)
+    if version_id is None:
+        from flask import abort
+        abort(503)
+
+    # Validate chapter / verse exist for the requested version, before resolving.
+    book = block["book"]
+    max_ch = bible_data.book_chapters.get(version_id, {}).get(book, 0)
+    target_ch = block.get("chapter") or 1
+    if target_ch < 1 or target_ch > max_ch:
+        from flask import abort
+        abort(404)
+    max_v = bible_data.book_verse_counts.get(version_id, {}).get(book, {}).get(target_ch, 0)
+    if block["type"] == "single_verse":
+        if block["verse"] < 1 or block["verse"] > max_v:
+            from flask import abort
+            abort(404)
+    elif block["type"] == "verse_range":
+        if block["vs_start"] < 1 or block["vs_end"] > max_v:
+            from flask import abort
+            abort(404)
+
+    resolved = resolve_block(bible_data, version_id, block)
+    if resolved.get("error"):
+        from flask import abort
+        abort(404)
+
+    seo = _seo_for_block(bible_data, version_id, block, resolved)
+    # The SPA looks at boot_query / boot_version to seed its initial render
+    # without an extra /api/search round-trip.
+    boot_query = block.get("label", "")
+    return render_template(
+        "index.html",
+        og_title=seo["og_title"],
+        og_description=seo["og_description"],
+        og_url=seo["og_url"],
+        canonical_url=seo["canonical_url"],
+        prerendered_block=seo["prerendered_block"],
+        is_canonical_version=seo["is_canonical_version"],
+        boot_query=boot_query,
+        boot_version=version_id,
+        robots_noindex=False,
+    )
+
+
+@bp.get("/sok")
+def sok():
+    """Text-search results page. Renders the same SPA shell but with
+    robots noindex — search-result pages don't belong in Google's index."""
+    return render_template(
+        "index.html",
+        og_title="Søk – Bibelsøk",
+        og_description="Søk i Bibelen — fritt tekstsøk, kart, kommentarer og leksikon.",
+        og_url="https://xn--bibelsk-v1a.no/sok",
+        canonical_url=None,
+        prerendered_block=None,
+        is_canonical_version=True,
+        boot_query=request.args.get("q", ""),
+        boot_version=None,
+        robots_noindex=True,
+    )
 
 
 @bp.get("/robots.txt")
@@ -82,7 +263,40 @@ def robots_txt():
 
 @bp.get("/sitemap.xml")
 def sitemap_xml():
-    return send_from_directory(current_app.static_folder, "sitemap.xml", mimetype="application/xml")
+    """Dynamic sitemap listing every chapter URL in the canonical version.
+    ~1189 URLs (66 books × per-book chapter counts), well under the 50 000-URL
+    sitemap limit."""
+    from flask import Response
+    bible_data = _bible_data()
+    cvid = _canonical_version_id(bible_data)
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    base = "https://xn--bibelsk-v1a.no"
+
+    parts = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+        f'  <url><loc>{base}/</loc><lastmod>{today}</lastmod><changefreq>monthly</changefreq><priority>1.0</priority></url>',
+    ]
+
+    if cvid is not None:
+        # Iterate books in canonical order so the sitemap is human-scannable.
+        books = bible_data.version_books.get(cvid, [])
+        chapter_map = bible_data.book_chapters.get(cvid, {})
+        for book_usfm in books:
+            slug = USFM_TO_SLUG.get(book_usfm)
+            if not slug:
+                continue
+            n_chapters = chapter_map.get(book_usfm, 0)
+            for ch in range(1, n_chapters + 1):
+                parts.append(
+                    f'  <url><loc>{base}/bibel/{slug}/{ch}</loc>'
+                    f'<lastmod>{today}</lastmod>'
+                    f'<changefreq>yearly</changefreq>'
+                    f'<priority>0.8</priority></url>'
+                )
+
+    parts.append('</urlset>')
+    return Response("\n".join(parts), mimetype="application/xml")
 
 
 @bp.get("/sw.js")

@@ -475,7 +475,12 @@ const toggleHeadings = document.getElementById('toggleHeadings');
 const toggleAnnotations = document.getElementById('toggleAnnotations');
 const resultsWrapper = document.getElementById('resultsWrapper');
 const emptyState = document.getElementById('emptyState');
-const emptyStateHtml = emptyState.outerHTML;
+// emptyState may be present-but-hidden when the server pre-renders a block.
+// Capture the markup minus the `hidden` attribute so goHome() can restore the
+// empty state as visible later.
+const emptyStateHtml = emptyState
+    ? emptyState.outerHTML.replace(/\s+hidden(="[^"]*")?/g, '')
+    : '';
 const toast = document.getElementById('toast');
 const autocompleteDropdown = document.getElementById('autocompleteDropdown');
 const searchWarningEl = document.getElementById('searchWarning');
@@ -692,31 +697,110 @@ document.getElementById('blaStepper')?.addEventListener('click', e => {
 setInterval(() => fetch('/api/heartbeat').catch(() => {}), 300000);
 
 // ── URL / History ──
-function buildURL(q, version, mode) {
+// USFM → URL slug. Mirror of USFM_TO_SLUG in app/services/bible.py.
+// Used to build canonical /bibel/<slug>/<ch>[/<vs>|<a-b>] URLs after a search.
+const USFM_TO_SLUG = {
+    GEN:'1mos',EXO:'2mos',LEV:'3mos',NUM:'4mos',DEU:'5mos',
+    JOS:'jos',JDG:'dom',RUT:'rut','1SA':'1sam','2SA':'2sam',
+    '1KI':'1kong','2KI':'2kong','1CH':'1kron','2CH':'2kron',
+    EZR:'esra',NEH:'neh',EST:'est',JOB:'job',PSA:'salme',
+    PRO:'ord',ECC:'fork',SNG:'hoys',ISA:'jes',
+    JER:'jer',LAM:'klag',EZK:'esek',DAN:'dan',HOS:'hos',
+    JOL:'joel',AMO:'amos',OBA:'obad',JON:'jona',MIC:'mika',
+    NAM:'nah',HAB:'hab',ZEP:'sef',HAG:'hag',ZEC:'sak',
+    MAL:'mal',MAT:'matt',MRK:'mark',LUK:'luk',JHN:'joh',
+    ACT:'apg',ROM:'rom','1CO':'1kor','2CO':'2kor',
+    GAL:'gal',EPH:'ef',PHP:'fil',COL:'kol',
+    '1TH':'1tess','2TH':'2tess','1TI':'1tim','2TI':'2tim',
+    TIT:'tit',PHM:'filem',HEB:'heb',JAS:'jak','1PE':'1pet',
+    '2PE':'2pet','1JN':'1joh','2JN':'2joh','3JN':'3joh',JUD:'jud',
+    REV:'ap',
+};
+const CANONICAL_VERSION_ID = '102'; // NB88
+
+// Derive canonical path from a resolved block (the .results entries returned by
+// /api/search type="reference"). Returns null if the block can't be expressed
+// as a clean path (cross-chapter, no verses, error, …).
+function canonicalPathFromBlock(block) {
+    if (!block || block.error) return null;
+    const slug = USFM_TO_SLUG[block.book];
+    if (!slug) return null;
+    const verses = block.verses || [];
+    if (!verses.length) return null;
+    const chs = new Set(verses.map(v => v.chapter));
+    if (chs.size > 1) return null;
+    const ch = verses[0].chapter;
+    if (block.is_chapter) return `/bibel/${slug}/${ch}`;
+    const a = verses[0].num;
+    const b = verses[verses.length - 1].num;
+    return a === b ? `/bibel/${slug}/${ch}/${a}` : `/bibel/${slug}/${ch}/${a}-${b}`;
+}
+
+// Build URL for a reference search. Prefers canonical /bibel/... path-form when
+// the search resolves to a single, simple block; falls back to /?q= otherwise
+// (text search, multi-block, cross-chapter). Caller may pass a `block`
+// (resolved result) to enable path-form; otherwise uses /?q= path.
+function buildURL(q, version, mode, block) {
+    if (block && (!mode || mode === 'normal')) {
+        const path = canonicalPathFromBlock(block);
+        if (path) {
+            return version && String(version) !== CANONICAL_VERSION_ID
+                ? `${path}?v=${encodeURIComponent(version)}`
+                : path;
+        }
+    }
     const p = new URLSearchParams();
     if (q) p.set('q', q);
     if (version) p.set('v', version);
     if (mode && mode !== 'normal') p.set('mode', mode);
     const qs = p.toString();
-    return qs ? `?${qs}` : '/';
+    // Always return an absolute path. A bare "?q=..." would be resolved
+    // *relative* to the current path, which appends instead of replacing when
+    // the user is already on /bibel/<slug>/<ch> (giving URLs like
+    // /bibel/joh/3?q=Rom+5).
+    return qs ? `/?${qs}` : '/';
 }
 
-function pushState(q, version, mode) {
-    const url = buildURL(q, version, mode);
+function pushState(q, version, mode, block) {
+    const url = buildURL(q, version, mode, block);
     history.pushState({ q, version, mode: mode || 'normal' }, '', url);
 }
 
+// Read server-injected boot state (set on /bibel/... and /sok routes). Returns
+// {q, v, noindex} or null if absent.
+function readBootState() {
+    const el = document.getElementById('bootState');
+    if (!el) return null;
+    try { return JSON.parse(el.textContent || '{}'); } catch { return null; }
+}
+
 function restoreFromURL() {
-    const p = new URLSearchParams(window.location.search);
-    const q = p.get('q') || '';
-    const v = p.get('v') || '';
-    const mode = p.get('mode') || 'normal';
-    if (q) {
-        if (v && allVersionsList.some(x => String(x.id) === v)) versionSelect.value = v;
-        searchInput.value = q;
-        updateSearchHighlight();
-        if (mode === 'allversions') executeAllVersions(q);
-        else doSearch(false, false);
+    try {
+        // Server-rendered routes inject a bootState script. Trust it over URL
+        // parsing — the server already resolved the label and version.
+        const boot = readBootState();
+        if (boot && boot.q) {
+            if (boot.v && allVersionsList.some(x => String(x.id) === String(boot.v))) {
+                versionSelect.value = String(boot.v);
+            }
+            searchInput.value = boot.q;
+            updateSearchHighlight();
+            doSearch(false, false);
+            return;
+        }
+        const p = new URLSearchParams(window.location.search);
+        const q = p.get('q') || '';
+        const v = p.get('v') || '';
+        const mode = p.get('mode') || 'normal';
+        if (q) {
+            if (v && allVersionsList.some(x => String(x.id) === v)) versionSelect.value = v;
+            searchInput.value = q;
+            updateSearchHighlight();
+            if (mode === 'allversions') executeAllVersions(q);
+            else doSearch(false, false);
+        }
+    } catch (e) {
+        console.error('restoreFromURL error:', e);
     }
 }
 
@@ -814,7 +898,11 @@ async function doSearch(pushHistory = true, resetAC = true) {
     Object.keys(cardCompare).forEach(k => delete cardCompare[k]);
     if (typeof updateWideMode === 'function') updateWideMode();
     const version = versionSelect.value;
-    if (pushHistory) pushState(query, version);
+    // History entry is deferred until after the API responds so we can land on
+    // the canonical /bibel/<slug>/<ch>[/<vs>] path directly — no brief flash of
+    // the /?q=... form in the address bar before replaceState corrects it.
+    // Tradeoff: pressing Back mid-fetch won't undo this search (which never
+    // produced a history entry), but mid-fetch back is a rare case.
     updateSearchHighlight();
 
     try {
@@ -842,6 +930,7 @@ async function doSearch(pushHistory = true, resetAC = true) {
             lastTextSearchQuery = data.query;
             textSearchCache = { results: data.results, query: data.query, bookTotals: data.book_totals || {} };
             renderTextSearch(data.results, data.query, data.book_totals || {});
+            if (pushHistory) pushState(query, version);
             return;
         }
 
@@ -852,6 +941,18 @@ async function doSearch(pushHistory = true, resetAC = true) {
         renderAll();
         if (compareIntent) mainData.forEach((_, idx) => toggleCardCompare(idx));
         window.scrollTo(0, 0);
+        // Write the URL now that we know whether to use canonical path-form
+        // (single block) or /?q= fallback (multi-block / cross-chapter).
+        const block = mainData && mainData.length === 1 ? mainData[0] : null;
+        const finalUrl = buildURL(query, version, 'normal', block);
+        const currentUrl = window.location.pathname + window.location.search;
+        if (finalUrl !== currentUrl) {
+            const state = { q: query, version, mode: 'normal' };
+            try {
+                if (pushHistory) history.pushState(state, '', finalUrl);
+                else history.replaceState(state, '', finalUrl);
+            } catch {}
+        }
     } catch (err) {
         resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), t('loading.errorBody'));
     }
@@ -2192,7 +2293,22 @@ function buildShareUrl() {
     const refParts = groups.map(g => fmtVerseRef(g.book, bookRefName(g.book), g.chapter, g.vsStart, g.vsEnd));
     const q = refParts.join('; ');
     const v = versionSelect ? versionSelect.value : '';
-    return `${window.location.origin}${buildURL(q, v)}`;
+    // Single marked group → synthesize a block so buildURL produces the
+    // canonical /bibel/... path. Multi-group shares stay on /?q=.
+    let block = null;
+    if (groups.length === 1) {
+        const g = groups[0];
+        const vs = [];
+        if (g.vsStart != null && g.vsEnd != null) {
+            for (let n = g.vsStart; n <= g.vsEnd; n++) vs.push({ num: n, chapter: g.chapter });
+        }
+        block = {
+            book: g.book,
+            verses: vs,
+            is_chapter: g.vsStart == null && g.vsEnd == null,
+        };
+    }
+    return `${window.location.origin}${buildURL(q, v, 'normal', block)}`;
 }
 
 async function mvbShare() {
@@ -3237,7 +3353,7 @@ window.shareBlock = function(blockIdx) {
         ref = fmtVerseRef(block.book, bName, ch, first, last);
     }
     const ver = versionSelect ? versionSelect.value : '';
-    const url = `${window.location.origin}${buildURL(ref, ver)}`;
+    const url = `${window.location.origin}${buildURL(ref, ver, 'normal', block)}`;
     if (navigator.share) {
         navigator.share({ title: ref, text: ref, url }).catch(() => {
             navigator.clipboard.writeText(url).then(() => showToast(t('toast.linkCopied'))).catch(() => showToast(t('toast.copyFailed')));
@@ -4105,8 +4221,11 @@ function updateUrlFromCards() {
     if (refs.length === 0) return;
     const composite = refs.join('; ');
     const ver = versionSelect.value;
+    // Single card → canonical /bibel/... path. Multi-card composites can't be
+    // expressed as path-form, so they stay on /?q= via buildURL fallback.
+    const block = mainData.length === 1 ? mainData[0] : null;
     try {
-        const url = buildURL(composite, ver);
+        const url = buildURL(composite, ver, 'normal', block);
         history.replaceState({ q: composite, version: ver, mode: 'normal' }, '', url);
     } catch {}
 }
