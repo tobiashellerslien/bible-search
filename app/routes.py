@@ -222,7 +222,10 @@ def bibel_path(book_slug, chapter, range_str=None):
 
     seo = _seo_for_block(bible_data, version_id, block, resolved)
     # The SPA looks at boot_query / boot_version to seed its initial render
-    # without an extra /api/search round-trip.
+    # without an extra /api/search round-trip. boot_version is only set when
+    # the caller passed ?v= explicitly — otherwise the SPA falls back to its
+    # localStorage-stored default version (so the canonical NB88 used for
+    # SEO/pre-rendering doesn't overwrite the user's preferred translation).
     boot_query = block.get("label", "")
     return render_template(
         "index.html",
@@ -233,7 +236,7 @@ def bibel_path(book_slug, chapter, range_str=None):
         prerendered_block=seo["prerendered_block"],
         is_canonical_version=seo["is_canonical_version"],
         boot_query=boot_query,
-        boot_version=version_id,
+        boot_version=(version_id if raw_v else None),
         robots_noindex=False,
     )
 
