@@ -47,7 +47,7 @@ def _resolve_version_id(bible_data, raw):
 
 @bp.get("/")
 def index():
-    og_title = "Bibelsøk – Søk i og studér Bibelen"
+    og_title = "Bibelsøk – Les, søk og studér Bibelen"
     og_description = "Gratis verktøy for bibelsøk og bibelstudie. Søk i Bibelen 2011, Norsk Bibel 88/07, Bibelen Guds Ord, ESV, NIV m.fl. Bibelkart, kommentarer, leksikon og mer."
     og_url = "https://xn--bibelsk-v1a.no/"
     query = request.args.get("q", "").strip()
