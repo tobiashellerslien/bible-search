@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
+Disallow: /api/
 
-Sitemap: https://bibelsøk.no/sitemap.xml
+Sitemap: https://xn--bibelsk-v1a.no/sitemap.xml
