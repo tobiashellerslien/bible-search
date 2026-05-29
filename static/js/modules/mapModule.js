@@ -387,14 +387,22 @@
     }
 
     // ── popup ──
-    // attribution icons: Info icons created by Stockio - Flaticon
+    // Layout: full-width title (icon + name + semantic), then full-width
+    // description, then two columns (thumb left | meta right — meta = other
+    // names + sikkerhet + presisjon). Below the columns: a full-width row of
+    // two side-by-side action pills, then the "Nevnt:" verse refs.
+    // Without a thumbnail the meta column fills the popup width.
     function buildPopupHtml(place) {
         const c = colorForPlace(place);
         const rawArticle = place.preceding_article || '';
         const article = rawArticle ? rawArticle.charAt(0).toUpperCase() + rawArticle.slice(1) : '';
         const namePart = article ? `${esc(article)} ${esc(place.name)}` : esc(place.name);
+        const t = place.thumb;
+        const hasThumb = !!(t && t.file);
 
-        let html = `<div class="map-popup" data-place-id="${place.id}" style="--place-color:${c};--place-color-text:${darkenForText(c)}">`;
+        let html = `<div class="map-popup${hasThumb ? ' map-popup-with-thumb' : ''}" data-place-id="${place.id}" style="--place-color:${c};--place-color-text:${darkenForText(c)}">`;
+
+        // Full-width title.
         html += `<div class="popup-header">
             <span class="popup-kind-icon">${placeIconHtml(place, 20)}</span>
             <div class="popup-header-text">
@@ -404,17 +412,82 @@
         }
         html += `</div></div>`;
 
+        // Full-width description below title.
         if (place.comment) {
             html += `<div class="popup-comment">${esc(place.comment)}</div>`;
         }
 
+        // Two-column body: optional thumb on left, meta on right.
+        html += `<div class="popup-body">`;
+
+        if (hasThumb) {
+            const bg = t.placeholder
+                ? `background:linear-gradient(${t.placeholder.split(',').map(s => s.trim()).join(',')});`
+                : '';
+            const altSafe = attr(t.description || place.name || '');
+            const satBadge = t.is_satellite ? '<span class="thumb-sat-badge" title="Satellittbilde">Satellitt</span>' : '';
+            const creditHtml = t.credit
+                ? (t.credit_url
+                    ? `<a href="${attr(t.credit_url)}" target="_blank" rel="noopener">${esc(t.credit)}</a>`
+                    : esc(t.credit))
+                : '';
+            html += `<div class="popup-thumb-col">
+                <button class="popup-thumb" type="button" data-act="open-image" title="Vis bilde i fullskjerm" style="${bg}">
+                    <img loading="lazy" src="${attr(t.file)}" alt="${altSafe}" onerror="this.style.display='none'">
+                    ${satBadge}
+                    ${creditHtml ? `<span class="popup-thumb-credit">${creditHtml}</span>` : ''}
+                </button>
+            </div>`;
+        }
+
+        html += `<div class="popup-info">`;
+
+        // Meta rows (placemark + aliases)
         const aliases = (place.aliases || []).filter(a => a && a !== place.name);
-        const hasDetails = !!(
-            (place.placemark && place.placemark !== place.name) ||
-            aliases.length > 0 ||
-            place.semantic_type ||
-            place.confidence != null
-        );
+        const showPlacemark = place.placemark && place.placemark !== place.name;
+        if (showPlacemark || aliases.length) {
+            html += `<div class="popup-meta">`;
+            if (showPlacemark) {
+                html += `<div class="popup-meta-row"><span class="popup-meta-label">Navn:</span> ${esc(place.placemark)}</div>`;
+            }
+            if (aliases.length) {
+                html += `<div class="popup-meta-row"><span class="popup-meta-label">Andre navn:</span> ${esc(aliases.join(', '))}</div>`;
+            }
+            html += `</div>`;
+        }
+
+        // Confidence + precision row (precision skipped for region/water)
+        const isPolygonKind = place.kind === 'region' || place.kind === 'water';
+        const confChunks = [];
+        if (place.confidence != null) {
+            const conf = Number(place.confidence);
+            const disputed = conf < 0;
+            const pct = Math.round(Math.abs(conf) / 10);
+            const hue = disputed ? 0 : Math.round(Math.max(0, Math.min(100, pct)) * 1.2);
+            const numColor = `hsl(${hue}, 75%, 42%)`;
+            const numHtml = `<span class="popup-conf-num" style="color:${numColor}">${pct}%</span>`;
+            const votes = place.confidence_votes;
+            const votesHtml = (votes != null && votes > 0)
+                ? ` <span class="popup-conf-votes">(${votes} ${votes === 1 ? 'stemme' : 'stemmer'})</span>`
+                : '';
+            const label = disputed
+                ? `<span class="popup-conf-disputed">Omstridt</span> ${numHtml}${votesHtml}`
+                : `${numHtml}${votesHtml}`;
+            confChunks.push(`<span class="popup-meta-label">Sikkerhet:</span> ${label}`);
+        }
+        if (!isPolygonKind && place.precision && place.precision.meters != null) {
+            const m = place.precision.meters;
+            const human = m >= 1000 ? `±${(m / 1000).toFixed(m % 1000 === 0 ? 0 : 1)} km` : `±${m} m`;
+            confChunks.push(`<span class="popup-meta-label">Presisjon:</span> ${human}`);
+        }
+        if (confChunks.length) {
+            html += `<div class="popup-confrow">${confChunks.map(c => `<div class="popup-confrow-item">${c}</div>`).join('')}</div>`;
+        }
+
+        html += `</div>`; // .popup-info
+        html += `</div>`; // .popup-body
+
+        // Full-width actions row: two pills side by side.
         const hasLinks = !!(geometryCentroid(place.geometry) || place.wikidata_id || place.wikipedia_url);
         const totalRefs = place.total_refs ?? (place.refs ? place.refs.length : 0);
         const hasStats = totalRefs > 1;
@@ -422,13 +495,12 @@
         const dis = (cond) => cond ? '' : ' disabled aria-disabled="true"';
         html += `<div class="popup-actions">`;
         html += `<button class="popup-pill" data-act="stats" type="button"${dis(hasStats)}><img src="/static/images/stats.png" class="popup-pill-icon" alt="" aria-hidden="true"> Andre bibelsteder</button>`;
-        html += `<button class="popup-pill" data-act="details" type="button"${dis(hasDetails)}><img src="/static/images/info.png" class="popup-pill-icon" alt="" aria-hidden="true"> Detaljer</button>`;
         html += `<button class="popup-pill" data-act="links" type="button"${dis(hasLinks)}><img src="/static/images/external.png" class="popup-pill-icon" alt="" aria-hidden="true"> Lenker</button>`;
         html += `</div>`;
 
-        // Refs within current block — each ref is a button so the user can jump to that verse.
+        // Refs within current block (limited so the popup doesn't grow unboundedly)
         if (place.refs && place.refs.length) {
-            const maxShown = 12;
+            const maxShown = 8;
             html += `<div class="popup-refs"><span class="popup-label">Nevnt:</span> `;
             const btns = place.refs.slice(0, maxShown).map(r =>
                 `<button class="popup-ref" type="button" data-act="goto-ref" data-chapter="${r.chapter}" data-verse="${r.verse}">${r.chapter}:${r.verse}</button>`
@@ -438,7 +510,7 @@
             html += `</div>`;
         }
 
-        html += `</div>`;
+        html += `</div>`; // .map-popup
         return html;
     }
 
@@ -466,8 +538,19 @@
         if (!place) return;
         const act = btn.dataset.act;
         if (act === 'stats')   { openPlaceStats(id); return; }
-        if (act === 'details') { openSubPopup('details', place, btn); return; }
         if (act === 'links')   { openSubPopup('links',   place, btn); return; }
+    });
+
+    // Thumbnail click → open fullscreen image modal.
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest && e.target.closest('.popup-thumb[data-act="open-image"]');
+        if (!btn) return;
+        const root = btn.closest('.map-popup');
+        if (!root) return;
+        e.stopPropagation();
+        const id = Number(root.dataset.placeId);
+        const place = _places.find(p => p.id === id);
+        if (place) openImageModal(place);
     });
 
     // Clicking a verse ref inside the "Nevnt:" row jumps to that verse:
@@ -498,13 +581,74 @@
         }, 140);
     });
 
+    // ── image modal (thumbnail click → fullscreen image) ──
+    function openImageModal(place) {
+        const t = place.thumb;
+        if (!t || !t.file) return;
+        // Reuse one DOM node across opens.
+        let modal = document.getElementById('mapImageModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'mapImageModal';
+            modal.className = 'map-image-modal';
+            modal.innerHTML = `
+                <button class="map-image-modal-close" type="button" aria-label="Lukk">&times;</button>
+                <img class="map-image-modal-img" alt="">
+                <div class="map-image-modal-caption"></div>
+            `;
+            document.body.appendChild(modal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeImageModal();
+            });
+            modal.querySelector('.map-image-modal-close').addEventListener('click', closeImageModal);
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && modal.classList.contains('open')) closeImageModal();
+            });
+        }
+        const img = modal.querySelector('.map-image-modal-img');
+        const cap = modal.querySelector('.map-image-modal-caption');
+        img.src = t.file;
+        img.alt = t.description || place.name || '';
+        const creditHtml = t.credit
+            ? (t.credit_url
+                ? `<a href="${attr(t.credit_url)}" target="_blank" rel="noopener">${esc(t.credit)}</a>`
+                : esc(t.credit))
+            : '';
+        const satBadge = t.is_satellite ? ' <span class="thumb-sat-badge">Satellitt</span>' : '';
+        cap.innerHTML = `<span class="map-image-modal-name">${esc(place.name)}</span>${creditHtml ? ' — ' + creditHtml : ''}${satBadge}`;
+        modal.classList.add('open');
+    }
+    function closeImageModal() {
+        const modal = document.getElementById('mapImageModal');
+        if (modal) modal.classList.remove('open');
+    }
+
     // ── sub-popup (floating mini panel near the action pill) ──
     let _activeSubPopup = null;
+    let _suppressedCloseOnClick = false; // tracks whether we toggled the main popup's closeOnClick off
+    function suppressMainCloseOnClick() {
+        if (_selectedId == null) return;
+        const entry = mainEntry(_selectedId);
+        const popup = entry && entry.layer && entry.layer.getPopup && entry.layer.getPopup();
+        if (popup && popup.options.closeOnClick !== false) {
+            popup.options.closeOnClick = false;
+            _suppressedCloseOnClick = true;
+        }
+    }
+    function restoreMainCloseOnClick() {
+        if (!_suppressedCloseOnClick) return;
+        _suppressedCloseOnClick = false;
+        if (_selectedId == null) return;
+        const entry = mainEntry(_selectedId);
+        const popup = entry && entry.layer && entry.layer.getPopup && entry.layer.getPopup();
+        if (popup) popup.options.closeOnClick = true;
+    }
     function closeSubPopup(opts) {
         if (_activeSubPopup) {
             _activeSubPopup.remove();
             _activeSubPopup = null;
             document.removeEventListener('click', _onSubPopupOutside, true);
+            restoreMainCloseOnClick();
             // After the details panel is dismissed by user action (X click,
             // outside-click, or main-popup click), pan the map so the main
             // popup is fully visible again. Skip when called from teardown
@@ -543,11 +687,39 @@
     // taller/wider than the map on small/low-resolution screens. Leaflet adds
     // an internal scroll wrapper (.leaflet-popup-scrolled) when content exceeds
     // maxHeight, so the whole popup stays inside the map and is fully readable.
+    // Pan the map so the freshly-opened main popup is fully visible and roughly
+    // centered horizontally. Vertical centering would push the anchor pin off
+    // the visible area, so we only pan when the popup actually overflows.
+    function centerPopupInMap(layer) {
+        if (!_map || !layer) return;
+        const popup = layer.getPopup && layer.getPopup();
+        const popupEl = popup && popup.getElement && popup.getElement();
+        if (!popupEl) return;
+        const mapEl = _map.getContainer();
+        const mapRect = mapEl.getBoundingClientRect();
+        const pr = popupEl.getBoundingClientRect();
+        const pad = 16;
+        let dx = 0, dy = 0;
+        // Horizontal: center the popup if it overflows either side. Otherwise
+        // leave it where Leaflet placed it (above the pin).
+        if (pr.width > mapRect.width - pad * 2) {
+            dx = (pr.left + pr.width / 2) - (mapRect.left + mapRect.width / 2);
+        } else {
+            if (pr.right > mapRect.right - pad) dx = pr.right - (mapRect.right - pad);
+            else if (pr.left < mapRect.left + pad) dx = pr.left - (mapRect.left + pad);
+        }
+        if (pr.bottom > mapRect.bottom - pad) dy = pr.bottom - (mapRect.bottom - pad);
+        else if (pr.top < mapRect.top + pad) dy = pr.top - (mapRect.top + pad);
+        if (dx !== 0 || dy !== 0) _map.panBy([dx, dy], { animate: true });
+    }
+
     function applyPopupSizing(popup) {
         if (!_map || !popup) return;
         const sz = _map.getSize();
-        popup.options.maxWidth = Math.round(Math.min(300, Math.max(200, sz.x - 24)));
-        popup.options.maxHeight = Math.round(Math.max(120, sz.y - 96));
+        // Cap to map width minus the tool column + breathing room, so the popup
+        // close X never lands under the fullscreen button on small/low-res maps.
+        popup.options.maxWidth = Math.round(Math.min(460, Math.max(220, sz.x - 80)));
+        popup.options.maxHeight = Math.round(Math.max(140, sz.y - 96));
     }
 
     // Pan the map so the freshly-opened sub-popup is fully visible. When the
@@ -623,88 +795,26 @@
         'room': 'rom',
         'canal': 'kanal',
     };
-    const PRECISION_NO = {
-        'point in modern settlement': 'punkt i moderne bosetning',
-        'point in mountain range': 'punkt i fjellkjede',
-        'point in region': 'punkt i området',
-        'archaeological site': 'arkeologisk sted',
-        'point in modern village': 'punkt i moderne landsby',
-        'point in modern city': 'punkt i moderne by',
-        'general area': 'omtrentlig område',
-        'terrain feature': 'terrengtrekk',
-    };
     function translateType(s) {
         if (!s) return s;
         return TYPE_NO[s.toLowerCase()] || s;
     }
-    function translatePrecision(s) {
-        if (!s) return s;
-        return PRECISION_NO[s.toLowerCase()] || s;
-    }
+    // Sub-popup is now only used for the "Lenker" panel. All other detail
+    // fields are inlined into the main popup, so the `kind` parameter only
+    // accepts 'links' here (kept for signature compatibility with the
+    // delegated click handler).
     function openSubPopup(kind, place, anchorEl) {
         closeSubPopup({ silent: true });
         const c = colorForPlace(place);
-        const aliases = (place.aliases || []).filter(a => a && a !== place.name);
         const div = document.createElement('div');
         div.className = 'map-subpopup';
         div.style.setProperty('--place-color', c);
         div.style.setProperty('--place-color-text', darkenForText(c));
-        const t = (kind === 'details') ? place.thumb : null;
-        const hasThumb = !!(t && t.file);
         let inner = `<div class="map-subpopup-header">
-            <span class="map-subpopup-title">${kind === 'details' ? 'Detaljer' : 'Lenker'}</span>
+            <span class="map-subpopup-title">Lenker</span>
             <button class="map-subpopup-close" type="button" aria-label="Lukk">&times;</button>
-        </div><div class="map-subpopup-body${hasThumb ? ' map-subpopup-body--with-thumb' : ''}">`;
-        if (kind === 'details') {
-            if (hasThumb) {
-                const bg = t.placeholder
-                    ? `background:linear-gradient(${t.placeholder.split(',').map(c => c.trim()).join(',')});`
-                    : '';
-                const altSafe = attr(t.description || place.name || '');
-                const creditHtml = t.credit
-                    ? (t.credit_url
-                        ? `<a href="${attr(t.credit_url)}" target="_blank" rel="noopener">${esc(t.credit)}</a>`
-                        : esc(t.credit))
-                    : '';
-                const satBadge = t.is_satellite ? '<span class="thumb-sat-badge" title="Satellittbilde">Satellitt</span>' : '';
-                inner += `<div class="map-subpopup-thumb" style="${bg}">
-                    <img loading="lazy" src="${attr(t.file)}" alt="${altSafe}" onerror="this.style.display='none'">
-                    <div class="map-subpopup-thumb-credit">${creditHtml}${satBadge}</div>
-                </div>`;
-            }
-            inner += `<div class="map-subpopup-rows">`;
-            if (place.placemark && place.placemark !== place.name) {
-                inner += `<div class="map-subpopup-row"><span class="map-subpopup-label" title="Opprinnelig stedsnavn fra OpenBible KMZ">Opprinnelig navn</span><div>${esc(place.placemark)}</div></div>`;
-            }
-            if (aliases.length) {
-                inner += `<div class="map-subpopup-row"><span class="map-subpopup-label" title="Stavemåter fra bibeloversettelser">Andre navn</span><div>${esc(aliases.join(', '))}</div></div>`;
-            }
-            if (place.semantic_type) {
-                inner += `<div class="map-subpopup-row"><span class="map-subpopup-label">Type</span><div>${esc(translateType(place.semantic_type))}</div></div>`;
-            }
-            const isPolygonKind = place.kind === 'region' || place.kind === 'water';
-            if (!isPolygonKind && place.precision && place.precision.meters != null) {
-                const m = place.precision.meters;
-                const descRaw = place.precision.description;
-                const desc = descRaw ? ` <span class="map-subpopup-dim">(${esc(translatePrecision(descRaw))})</span>` : '';
-                const human = m >= 1000 ? `±${(m / 1000).toFixed(m % 1000 === 0 ? 0 : 1)} km` : `±${m} m`;
-                inner += `<div class="map-subpopup-row"><span class="map-subpopup-label" title="Anslagsvis nøyaktighet for koordinaten">Presisjon</span><div>${human}${desc}</div></div>`;
-            }
-            if (place.confidence != null) {
-                const conf = Number(place.confidence);
-                const disputed = conf < 0;
-                const pct = Math.round(Math.abs(conf) / 10);
-                const votes = place.confidence_votes ? ` <span class="map-subpopup-dim">(${place.confidence_votes} stemmer)</span>` : '';
-                // Hue scales 0→120 (red→green) across the 0–100% range.
-                // Disputed entries (negative score) are forced red.
-                const hue = disputed ? 0 : Math.round(Math.max(0, Math.min(100, pct)) * 1.2);
-                const numColor = `hsl(${hue}, 75%, 42%)`;
-                const numHtml = `<span class="map-subpopup-conf-num" style="color:${numColor}">${pct}%</span>`;
-                const label = disputed ? `Omstridt — ${numHtml}` : numHtml;
-                inner += `<div class="map-subpopup-row"><span class="map-subpopup-label">Sikkerhet</span><div class="${disputed ? 'map-subpopup-disputed' : ''}">${label}${votes}</div></div>`;
-            }
-            inner += `</div>`; // close .map-subpopup-rows
-        } else {
+        </div><div class="map-subpopup-body">`;
+        {
             const links = [];
             const center = geometryCentroid(place.geometry);
             if (center) links.push(`<a href="https://www.google.com/maps/search/?api=1&query=${center[0]},${center[1]}" target="_blank" rel="noopener">Google Maps</a>`);
@@ -749,6 +859,11 @@
             div.style.top  = (a.bottom + window.scrollY + 6) + 'px';
         }
         _activeSubPopup = div;
+        // While the sub-popup is open, a click that lands on the main popup's
+        // pointer-transparent background falls through to the map — which
+        // would normally close the main popup via closeOnClick. Suppress that
+        // so the click only dismisses the sub-popup via _onSubPopupOutside.
+        suppressMainCloseOnClick();
         div.querySelector('.map-subpopup-close').addEventListener('click', () => closeSubPopup());
         // Stop pointer events so they don't bubble to the map (which would close
         // the parent leaflet popup or start a pan).
@@ -923,14 +1038,18 @@
                 }
 
                 if (spec.role === 'main') {
+                    // Fixed-size popup: width pinned so layout never reflows; very
+                    // large maxHeight disables Leaflet's scroll-wrap (popup content
+                    // is sized to fit instead of scrolling).
                     spec.layer.bindPopup(buildPopupHtml(p), {
-                        maxWidth: 300,
-                        // Tall popups (header + pills + refs) need generous top padding
-                        // so autoPan keeps the whole popup inside the viewport, not just
-                        // the anchor point.
+                        minWidth: 220,
+                        maxWidth: 360,
+                        maxHeight: 9999,
                         autoPanPaddingTopLeft: [24, 80],
-                        autoPanPaddingBottomRight: [24, 24],
+                        autoPanPaddingBottomRight: [60, 24],
                         className: 'map-popup-wrap',
+                        // Clicking the map outside the popup dismisses it.
+                        closeOnClick: true,
                     });
                     // bindPopup adds an internal click handler that auto-opens
                     // the popup. We want to control timing (open only after
@@ -945,6 +1064,9 @@
                             const hit = _entries.find(en => en.role === 'hit' && en.place.id === p.id);
                             if (hit && hit.layer.closeTooltip) hit.layer.closeTooltip();
                         }
+                        // Pan so the popup is fully visible and roughly centered.
+                        // rAF lets Leaflet finish positioning before we measure.
+                        requestAnimationFrame(() => centerPopupInMap(spec.layer));
                         // On mobile the map covers the text anyway — skip the underline + auto-scroll
                         // and let the user jump explicitly via the "Nevnt:" ref buttons in the popup.
                         if (window.AppModuleHost && window.AppModuleHost.isMobile()) return;
@@ -1022,8 +1144,6 @@
             if (!_entries.includes(entry)) return;
             applySelectionStyle(entry);
             if (opts.openPopup !== false && popupLatLng) {
-                const pop = entry.layer.getPopup && entry.layer.getPopup();
-                if (pop) applyPopupSizing(pop);
                 entry.layer.openPopup(popupLatLng);
             }
         };
@@ -1262,11 +1382,6 @@
         const refs = place.refs || [];
         const perBook = new Map();
         refs.forEach(r => perBook.set(r.book_usfm, (perBook.get(r.book_usfm) || 0) + 1));
-        const perChap = new Map();
-        refs.forEach(r => {
-            const k = r.book_usfm + '|' + r.chapter;
-            perChap.set(k, (perChap.get(k) || 0) + 1);
-        });
 
         const booksList = window.booksData || [];
         const bookOrder = booksList.length ? booksList.map(b => b.code) : Array.from(perBook.keys());
@@ -1282,86 +1397,128 @@
         let ot=0, nt=0;
         perBook.forEach((c, code) => { if (otTest(code)) ot+=c; else nt+=c; });
 
+        // Top OT/NT books by count
+        let topOT = null, topNT = null;
+        perBook.forEach((cnt, code) => {
+            if (otTest(code)) {
+                if (!topOT || cnt > topOT.count) topOT = { code, count: cnt };
+            } else {
+                if (!topNT || cnt > topNT.count) topNT = { code, count: cnt };
+            }
+        });
+        const maxCount = Math.max(topOT ? topOT.count : 0, topNT ? topNT.count : 0);
+        const otIsTop = topOT && topOT.count === maxCount && maxCount > 0;
+        const ntIsTop = topNT && topNT.count === maxCount && maxCount > 0;
+
         let html = `<div class="stats-summary">
             <div class="stats-card"><div class="stats-card-label">Antall referanser</div><div class="stats-card-value">${totalHits}</div></div>
             <div class="stats-card"><div class="stats-card-label">Bøker</div><div class="stats-card-value">${perBook.size}</div></div>
             <div class="stats-card"><div class="stats-card-label">GT</div><div class="stats-card-value">${ot}</div></div>
-            <div class="stats-card"><div class="stats-card-label">NT</div><div class="stats-card-value">${nt}</div></div>
-        </div>`;
-        html += `<div class="place-stats-section-label">Bøker <span class="place-stats-section-hint">— åpner alle versene i boken</span></div>`;
-        html += `<div class="place-stats-books">`;
-        bookOrder.forEach(code => {
-            const cnt = perBook.get(code) || 0;
-            if (!cnt) return;
-            html += `<button class="place-stats-book" type="button" data-book="${attr(code)}">
-                <span class="place-stats-book-name">${esc(nameOf(code))}</span>
-                <span class="place-stats-book-count">${cnt}</span>
-            </button>`;
-        });
+            <div class="stats-card"><div class="stats-card-label">NT</div><div class="stats-card-value">${nt}</div></div>`;
+        if (topOT) {
+            html += `<div class="stats-card place-stats-top" data-book="${attr(topOT.code)}" style="cursor:pointer${otIsTop ? ';border-color:var(--accent)' : ''}" title="Åpne alle versene i ${esc(nameOf(topOT.code))}">
+                <div class="stats-card-label">${otIsTop ? '&#127942; ' : ''}Topp GT</div>
+                <div class="stats-card-value" style="font-size:0.85rem;">${esc(nameOf(topOT.code))}<br><span style="font-size:0.75rem;opacity:0.7">${topOT.count} treff</span></div>
+            </div>`;
+        }
+        if (topNT) {
+            html += `<div class="stats-card place-stats-top" data-book="${attr(topNT.code)}" style="cursor:pointer${ntIsTop ? ';border-color:var(--accent)' : ''}" title="Åpne alle versene i ${esc(nameOf(topNT.code))}">
+                <div class="stats-card-label">${ntIsTop ? '&#127942; ' : ''}Topp NT</div>
+                <div class="stats-card-value" style="font-size:0.85rem;">${esc(nameOf(topNT.code))}<br><span style="font-size:0.75rem;opacity:0.7">${topNT.count} treff</span></div>
+            </div>`;
+        }
         html += `</div>`;
 
-        if (perChap.size) {
-            html += `<div class="place-stats-distribution"><div class="place-stats-section-label">Per kapittel <span class="place-stats-section-hint">— åpner ett kapittel</span></div>`;
-            bookOrder.forEach(code => {
-                if (!perBook.get(code)) return;
-                const items = [];
-                perChap.forEach((cnt, k) => { const [bk, ch] = k.split('|'); if (bk === code) items.push({ ch:Number(ch), cnt }); });
-                items.sort((a,b) => a.ch - b.ch);
-                html += `<div class="place-stats-dist-row"><span class="place-stats-dist-book">${esc(nameOf(code))}</span><span class="place-stats-dist-chs">`;
-                items.forEach(e => {
-                    html += `<button class="place-stats-chapter" type="button" data-book="${attr(code)}" data-chapter="${e.ch}">${e.ch}${e.cnt>1?`<sup>${e.cnt}</sup>`:''}</button>`;
-                });
-                html += `</span></div>`;
-            });
-            html += `</div>`;
-        }
+        html += `<div class="place-stats-section-label">Per bok <span class="place-stats-section-hint">— klikk en søyle for å åpne alle versene i den boken</span></div>`;
+        html += buildPlaceChart(bookOrder, perBook, otTest, lang, booksList);
 
         const body = document.getElementById('statsBody');
-        if (body) {
-            body.innerHTML = html;
-            body.querySelectorAll('.place-stats-book').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const code = btn.dataset.book;
-                    document.getElementById('statsModal').classList.remove('open');
-                    if (_isFullscreen) exitFullscreen();
-                    const version = window.versionSelect ? window.versionSelect.value : null;
-                    const bookRefs = refs.filter(r => r.book_usfm === code);
-                    if (window.insertBlocksIntoView && bookRefs.length) {
-                        const bName = nameOf(code);
-                        const specs = bookRefs.map(r => ({
-                            book: code,
-                            ch_start: r.chapter, vs_start: r.verse,
-                            ch_end: r.chapter,   vs_end: r.verse,
-                            version,
-                            label: window.fmtVerseRef(code, bName, r.chapter, r.verse),
-                        }));
-                        // New search — replace existing view rather than append.
-                        await window.insertBlocksIntoView(specs, { replace: true });
-                    } else if (window.goChapter) {
-                        window.goChapter(code, 1, nameOf(code));
-                    }
-                });
-            });
-            body.querySelectorAll('.place-stats-chapter').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const code = btn.dataset.book;
-                    const ch = Number(btn.dataset.chapter);
-                    document.getElementById('statsModal').classList.remove('open');
-                    if (_isFullscreen) exitFullscreen();
-                    // Highlight the verses in this chapter that mention the place
-                    // (same mechanism as the verse→chapter expand path).
-                    const keys = refs
-                        .filter(r => r.book_usfm === code && r.chapter === ch)
-                        .map(r => `${r.chapter}:${r.verse}`)
-                        .join(',');
-                    if (window.readChapter) {
-                        window.readChapter(code, ch, nameOf(code), keys || null);
-                    } else if (window.goChapter) {
-                        window.goChapter(code, ch, nameOf(code));
-                    }
-                });
-            });
+        if (!body) return;
+        body.innerHTML = html;
+
+        async function openBook(code) {
+            document.getElementById('statsModal').classList.remove('open');
+            if (_isFullscreen) exitFullscreen();
+            // On mobile the map module drawer covers the verse view — close it
+            // so the inserted blocks become visible.
+            if (window.AppModuleHost && window.AppModuleHost.isMobile() && window.AppModuleHost.isOpen()) {
+                window.AppModuleHost.closeModule();
+            }
+            const version = window.versionSelect ? window.versionSelect.value : null;
+            const bookRefs = refs.filter(r => r.book_usfm === code);
+            if (window.insertBlocksIntoView && bookRefs.length) {
+                const bName = nameOf(code);
+                const specs = bookRefs.map(r => ({
+                    book: code,
+                    ch_start: r.chapter, vs_start: r.verse,
+                    ch_end: r.chapter,   vs_end: r.verse,
+                    version,
+                    label: window.fmtVerseRef(code, bName, r.chapter, r.verse),
+                }));
+                await window.insertBlocksIntoView(specs, { replace: true });
+            } else if (window.goChapter) {
+                window.goChapter(code, 1, nameOf(code));
+            }
         }
+
+        body.querySelectorAll('.place-stats-top').forEach(card => {
+            card.addEventListener('click', () => openBook(card.dataset.book));
+        });
+        body.querySelectorAll('.chart-bar').forEach(bar => {
+            bar.addEventListener('click', () => openBook(bar.dataset.code));
+        });
+        wirePlaceChartTooltips(body);
+    }
+
+    function buildPlaceChart(bookOrder, perBook, otTest, lang, booksList) {
+        const stats = bookOrder.map(code => {
+            const b = booksList.find(x => x.code === code) || {};
+            return {
+                code,
+                count: perBook.get(code) || 0,
+                name: lang === 'en' ? (b.name_en || b.name || code) : (b.name || code),
+            };
+        });
+        if (!stats.length) return '';
+        const maxCount = Math.max(...stats.map(s => s.count)) || 1;
+        const barW = 10, barGap = 1, chartH = 140, labelH = 22;
+        const svgH = chartH + labelH;
+        const totalW = stats.length * (barW + barGap);
+
+        let bars = '';
+        stats.forEach((s, i) => {
+            const barH = s.count > 0 ? Math.max(2, Math.round((s.count / maxCount) * chartH)) : 0;
+            const x = i * (barW + barGap);
+            const y = chartH - barH;
+            const cls = otTest(s.code) ? 'ot' : 'nt';
+            const interactive = s.count > 0 ? ' style="cursor:pointer"' : ' style="pointer-events:none;opacity:0.35"';
+            bars += `<rect class="chart-bar ${cls}" x="${x}" y="${y}" width="${barW}" height="${Math.max(barH, 2)}"
+                data-name="${attr(s.name)}" data-count="${s.count}" data-code="${attr(s.code)}"${interactive}/>`;
+            bars += `<text class="chart-label"
+                transform="translate(${x + barW / 2},${chartH + 2}) rotate(90)"
+                text-anchor="start" dominant-baseline="middle"
+                font-size="7.5" fill="var(--text-muted)">${esc(s.code)}</text>`;
+        });
+        bars += `<line x1="0" y1="${chartH}" x2="${totalW}" y2="${chartH}" stroke="var(--border)" stroke-width="1"/>`;
+
+        return `<div class="chart-wrap">
+            <svg class="stats-chart" viewBox="0 0 ${totalW} ${svgH}" preserveAspectRatio="xMinYMin meet"
+                style="display:block;width:100%;min-height:${svgH}px">${bars}</svg>
+        </div>`;
+    }
+
+    function wirePlaceChartTooltips(scope) {
+        const tt = document.getElementById('chartTooltip');
+        if (!tt) return;
+        scope.querySelectorAll('.chart-bar').forEach(bar => {
+            bar.addEventListener('mousemove', e => {
+                tt.classList.add('visible');
+                tt.innerHTML = `<strong>${esc(bar.dataset.name)}</strong> ${esc(bar.dataset.count)} treff`;
+                tt.style.left = (e.clientX + 14) + 'px';
+                tt.style.top = (e.clientY - 8) + 'px';
+            });
+            bar.addEventListener('mouseleave', () => tt.classList.remove('visible'));
+        });
     }
 
     // ── fullscreen ──

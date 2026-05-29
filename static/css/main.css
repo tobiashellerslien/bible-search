@@ -3106,7 +3106,7 @@
             border-radius: var(--radius-sm);
             cursor: pointer;
             border-left: 3px solid var(--place-color, transparent);
-            background: var(--card-bg-alt, transparent);
+            background: var(--card-bg);
             font-family: var(--font-ui);
             font-size: 0.83rem;
             color: var(--text);
@@ -3403,24 +3403,32 @@
         }
         .map-popup { --place-color: var(--accent); }
 
-        /* Mobile: let touch drags pass through the popup body to the map so the
-           user can pan/zoom without first dismissing the popup. Interactive
-           children opt back in to pointer events. */
-        @media (max-width: 700px) {
-            .map-popup-wrap .leaflet-popup-content-wrapper,
-            .map-popup-wrap .leaflet-popup-tip-container,
-            .map-popup-wrap .leaflet-popup-tip,
-            .map-popup-wrap .leaflet-popup-content,
-            .map-popup {
-                pointer-events: none;
-            }
-            .map-popup-wrap .leaflet-popup-close-button,
-            .map-popup .popup-pill,
-            .map-popup .popup-ref,
-            .map-subpopup,
-            .map-subpopup * {
-                pointer-events: auto;
-            }
+        /* Drag-through: the popup wrapper itself (and ALL its non-interactive
+           descendants) are pointer-transparent. Click-drag on any popup background
+           pixel pans the map; the popup never auto-dismisses. Interactive children
+           opt back in to pointer events.
+           NOTE: targeting .map-popup-wrap directly (the leaflet-popup element) is
+           critical — children with pointer-events:none still don't help if the
+           leaflet-popup container itself captures the event. */
+        .map-popup-wrap,
+        .map-popup-wrap .leaflet-popup-content-wrapper,
+        .map-popup-wrap .leaflet-popup-tip-container,
+        .map-popup-wrap .leaflet-popup-tip,
+        .map-popup-wrap .leaflet-popup-content,
+        .map-popup,
+        .map-popup * {
+            pointer-events: none;
+        }
+        .map-popup-wrap .leaflet-popup-close-button,
+        .map-popup .popup-pill,
+        .map-popup .popup-pill *,
+        .map-popup .popup-ref,
+        .map-popup .popup-thumb,
+        .map-popup .popup-thumb *,
+        .map-popup .popup-thumb-credit a,
+        .map-subpopup,
+        .map-subpopup * {
+            pointer-events: auto;
         }
         .map-popup .popup-header {
             display: flex;
@@ -3436,7 +3444,7 @@
             font-weight: 600;
             font-size: 1rem;
             color: var(--place-color-text, var(--place-color));
-            overflow: hidden; text-overflow: ellipsis;
+            overflow-wrap: anywhere;
         }
         [data-theme="dark"] .map-popup .popup-name {
             color: var(--place-color);
@@ -3456,24 +3464,220 @@
         }
         .map-popup .popup-comment {
             margin-top: 6px;
-            font-size: 0.78rem;
+            font-size: 0.84rem;
             color: var(--text);
             opacity: 0.92;
             line-height: 1.4;
         }
-        .map-popup .popup-actions {
-            margin-top: 10px;
+        /* Let Leaflet drive the content width — it sets `width: <maxWidth>` on
+           .leaflet-popup-content after measuring the intrinsic content size.
+           A previous `width: auto !important` here was bypassing that and
+           letting wide rows (the actions buttons, long meta text) overflow past
+           the popup wrapper. We keep a max-width as a belt-and-suspenders cap. */
+        .map-popup-wrap .leaflet-popup-content { margin: 12px; max-width: 360px; box-sizing: border-box; }
+        .map-popup-wrap .leaflet-popup-scrolled {
+            max-height: none !important;
+            overflow: visible !important;
+        }
+        .map-popup {
+            font-size: 0.88rem;
+            min-width: 220px;
+            max-width: 360px;
             display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .map-popup.map-popup-with-thumb { min-width: 280px; }
+        /* Two-column row: optional fixed-width thumb on the left, meta column on
+           the right. Without a thumb the meta column fills the popup width. */
+        .map-popup .popup-body {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+        .map-popup .popup-info {
+            flex: 1 1 0;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .map-popup.map-popup-with-thumb .popup-thumb-col {
+            flex: 0 0 130px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        /* Reset top-margin inside columns so the gap is driven by flex gap only. */
+        .map-popup .popup-info > *,
+        .map-popup > * { margin-top: 0 !important; }
+
+        .map-popup .popup-thumb {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            background: var(--border);
+            border: 1px solid var(--border);
+            padding: 0;
+            cursor: zoom-in;
+            display: block;
+        }
+        .map-popup .popup-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .map-popup .popup-thumb .thumb-sat-badge {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(0,0,0,0.45);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.4);
+        }
+        /* Credit overlay anchored to the image's bottom-left corner. */
+        .map-popup .popup-thumb-credit {
+            position: absolute;
+            left: 4px;
+            bottom: 4px;
+            max-width: calc(100% - 8px);
+            padding: 2px 6px;
+            border-radius: var(--radius-xs);
+            background: rgba(0, 0, 0, 0.55);
+            color: #fff;
+            font-size: 0.66rem;
+            line-height: 1.25;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            pointer-events: auto;
+        }
+        .map-popup .popup-thumb-credit a {
+            color: #fff;
+            text-decoration: underline;
+            text-decoration-color: rgba(255, 255, 255, 0.5);
+        }
+        @media (hover: hover) {
+            .map-popup .popup-thumb-credit a:hover { text-decoration-color: #fff; }
+        }
+
+        /* Meta + confidence inside info column (description lives full-width
+           above the body — see the .popup-comment rule near the header). */
+        .map-popup .popup-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            font-size: 0.82rem;
+            color: var(--text);
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+        }
+        .map-popup .popup-conf-votes { color: var(--text-muted); font-weight: 500; }
+        .map-popup .popup-meta-label {
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-family: var(--font-mono);
+            margin-right: 4px;
+        }
+        /* Sikkerhet + Presisjon stacked one-per-line */
+        .map-popup .popup-confrow {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            font-size: 0.82rem;
+        }
+        .map-popup .popup-confrow-item { display: block; }
+        .map-popup .popup-conf-num { font-weight: 700; }
+        .map-popup .popup-conf-disputed { color: #e8590c; font-weight: 600; }
+
+        /* Full-width row of two equal-width pills below the body columns.
+           Grid (not flex) so columns are hard-pinned to 50/50 even when the
+           popup wrapper is sized by leaflet's intrinsic-width measurement —
+           flex row was letting the second pill overflow to the right. */
+        .map-popup .popup-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .map-popup .popup-actions .popup-pill {
+            min-width: 0;
+            width: 100%;
+            box-sizing: border-box;
+            text-align: center;
+            white-space: normal;
+            line-height: 1.2;
+            overflow-wrap: anywhere;
+        }
+
+        /* Fullscreen image modal launched from the popup thumbnail */
+        .map-image-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.86);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 12000;
+            padding: 24px;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .map-image-modal.open { display: flex; }
+        .map-image-modal-img {
+            max-width: 100%;
+            max-height: calc(100vh - 120px);
+            border-radius: var(--radius-sm);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+            object-fit: contain;
+        }
+        .map-image-modal-caption {
+            color: #fff;
+            font-size: 0.85rem;
+            max-width: min(900px, 100%);
+            text-align: center;
+            line-height: 1.4;
+        }
+        .map-image-modal-caption a {
+            color: #fff;
+            text-decoration: underline;
+            text-decoration-color: rgba(255,255,255,0.5);
+        }
+        .map-image-modal-caption .map-image-modal-name { font-weight: 600; }
+        .map-image-modal-close {
+            position: absolute;
+            top: 16px;
+            right: 20px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.25);
+            color: #fff;
+            font-size: 1.6rem;
+            line-height: 1;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        @media (hover: hover) {
+            .map-image-modal-close:hover { background: rgba(0,0,0,0.75); }
         }
         .map-popup .popup-pill {
             background: var(--hover-bg);
             border: 1px solid var(--border);
             color: var(--text);
             border-radius: var(--radius-pill);
-            padding: 3px 9px;
-            font-size: 0.72rem;
+            padding: 5px 11px;
+            font-size: 0.82rem;
             cursor: pointer;
             font-family: var(--font-ui);
             transition: background 0.15s, color 0.15s, border-color 0.15s;
@@ -3495,8 +3699,9 @@
         }
         .map-popup .popup-refs {
             margin-top: 8px;
-            font-size: 0.76rem;
+            font-size: 0.85rem;
             color: var(--text-muted);
+            line-height: 1.5;
         }
         .map-popup .popup-label { color: var(--text-muted); font-weight: 600; }
         .map-popup .popup-refs-more { color: var(--text-muted); }
