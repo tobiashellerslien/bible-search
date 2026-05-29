@@ -634,6 +634,36 @@ versionSelect.addEventListener('change', () => {
 let blaStep = 'testament';   // 'testament' | 'book' | 'chapter'
 let blaTestament = null;     // 'OT' | 'NT'
 let blaBook = null;          // book code
+let blaCurrentChapter = null; // chapter to highlight on the chapter grid
+
+function _topmostVisibleContext() {
+    const cards = document.querySelectorAll('#resultsWrapper .verse-card');
+    const offset = 80;
+    for (const card of cards) {
+        const rect = card.getBoundingClientRect();
+        if (rect.bottom <= offset || rect.top >= window.innerHeight) continue;
+        const verses = card.querySelectorAll('.verse-text-clickable[data-book]');
+        for (const v of verses) {
+            const vr = v.getBoundingClientRect();
+            if (vr.bottom > offset) {
+                const ch = parseInt(v.dataset.chapter, 10);
+                if (v.dataset.book && Number.isFinite(ch)) {
+                    return { book: v.dataset.book, chapter: ch };
+                }
+                break;
+            }
+        }
+        const m = card.id.match(/^card-(\d+)$/);
+        if (m && window.mainData) {
+            const block = window.mainData[parseInt(m[1], 10)];
+            if (block && block.book && block.verses && block.verses[0]) {
+                return { book: block.book, chapter: block.verses[0].chapter };
+            }
+        }
+        return null;
+    }
+    return null;
+}
 
 function renderBlaPanel() {
     const inner = document.getElementById('blaStepper');
@@ -661,7 +691,8 @@ function renderBlaPanel() {
         if (!book) { blaStep = 'book'; renderBlaPanel(); return; }
         let tiles = '';
         for (let i = 1; i <= book.chapters; i++) {
-            tiles += `<button type="button" class="bla-tile bla-tile-chapter" data-bla-chapter="${i}">${i}</button>`;
+            const cur = (blaCurrentChapter === i) ? ' bla-tile-current' : '';
+            tiles += `<button type="button" class="bla-tile bla-tile-chapter${cur}" data-bla-chapter="${i}">${i}</button>`;
         }
         inner.innerHTML =
             `<div class="bla-breadcrumb"><button type="button" class="bla-back" data-bla-back="book">← ${escHtml(bookName(book.code, lang))}</button></div>` +
@@ -678,6 +709,7 @@ document.getElementById('blaStepper')?.addEventListener('click', e => {
         renderBlaPanel();
     } else if (t.dataset.blaBook) {
         blaBook = t.dataset.blaBook;
+        blaCurrentChapter = null;
         blaStep = 'chapter';
         renderBlaPanel();
     } else if (t.dataset.blaChapter) {
@@ -4297,7 +4329,22 @@ function toggleBlaPanel() {
     const willOpen = !panel.classList.contains('open');
     _setPanel('visningPanel', 'visningBtn', false);
     _setPanel('blaPanel', 'blaBtn', willOpen);
-    if (willOpen) renderBlaPanel();
+    if (willOpen) {
+        const ctx = (currentView === 'normal') ? _topmostVisibleContext() : null;
+        if (ctx && _booksMap && _booksMap.has(ctx.book)) {
+            const b = _booksMap.get(ctx.book);
+            blaTestament = b.testament || blaTestament;
+            blaBook = ctx.book;
+            blaCurrentChapter = ctx.chapter;
+            blaStep = 'chapter';
+        } else {
+            blaTestament = null;
+            blaBook = null;
+            blaCurrentChapter = null;
+            blaStep = 'testament';
+        }
+        renderBlaPanel();
+    }
 }
 
 function toggleVisningPanel() {
