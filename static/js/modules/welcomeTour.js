@@ -25,11 +25,11 @@
             {
                 element: '#searchInput',
                 popover: {
-                    title: '🔍 Søke-operatorer',
+                    title: '🔍 Søk',
                     description: '<ul class="tour-list">'
                         + '<li><code>tro</code> — prefix-søk: matcher <em>tro</em>, <em>tror</em>, <em>troen</em>, <em>trofast</em> …</li>'
                         + '<li><code>"tro"</code> — eksakt ord — bare «tro», ikke «tror» eller «trofast»</li>'
-                        + '<li><code>evig liv</code> — begge ordene (AND), i hvilken som helst rekkefølge</li>'
+                        + '<li><code>evig liv</code> — begge ordene (AND), innad i ett vers</li>'
                         + '<li><code>"evig liv"</code> — eksakt frase — begge ordene, i den rekkefølgen</li>'
                         + '<li><code>nåde -dom</code> — ekskluder ord med <code>-</code></li>'
                         + '<li><code>nåde + frelse</code> — enten/eller (også <code>|</code>)</li>'
