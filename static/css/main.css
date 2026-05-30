@@ -2763,7 +2763,7 @@
             height: 13px;
             vertical-align: middle;
             margin-bottom: 1px;
-            opacity: 0.75;
+            opacity: 0.5;
         }
         [data-theme="dark"] .stats-icon { filter: invert(1); }
         @media (hover: hover) {
@@ -6239,7 +6239,7 @@
             transition: all 0.15s;
         }
         @media (hover: hover) {
-        .scope-trigger:hover { border-color: var(--accent); color: var(--accent); }
+        .scope-trigger:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
         }
         .scope-picker.scope-on .scope-trigger {
             background: var(--accent);
@@ -6286,14 +6286,14 @@
         .scope-option:hover { background: var(--accent-dim); }
         }
         .scope-option.active { color: var(--accent); font-weight: 600; }
+        .scope-separator { height: 1px; background: var(--border); margin: 4px 0; }
         .scope-hint {
-            margin-top: 4px;
-            padding: 6px 10px 3px;
-            border-top: 1px solid var(--border);
+            padding: 4px 10px 3px;
             font-size: 0.72rem;
             color: var(--text-muted);
             font-style: italic;
             line-height: 1.35;
+            text-align: left;
         }
         /* Block trigger used in the zero-results empty state (under "search all
            versions"): a full-width secondary button that opens the study menu. */
@@ -6389,17 +6389,20 @@
         .study-comm-name { font-family: 'Lora', Georgia, serif; font-weight: 600; font-size: 0.98rem; color: var(--accent); }
         .study-comm-books { display: flex; flex-direction: column; gap: 6px; padding: 0 10px 10px; }
         .study-comm-expand-all {
-            align-self: flex-end;
+            margin-left: auto;
             background: transparent;
-            border: none;
-            color: var(--accent);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-muted);
             font-family: var(--font-ui);
             font-size: 0.75rem;
-            padding: 4px 6px 2px;
+            padding: 3px 8px;
             cursor: pointer;
+            flex-shrink: 0;
+            transition: all 0.15s;
         }
         @media (hover: hover) {
-        .study-comm-expand-all:hover { text-decoration: underline; }
+        .study-comm-expand-all:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
         }
         .study-comm-book {
             background: transparent;

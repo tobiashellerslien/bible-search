@@ -876,6 +876,7 @@ function restoreOpenXrefPanel(openXref) {
 }
 
 window.addEventListener('popstate', async e => {
+    if (e.state && e.state.modal) return;
     if (e.state && e.state.studyNav) {
         const nav = e.state.studyNav;
         if (nav.q != null) { searchInput.value = nav.q; updateSearchHighlight(); }
@@ -2908,10 +2909,10 @@ function scopeMenuHtml(active, opts) {
     const scopes = opts.excludeBible ? ['commentary', 'topics', 'leksikon'] : STUDY_SCOPES;
     const triggerLabel = opts.triggerLabel
         || (activeKey === 'bible' ? t('search.scope.button') : labels[activeKey]);
-    const optsHtml = scopes.map(k =>
-        `<button type="button" class="scope-option${k === activeKey ? ' active' : ''}" data-scope="${k}">`
-        + `${escHtml(labels[k])}</button>`
-    ).join('');
+    const optsHtml = scopes.map(k => {
+        const sep = (!opts.excludeBible && k === 'commentary') ? '<div class="scope-separator"></div>' : '';
+        return sep + `<button type="button" class="scope-option${k === activeKey ? ' active' : ''}" data-scope="${k}">${escHtml(labels[k])}</button>`;
+    }).join('');
     const pickerCls = 'scope-picker'
         + (activeKey !== 'bible' ? ' scope-on' : '')
         + (opts.block ? ' scope-picker-block' : '');
@@ -2979,7 +2980,8 @@ function selectSearchScope(type) {
     if (!type || type === studySearchType) return;
     if (type === 'bible') {
         studySearchType = null;
-        if (textSearchCache) {
+        const q = searchInput.value.trim();
+        if (textSearchCache && textSearchCache.query === q) {
             currentView = 'text_search';
             renderTextSearch(textSearchCache.results, textSearchCache.query, textSearchCache.bookTotals || {});
         } else {

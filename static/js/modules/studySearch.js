@@ -118,14 +118,13 @@
             const cname = c.name || c.short_name || c.code || '';
             const total = grp.books.reduce((a, b) => a + b.entries.length, 0);
             const onlyBook = grp.books.length === 1;
+            const hasExpandAll = grp.books.length > 1;
             parts.push(`<details class="study-comm-group"${onlyComm ? ' open' : ''}>`);
             parts.push(`<summary class="study-comm-name"><span>${esc(cname)}`
-                + `<span class="book-group-count">(${total})</span></span></summary>`);
+                + `<span class="book-group-count">(${total})</span></span>`
+                + (hasExpandAll ? `<button type="button" class="study-comm-expand-all">${esc(tFn('searchResults.expandAll'))}</button>` : '')
+                + `</summary>`);
             parts.push(`<div class="study-comm-books">`);
-            if (grp.books.length > 1) {
-                parts.push(`<button type="button" class="study-comm-expand-all">`
-                    + `${esc(tFn('searchResults.expandAll'))}</button>`);
-            }
             for (const bk of grp.books) {
                 parts.push(`<details class="study-comm-book"${onlyBook ? ' open' : ''}>`);
                 parts.push(`<summary><span>${esc(bk.name)}`
@@ -156,15 +155,18 @@
 
         // Per-commentary expand/collapse-all of its book boxes.
         container.querySelectorAll('.study-comm-group').forEach(group => {
-            const btn = group.querySelector(':scope > .study-comm-books > .study-comm-expand-all');
+            const btn = group.querySelector(':scope > summary > .study-comm-expand-all');
             if (!btn) return;
             const books = () => group.querySelectorAll(':scope > .study-comm-books > .study-comm-book');
             const sync = () => {
                 const anyClosed = Array.from(books()).some(b => !b.open);
                 btn.textContent = anyClosed ? tFn('searchResults.expandAll') : tFn('searchResults.collapseAll');
             };
-            btn.addEventListener('click', () => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
                 const anyClosed = Array.from(books()).some(b => !b.open);
+                if (anyClosed) group.open = true;
                 books().forEach(b => { b.open = anyClosed; });
                 sync();
             });
