@@ -399,16 +399,6 @@
         };
     }
 
-    // Matthew Henry's chapter-level overview is labelled "Chapter Outline" /
-    // "Psalm Outline" in concise bodies; surface it under one consistent label
-    // so concise and full read alike.
-    function sectionTitle(heading) {
-        if (/outline\s*$/i.test((heading || '').trim())) {
-            return tFn('sidebar.commentary.overview');
-        }
-        return heading;
-    }
-
     // Markdown render with collapsible H2 sections (used for Matthew Henry full
     // verse entries and book intros).
     function renderMarkdownWithCollapsibleH2(md) {
@@ -425,19 +415,6 @@
                 + `</details>`;
         }
         return html;
-    }
-
-    // Render one H2 section of a chapter-granularity commentary (concise) as a
-    // top-level box, matching the full edition's per-entry boxes.
-    function buildSectionBox(entry, sectionIdx, heading, body, opts) {
-        const bodyHtml = `<div class="commentary-md">${parseMarkdown(body)}</div>`;
-        const forced = _forceOpen && _forceOpen.chapter === entry.chapter && sectionIdx === 0;
-        const openAttr = (opts && opts.open) || forced ? ' open' : '';
-        const key = `${entry.chapter}.sec.${sectionIdx}`;
-        return `<details class="commentary-box entry-box"${openAttr} data-key="${esc(key)}">`
-            + `<summary>${esc(sectionTitle(heading))}</summary>`
-            + `<div class="commentary-box-body">${bodyHtml}</div>`
-            + `</details>`;
     }
 
     function entryKey(entry) {
@@ -553,46 +530,22 @@
         const nonIntro = entries;
         const onlyOne = nonIntro.filter(e => e.verse_start != null).length === 1;
         const isMvb = (_scope.source === 'mvb-pc' || _scope.source === 'mvb-mobile');
-        // Concise: one whole-chapter markdown doc per entry. Unwrap it into
-        // top-level section boxes instead of nesting under one chapter box.
-        const isChapterDoc = commentary.format === 'markdown' && commentary.granularity === 'chapter';
 
         let html = '';
         for (const intro of intros) html += buildIntroHtml(commentary, intro);
 
-        if (isChapterDoc) {
-            const lang = (typeof window.versionLang === 'function')
-                ? window.versionLang(_scope.range.version) : 'no';
-            const bName = (typeof window.bookName === 'function')
-                ? window.bookName(_scope.range.book, lang) : _scope.range.book;
-            const multiChapter = nonIntro.length > 1;
-            for (const entry of nonIntro) {
-                const { preface, sections } = splitMarkdownH2Sections(entry.body);
-                // Across several chapters, label which chapter follows; for a
-                // single chapter the scope label already says it.
-                if (multiChapter) {
-                    html += `<div class="commentary-chapter-heading">${esc(bName)} ${entry.chapter}</div>`;
-                }
-                // Drop the redundant `# Book N` H1; keep any genuine preface prose.
-                const prefaceProse = preface.replace(/^#\s+.*$/m, '').trim();
-                if (prefaceProse) {
-                    html += `<div class="commentary-md commentary-section-preface">${parseMarkdown(prefaceProse)}</div>`;
-                }
-                sections.forEach((sec, i) => {
-                    html += buildSectionBox(entry, i, sec.heading, sec.body, { open: false });
-                });
-            }
-        } else {
-            // When a study-search result asked for a specific entry, suppress
-            // the usual "auto-open the only entry" so only that entry expands.
-            const suppressAuto = !!_forceOpen;
-            for (const entry of nonIntro) {
-                const isOversikt = entry.verse_start == null;
-                let open = false;
-                if (!isOversikt && onlyOne && !suppressAuto) open = true;
-                if (!isOversikt && isMvb && entryOverlapsMarked(entry, _scope.markedVerses)) open = true;
-                html += buildEntryHtml(commentary, entry, { open });
-            }
+        // All commentaries are verse-level (Scofield, both Matthew Henry editions):
+        // each entry is its own box, titled by reference, with chapter-level
+        // overviews (verse_start == null) shown as a collapsed "Oversikt".
+        // When a study-search result asked for a specific entry, suppress the
+        // usual "auto-open the only entry" so only that entry expands.
+        const suppressAuto = !!_forceOpen;
+        for (const entry of nonIntro) {
+            const isOversikt = entry.verse_start == null;
+            let open = false;
+            if (!isOversikt && onlyOne && !suppressAuto) open = true;
+            if (!isOversikt && isMvb && entryOverlapsMarked(entry, _scope.markedVerses)) open = true;
+            html += buildEntryHtml(commentary, entry, { open });
         }
 
         if (!intros.length && !nonIntro.length) {
