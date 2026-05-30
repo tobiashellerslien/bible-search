@@ -14,6 +14,7 @@ from .services.bible import (
     USFM_TO_ALIASES,
     USFM_TO_ENG,
     USFM_TO_NAME,
+    USFM_TO_ORDER,
     USFM_TO_SLUG,
     USFM_TO_TESTAMENT,
     build_canonical_path,
@@ -27,6 +28,8 @@ from .services.bible import (
     quick_search,
     ref_label,
     resolve_block,
+    search_commentaries,
+    search_leksikon,
     search_text,
     strip_scope_from_query,
 )
@@ -915,6 +918,96 @@ def api_topic_detail(topic_id):
     if not topic:
         return jsonify({"error": "Topic not found"}), 404
     return jsonify(topic)
+
+
+# ── Study-data search (commentary / topics / leksikon) ──────────────────────
+# Redirect a text query into one of the study datasets. All three share the
+# bible-search query syntax (AND/OR/"phrase"/-exclude) via FTS5. English-only
+# (source data is English).
+
+@bp.get("/api/search/commentary")
+def api_search_commentary():
+    bible_data = _bible_data()
+    query = request.args.get("q", "")
+    if not query.strip():
+        return jsonify({"type": "commentary_search", "results": [], "query": query})
+    rows = search_commentaries(bible_data, query)
+    # Group commentary → book, preserving relevance order of first appearance.
+    comm_order, comm_map = [], {}
+    for r in rows:
+        cid = r["commentary_id"]
+        cgroup = comm_map.get(cid)
+        if cgroup is None:
+            cgroup = {"commentary": bible_data.commentaries.get(cid, {"id": cid}),
+                      "_books": {}, "_order": []}
+            comm_map[cid] = cgroup
+            comm_order.append(cid)
+        book = r["book_usfm"]
+        bgroup = cgroup["_books"].get(book)
+        if bgroup is None:
+            bgroup = {"book": book, "name": USFM_TO_NAME.get(book, book), "entries": []}
+            cgroup["_books"][book] = bgroup
+            cgroup["_order"].append(book)
+        bgroup["entries"].append({
+            "chapter": r["chapter"], "verse_start": r["verse_start"],
+            "verse_end": r["verse_end"], "ref_label": r["ref_label"],
+            "is_intro": r["is_intro"], "kind": r["kind"], "snippet": r["snippet"],
+        })
+    results = []
+    for cid in comm_order:
+        # Books in canonical order; entries within each book in chapter:verse
+        # order (intros at chapter 0 sort first). Relevance order is dropped so
+        # the listing reads top-to-bottom like the Bible.
+        books = sorted(comm_map[cid]["_books"].values(),
+                       key=lambda b: USFM_TO_ORDER.get(b["book"], 99))
+        for b in books:
+            b["entries"].sort(key=lambda e: (e["chapter"], e["verse_start"] or 0))
+        results.append({"commentary": comm_map[cid]["commentary"], "books": books})
+    return jsonify({"type": "commentary_search", "results": results,
+                    "query": query, "total": len(rows)})
+
+
+@bp.get("/api/search/leksikon")
+def api_search_leksikon():
+    bible_data = _bible_data()
+    query = request.args.get("q", "")
+    if not query.strip():
+        return jsonify({"type": "leksikon_search", "results": [], "query": query})
+    rows = search_leksikon(bible_data, query)
+    # Group by headword; each box lists which dictionaries have an entry.
+    order, by_hw = [], {}
+    for r in rows:
+        hw = r["headword"]
+        g = by_hw.get(hw)
+        if g is None:
+            g = {"headword": hw, "title": r["title"], "entries": []}
+            by_hw[hw] = g
+            order.append(hw)
+        dmeta = bible_data.dictionaries.get(r["dictionary_id"], {})
+        g["entries"].append({
+            "dictionary_id": r["dictionary_id"],
+            "dictionary_code": dmeta.get("code"),
+            "dictionary_short_name": dmeta.get("short_name"),
+            "dictionary_name": dmeta.get("name"),
+            "title": r["title"],
+            "body": linkify_dictionary_refs(r["body"]),
+        })
+    for g in by_hw.values():
+        g["entries"].sort(key=lambda e: e["dictionary_id"])
+    results = [by_hw[h] for h in order]
+    return jsonify({"type": "leksikon_search", "results": results,
+                    "query": query, "total": len(rows)})
+
+
+@bp.get("/api/search/topics")
+def api_search_topics():
+    bible_data = _bible_data()
+    query = request.args.get("q", "")
+    if not query.strip():
+        return jsonify({"type": "topic_search", "results": [], "query": query})
+    results = bible_data.search_topics_by_name(query)
+    return jsonify({"type": "topic_search", "results": results,
+                    "query": query, "total": len(results)})
 
 
 @bp.get("/api/outline")

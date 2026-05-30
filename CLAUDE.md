@@ -17,6 +17,7 @@ Flask dev server at `http://127.0.0.1:8421`. Deps: `requirements.txt`.
 - `static/js/sidebar.js` — `window.AppSidebar` PC-only right-side sidebar manager (register/open/close/ensureOpen/checkAutoClose/refreshObserver). State is in-memory only.
 - `static/js/modules/pinnedVerses.js` — pin-verse module (`window.PinnedVerses`); in-memory only, cleared on sidebar close.
 - `static/js/modules/leksikonModule.js` — sidebar module showing Easton/Smith/Hitchcock dictionary entries relevant to the current top block. Auto-triggers on `mainBlockChanged`; UI is per-source tabs in one card.
+- `static/js/modules/studySearch.js` — `window.StudySearch.render(type, data, container, ctx)` renders study-data search results (`commentary`|`topics`|`leksikon`) into the main results area. Reuses `RefPreviewPopup`, leksikon body/tab markup, lazy verse-preview. Topic boxes lazy-load `/api/topic/<id>` (verses + child stubs + "Åpne alle"); a matched top-level topic with a parent shows a "Foreldretema" link that opens that parent alone via `showTopic()`. Commentary hits call `CommentaryModule.openAtRef(...)`. Driven by the scope picker in `app.js` (`currentView='study_search'`, `studySearchType`, `doStudySearch()`); non-persistent (a fresh search resets to bible search).
 
 ## Database (`bible.db`, SQLite, WAL mode)
 Tables: `translations(id,name,full_name,language)`, `books(usfm,order_num,name_no,name_en,testament)`, `verses(translation_id,book_usfm,chapter,verse,text)`, `headings`, `footnotes`, `cross_references(from_book,from_chapter,from_verse,to_book,to_chapter,to_verse_start,to_verse_end,to_chapter_end,votes)` (~345k rows, OpenBible TSK), `verses_fts` (FTS5 virtual table), `places(id,name,aliases,placemark,kind,geometry,confidence,confidence_votes,comment,semantic_type,preceding_article,wikidata_id,wikipedia_url)` (~1336 rows, GeoJSON in `geometry`; `confidence` is OpenBible.info max `modern_associations[*].score` 0–1000 — negative for disputed identifications. `name` ends with "1"/"2"/… when several biblical places share a name (e.g. "Ai 1" Joshua's Ai vs "Ai 2" in Moab) — UI should display `name` + `comment` (e.g. "Achzib 1" + "in Judah") rather than the bare suffix. `semantic_type` is openbible's logical type (settlement/river/region/mountain/…) and differs from `kind` which controls map styling. `aliases` is a JSON array of openbible `translation_name_counts` spellings, used for search alongside `name`.), `place_verses(place_id,book_usfm,chapter,verse)` (~8.7k rows, OpenBible "most-likely" KMZ).
@@ -27,6 +28,8 @@ Dictionary (leksikon) tables: `dictionaries(id,code,name,short_name,format)`, `d
 
 BLB (Berean Literal Bible) is a local-only translation (id=9001), not on bible.com.
 
+Study-search FTS5 indexes (built by `migrations/migrate_search_fts.py`, idempotent): `commentary_fts` (external content over `commentary_entries.body`, implicit rowid), `dictionary_fts` (over `dictionary_entries.headword`, content_rowid=`id` — leksikon search matches headword only), `topics_fts` (over `topics.name`, content_rowid=`id`). All `tokenize='unicode61'` like `verses_fts`.
+
 `migrate_to_db.py`, `migrate_places.py`, and `migrations/*.py` = one-time migrations, do not re-run.
 
 ## bible.py service
@@ -35,6 +38,7 @@ BLB (Berean Literal Bible) is a local-only translation (id=9001), not on bible.c
 - `parse_query()` splits on `;`, carries context. `is_reference_query()` → True if first block is a book alias.
 - `search_text()` → FTS5; AND/OR/exclusion/phrases/book-group scope. Concordance use case.
 - `quick_search()` → FTS5 prefix-AND (`tok*`) + `bm25` ranking, OR-fallback on zero hits, hard-capped. Live-typing use case.
+- `build_fts_match_expr()` / `study_match_expr()` → reuse `parse_search_query` to build one FTS5 MATCH expr (positive AND-terms per OR-group joined with `OR`, `NOT` exclusions) for study-data search. `search_commentaries()` (snippet+bm25 over `commentary_fts`), `search_leksikon()` (headword via `dictionary_fts`), `BibleData.search_topics_by_name()` (over `topics_fts`, returns path + parent + counts). All English-only.
 - `resolve_block()` → `{label, book, verses, headings, footnotes, xrefs, places}`; xrefs lazy-loaded; places eager via `BibleData.get_places_for_range(book, ch_start, vs_start, ch_end, vs_end)`
 
 ## API endpoints
@@ -52,6 +56,10 @@ BLB (Berean Literal Bible) is a local-only translation (id=9001), not on bible.c
 - `GET /api/outline?book=<usfm>` → `{book,source,tree:[...]}`
 - `GET /api/dictionaries` → `{dictionaries:[{id,code,name,short_name,format}]}`
 - `GET /api/leksikon?book=&chapter=&verse_start=&verse_end=&chapter_end=` → `{entries:[{entry_id,dictionary_id,dictionary_code,dictionary_short_name,headword,title,body}]}` (overlap lookup on Easton/Smith refs + Hitchcock piggyback by headword)
+- `GET /api/search/commentary?q=&version=` → `{type:"commentary_search", results:[{commentary, books:[{book,name,entries:[{chapter,verse_start,verse_end,ref_label,is_intro,snippet}]}]}], total}` (FTS over commentary bodies, grouped commentary→book)
+- `GET /api/search/leksikon?q=` → `{type:"leksikon_search", results:[{headword,title,entries:[{dictionary_code,dictionary_short_name,title,body}]}], total}` (headword FTS, grouped per headword; bodies linkified)
+- `GET /api/search/topics?q=` → `{type:"topic_search", results:[{id,name,path,parent:{id,name}|null,own_count,verse_count}], total}` (topic-name FTS)
+- `GET /api/topic/<id>` now also returns `parent:{id,name}|null`, `ancestors:[{id,name}]` (root→parent, for clickable breadcrumbs), `verse_count`/`own_count`/`child_count`, and children carry `verse_count`/`own_count`/`child_count` sorted by subtree verse-count (used for the Topics-module-style study-search rendering + parent navigation)
 - `GET /api/heartbeat` → `{ok:true}`
 
 ## Frontend (app.js)

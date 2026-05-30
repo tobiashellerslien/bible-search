@@ -230,6 +230,26 @@ const I18N = {
         'searchResults.showAll': 'vis alle {0}',
         'searchResults.loadingAll': 'laster…',
         'searchResults.statsBtn': 'statistikk',
+        'search.scope.button': 'søk i…',
+        'search.scope.studyButton': 'Søk i kommentar, tema eller leksikon',
+        'search.scope.title': 'Søk i en annen datakilde',
+        'search.scope.bible': 'Bibeltekst',
+        'search.scope.commentary': 'Bibelkommentar',
+        'search.scope.topics': 'Temaer',
+        'search.scope.leksikon': 'Leksikon',
+        'search.scope.englishOnly': 'Disse søkene fungerer kun på engelsk.',
+        'searchResults.studyLoading': 'Søker…',
+        'searchResults.studyCount': '{0} treff',
+        'searchResults.studyNoResults': 'Ingen treff',
+        'searchResults.studyNoResultsBody': 'Fant ingen treff for «{0}». Husk at disse søkene kun fungerer på engelsk.',
+        'study.openAll': 'Åpne alle',
+        'study.openAllTitle': 'Åpne alle versene hver i sin boks',
+        'study.parentTopic': 'Foreldretema: {0}',
+        'study.verseCount': '{0} vers',
+        'study.commentary.snippetMore': 'Åpne kommentaren',
+        'study.commentary.introTag': '(intro)',
+        'study.commentary.overviewTag': '(oversikt)',
+        'study.leksikon.sources': 'Treff i: {0}',
         'loading.errorGeneric': 'Feil',
         'loading.errorBody': 'Kunne ikke koble til server.',
         'loading.searchingTitle': 'Søker...',
@@ -428,6 +448,10 @@ let studyTrayOpen = false;
 // Per-card UI state (keyed by card index in mainData) — runtime only, not persisted
 let cardExpandedState = {};    // idx -> { originalBlock } when expanded from verse to chapter
 let currentView = 'normal';
+// Study-data search scope: null = ordinary bible search, otherwise one of
+// 'commentary' | 'topics' | 'leksikon'. Non-persistent — reset on every fresh
+// search from the search box.
+let studySearchType = null;
 let booksData = [];
 let _booksMap = new Map();
 let allVersionsCache = null;
@@ -852,6 +876,23 @@ function restoreOpenXrefPanel(openXref) {
 }
 
 window.addEventListener('popstate', async e => {
+    if (e.state && e.state.studyNav) {
+        const nav = e.state.studyNav;
+        if (nav.q != null) { searchInput.value = nav.q; updateSearchHighlight(); }
+        if (nav.version && allVersionsList.some(x => String(x.id) === String(nav.version))) {
+            versionSelect.value = String(nav.version);
+        }
+        // Returning to a study search closes any sidebar module (e.g. the
+        // commentary opened from a hit) so the results aren't covered/pushed.
+        if (window.AppSidebar && typeof window.AppSidebar.close === 'function') window.AppSidebar.close();
+        if (window.AppModuleHost && typeof window.AppModuleHost.closeModule === 'function') window.AppModuleHost.closeModule();
+        if (nav.kind === 'topic' && window.StudySearch && typeof window.StudySearch.restoreTopic === 'function') {
+            window.StudySearch.restoreTopic(nav.id, { query: nav.q, version: nav.version });
+        } else {
+            doStudySearch(nav.type, false);
+        }
+        return;
+    }
     if (e.state) {
         const { q, version, mode, openXref, savedTextSearch } = e.state;
         if (version && allVersionsList.some(x => String(x.id) === version)) versionSelect.value = version;
@@ -885,7 +926,16 @@ window.addEventListener('popstate', async e => {
 });
 
 // ── Search ──
-searchBtn.addEventListener('click', doSearch);
+// Routes to study search if a scope is active and results are showing,
+// otherwise falls through to normal bible search.
+function triggerSearch() {
+    if (studySearchType && currentView === 'study_search') {
+        doStudySearch(studySearchType);
+    } else {
+        doSearch();
+    }
+}
+searchBtn.addEventListener('click', triggerSearch);
 searchInput.addEventListener('keydown', e => {
     if (quickMode && acSelectedIndex < 0 && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
         const rows = [...resultsWrapper.querySelectorAll('.quick-row')];
@@ -907,7 +957,7 @@ searchInput.addEventListener('keydown', e => {
             if (target) target.click();
             return;
         }
-        doSearch();
+        triggerSearch();
     }
 });
 
@@ -926,6 +976,7 @@ async function doSearch(pushHistory = true, resetAC = true) {
 
     lastQuery = query;
     currentView = 'normal';
+    studySearchType = null;   // fresh search defaults back to bible search
     currentChapterInfo = null;
     Object.keys(cardCompare).forEach(k => delete cardCompare[k]);
     if (typeof updateWideMode === 'function') updateWideMode();
@@ -2757,9 +2808,13 @@ function renderTextSearch(results, query, bookTotals) {
         html = `<div class="empty-state">
             <h2>${escHtml(t('searchResults.text.noResults'))}</h2>
             <p>${escHtml(t('searchResults.text.noResultsBody', query, versionLabel(versionSelect.value)))}</p>
-            <button class="btn btn-secondary all-versions-search-btn" onclick="searchAllVersionsText('${escAttr(query)}')">${escHtml(t('searchResults.searchAllVersions'))}</button>
+            <div class="empty-state-actions">
+                <button class="btn btn-secondary" onclick="searchAllVersionsText('${escAttr(query)}')">${escHtml(t('searchResults.searchAllVersions'))}</button>
+                ${scopeMenuHtml(null, { excludeBible: true, block: true, triggerLabel: t('search.scope.studyButton') })}
+            </div>
         </div>`;
         resultsWrapper.innerHTML = html;
+        wireScopeMenu(resultsWrapper);
         return;
     }
 
@@ -2770,6 +2825,7 @@ function renderTextSearch(results, query, bookTotals) {
         <div class="search-controls-actions">
             <button class="card-action-btn" id="expandCollapseBtn" onclick="toggleGroups()">${escHtml(t('searchResults.expandAll'))}</button>
             <button class="stats-btn" onclick="openStats('${escAttr(query)}')"><img src="/static/images/stats.png" class="stats-icon" alt="" aria-hidden="true"> ${escHtml(t('searchResults.statsBtn'))}</button>
+            ${scopeMenuHtml('bible')}
         </div>
     </div>`;
 
@@ -2797,6 +2853,7 @@ function renderTextSearch(results, query, bookTotals) {
     });
 
     resultsWrapper.innerHTML = html;
+    wireScopeMenu(resultsWrapper);
 
     if (autoExpand) {
         const code = bookOrder[0];
@@ -2804,6 +2861,170 @@ function renderTextSearch(results, query, bookTotals) {
         materializeGroup(itemsEl, code, hlQuery, lang);
     }
     fixOpenGroupHeights();
+}
+
+// ── Study-data search scope (commentary / topics / leksikon) ──────────────
+// A small dropdown next to the statistics button lets the user redirect the
+// current query into one of the study datasets instead of the bible text.
+// Non-persistent: a fresh search resets to bible search.
+const STUDY_SCOPES = ['bible', 'commentary', 'topics', 'leksikon'];
+
+// opts: { excludeBible, block, triggerLabel }
+//   excludeBible — omit the "Bibeltekst" option (used in the zero-results state,
+//                  where the user has already done the bible search).
+//   block        — render the trigger as a full-width .btn btn-secondary.
+function scopeMenuHtml(active, opts) {
+    opts = opts || {};
+    const activeKey = active || 'bible';
+    const labels = {
+        bible: t('search.scope.bible'),
+        commentary: t('search.scope.commentary'),
+        topics: t('search.scope.topics'),
+        leksikon: t('search.scope.leksikon'),
+    };
+    const scopes = opts.excludeBible ? ['commentary', 'topics', 'leksikon'] : STUDY_SCOPES;
+    const triggerLabel = opts.triggerLabel
+        || (activeKey === 'bible' ? t('search.scope.button') : labels[activeKey]);
+    const optsHtml = scopes.map(k =>
+        `<button type="button" class="scope-option${k === activeKey ? ' active' : ''}" data-scope="${k}">`
+        + `${escHtml(labels[k])}</button>`
+    ).join('');
+    const pickerCls = 'scope-picker'
+        + (activeKey !== 'bible' ? ' scope-on' : '')
+        + (opts.block ? ' scope-picker-block' : '');
+    const triggerCls = 'scope-trigger' + (opts.block ? ' btn btn-secondary' : '');
+    return `<div class="${pickerCls}" id="scopePicker">
+        <button type="button" class="${triggerCls}" onclick="toggleScopeMenu(event)" title="${escAttr(t('search.scope.title'))}" aria-haspopup="true">
+            <img src="/static/images/search.png" class="scope-trigger-icon" alt="" aria-hidden="true">
+            <span class="scope-trigger-label">${escHtml(triggerLabel)}</span>
+            <svg class="scope-chevron" width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="scope-menu" role="menu">
+            ${optsHtml}
+            <div class="scope-hint">${escHtml(t('search.scope.englishOnly'))}</div>
+        </div>
+    </div>`;
+}
+
+function toggleScopeMenu(e) {
+    if (e) e.stopPropagation();
+    const p = document.getElementById('scopePicker');
+    if (!p) return;
+    const willOpen = !p.classList.contains('open');
+    p.classList.toggle('open');
+    if (willOpen) positionScopeMenu(p);
+}
+
+// Keep the dropdown within the viewport horizontally (it can otherwise spill
+// off the left edge on mobile). Block pickers (empty state) span full width.
+function positionScopeMenu(p) {
+    if (p.classList.contains('scope-picker-block')) return;
+    const menu = p.querySelector('.scope-menu');
+    if (!menu) return;
+    menu.style.left = '0';
+    menu.style.right = 'auto';
+    const margin = 8;
+    let r = menu.getBoundingClientRect();
+    if (r.right > window.innerWidth - margin) {
+        menu.style.left = (-(r.right - (window.innerWidth - margin))) + 'px';
+        r = menu.getBoundingClientRect();
+    }
+    if (r.left < margin) {
+        menu.style.left = (parseFloat(menu.style.left || '0') + (margin - r.left)) + 'px';
+    }
+}
+
+function wireScopeMenu(root) {
+    if (!root) return;
+    root.querySelectorAll('.scope-option').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const p = document.getElementById('scopePicker');
+            if (p) p.classList.remove('open');
+            selectSearchScope(btn.dataset.scope);
+        });
+    });
+}
+
+// Close the scope dropdown on any outside click (attached once).
+document.addEventListener('click', e => {
+    if (e.target.closest && e.target.closest('#scopePicker')) return;
+    const p = document.getElementById('scopePicker');
+    if (p) p.classList.remove('open');
+});
+
+function selectSearchScope(type) {
+    if (!type || type === studySearchType) return;
+    if (type === 'bible') {
+        studySearchType = null;
+        if (textSearchCache) {
+            currentView = 'text_search';
+            renderTextSearch(textSearchCache.results, textSearchCache.query, textSearchCache.bookTotals || {});
+        } else {
+            doSearch(false);
+        }
+        return;
+    }
+    doStudySearch(type);
+}
+
+const _STUDY_ENDPOINT = { commentary: 'commentary', topics: 'topics', leksikon: 'leksikon' };
+
+// Build the study-search results scaffold (controls bar + body) and return the
+// body element. Sets view state + wires the scope picker. Exposed on window so
+// StudySearch can rebuild it after a browser-back into a topic drilldown.
+function buildStudyScaffold(type) {
+    studySearchType = type;
+    currentView = 'study_search';
+    resultsWrapper.innerHTML = `<div class="search-controls">
+            <div class="search-result-count"></div>
+            <div class="search-controls-actions">${scopeMenuHtml(type)}</div>
+        </div>
+        <div class="study-results" id="studyResults"></div>`;
+    wireScopeMenu(resultsWrapper);
+    return resultsWrapper.querySelector('#studyResults');
+}
+window.buildStudyScaffold = buildStudyScaffold;
+
+async function doStudySearch(type, push = true) {
+    const query = searchInput.value.trim();
+    if (!query || !_STUDY_ENDPOINT[type]) return;
+    setPageTitle(`"${query}"`);
+    const bodyEl = buildStudyScaffold(type);
+    const countEl = resultsWrapper.querySelector('.search-result-count');
+    if (countEl) countEl.textContent = t('searchResults.studyLoading');
+    bodyEl.innerHTML = `<div class="study-loading">${escHtml(t('searchResults.studyLoading'))}</div>`;
+    const version = versionSelect.value;
+    if (push) {
+        try {
+            history.pushState({ studyNav: { kind: 'search', type, q: query, version } }, '', location.href);
+        } catch { /* ignore */ }
+    }
+
+    let data;
+    try {
+        const resp = await fetch(`/api/search/${_STUDY_ENDPOINT[type]}?q=${encodeURIComponent(query)}&version=${encodeURIComponent(version)}`);
+        data = await resp.json();
+    } catch (err) {
+        const body = resultsWrapper.querySelector('#studyResults');
+        if (body) body.innerHTML = errorCardHtml(t('loading.errorGeneric'), t('loading.errorBody'));
+        return;
+    }
+    // The user may have moved on (new search / scope switch) while we awaited.
+    if (currentView !== 'study_search' || studySearchType !== type) return;
+
+    const total = data.total || 0;
+    const cEl = resultsWrapper.querySelector('.search-result-count');
+    if (cEl) cEl.textContent = total ? t('searchResults.studyCount', total) : t('searchResults.studyNoResults');
+    const body = resultsWrapper.querySelector('#studyResults');
+    if (!body) return;
+    if (!total) {
+        body.innerHTML = `<div class="empty-state"><h2>${escHtml(t('searchResults.studyNoResults'))}</h2>`
+            + `<p>${escHtml(t('searchResults.studyNoResultsBody', query))}</p></div>`;
+        return;
+    }
+    if (window.StudySearch && typeof window.StudySearch.render === 'function') {
+        window.StudySearch.render(type, data, body, { query, version });
+    }
 }
 
 function animateGroupItem(itemsEl, open) {

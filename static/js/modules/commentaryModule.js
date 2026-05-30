@@ -27,6 +27,15 @@
     let _hasBeenShown = false;
     let _isMobile = false;
 
+    // When a study-search result opens the module, force-open (and scroll to)
+    // a specific entry. _forceOpen persists across re-renders so navigation's
+    // intermediate renders can't collapse it; it is cleared when the user
+    // navigates to a different passage or switches commentary. Shape:
+    //   { key: '<entryKey or intro:BOOK>', chapter: <number|null> }
+    let _forceOpen = null;
+    let _forceScroll = false;     // scroll to the forced entry once, after render
+    let _suppressRebind = false;  // ignore mainBlockChanged during openAtRef
+
     function isMobileNow() {
         return !!(window.AppModuleHost && window.AppModuleHost.isMobile && window.AppModuleHost.isMobile());
     }
@@ -63,6 +72,7 @@
             const scrollTop = entriesEl ? entriesEl.scrollTop : 0;
             _selectedId = newId;
             _expansionState = new Map();  // entries differ across commentaries
+            _forceOpen = null;            // forced entry was for the old commentary
             loadAndRender().then(() => {
                 const newEntriesEl = _container.querySelector('.commentary-entries');
                 if (newEntriesEl) newEntriesEl.scrollTop = scrollTop;
@@ -421,7 +431,8 @@
     // top-level box, matching the full edition's per-entry boxes.
     function buildSectionBox(entry, sectionIdx, heading, body, opts) {
         const bodyHtml = `<div class="commentary-md">${parseMarkdown(body)}</div>`;
-        const openAttr = opts && opts.open ? ' open' : '';
+        const forced = _forceOpen && _forceOpen.chapter === entry.chapter && sectionIdx === 0;
+        const openAttr = (opts && opts.open) || forced ? ' open' : '';
         const key = `${entry.chapter}.sec.${sectionIdx}`;
         return `<details class="commentary-box entry-box"${openAttr} data-key="${esc(key)}">`
             + `<summary>${esc(sectionTitle(heading))}</summary>`
@@ -445,8 +456,9 @@
         } else {
             bodyHtml = `<div class="commentary-plain commentary-scofield">${renderScofieldBody(intro.body)}</div>`;
         }
-        // Intro boxes always start collapsed.
-        return `<details class="commentary-box intro-box" data-key="intro:${esc(intro.book)}">`
+        // Intro boxes start collapsed unless a study-search hit targeted them.
+        const forced = _forceOpen && _forceOpen.key === `intro:${intro.book}`;
+        return `<details class="commentary-box intro-box"${forced ? ' open' : ''} data-key="intro:${esc(intro.book)}">`
             + `<summary>${esc(title)}</summary>`
             + `<div class="commentary-box-body">${bodyHtml}</div>`
             + `</details>`;
@@ -474,7 +486,8 @@
         } else {
             bodyHtml = `<div class="commentary-plain commentary-scofield">${renderScofieldBody(entry.body)}</div>`;
         }
-        const openAttr = opts && opts.open ? ' open' : '';
+        const forced = _forceOpen && _forceOpen.key === entryKey(entry);
+        const openAttr = (opts && opts.open) || forced ? ' open' : '';
         return `<details class="commentary-box entry-box"${openAttr} data-key="${esc(entryKey(entry))}">`
             + `<summary>${esc(title)}</summary>`
             + `<div class="commentary-box-body">${bodyHtml}</div>`
@@ -570,10 +583,13 @@
                 });
             }
         } else {
+            // When a study-search result asked for a specific entry, suppress
+            // the usual "auto-open the only entry" so only that entry expands.
+            const suppressAuto = !!_forceOpen;
             for (const entry of nonIntro) {
                 const isOversikt = entry.verse_start == null;
                 let open = false;
-                if (!isOversikt && onlyOne) open = true;
+                if (!isOversikt && onlyOne && !suppressAuto) open = true;
                 if (!isOversikt && isMvb && entryOverlapsMarked(entry, _scope.markedVerses)) open = true;
                 html += buildEntryHtml(commentary, entry, { open });
             }
@@ -585,6 +601,30 @@
 
         setStatus(html);
         attachRefPreviewHandlers();
+        applyForceScroll();
+    }
+
+    // Scroll to (and flash) the forced entry once, after it has rendered open.
+    // _forceOpen itself is left set so later re-renders keep the box open; only
+    // the scroll is one-shot. Falls back to the first box of the right chapter
+    // (chapter-doc commentaries split a chapter into verse-less section boxes).
+    function applyForceScroll() {
+        if (!_forceOpen || !_forceScroll || !_container) return;
+        _forceScroll = false;
+        const entriesEl = _container.querySelector('.commentary-entries');
+        if (!entriesEl) return;
+        let target = null;
+        try {
+            target = entriesEl.querySelector(`details[data-key="${_forceOpen.key}"]`);
+        } catch { /* ignore bad selector */ }
+        if (!target && _forceOpen.chapter != null) {
+            target = entriesEl.querySelector(`details[data-key^="${_forceOpen.chapter}."]`);
+        }
+        if (target) {
+            target.open = true;
+            target.classList.add('commentary-flash');
+            setTimeout(() => target.classList.remove('commentary-flash'), 2400);
+        }
     }
 
     // ── Inline reference preview popup (shared RefPreviewPopup) ──
@@ -700,11 +740,13 @@
     }
 
     function rebindToMainBlock() {
+        if (_suppressRebind) return;   // openAtRef drives its own render
         if (!_scope) return;
         const ns = scopeFromMainBlock();
         if (!ns) return;
         if (_scope.source === 'tray') {
             if (scopeKey(ns) === scopeKey(_scope)) return;
+            _forceOpen = null;   // user navigated away from the forced entry
             _scope = ns;
             loadAndRender();
             return;
@@ -721,6 +763,51 @@
         if (!stillRelevant) {
             _scope = ns;
             loadAndRender();
+        }
+    }
+
+    // Open the module at a specific commentary entry — used by study-search
+    // results. Navigates the main view to the reference, selects the right
+    // commentary, then expands + scrolls to the matching entry.
+    //   spec: { book, chapter, verse_start, verse_end, is_intro,
+    //           commentaryCode|commentaryId, label }
+    async function openAtRef(spec) {
+        if (!spec) return;
+        await ensureCommentariesLoaded();
+        const c = _commentaries.find(x => x.code === spec.commentaryCode)
+            || _commentaries.find(x => x.id === spec.commentaryId);
+        if (c) _selectedId = c.id;
+        _expansionState = new Map();
+        _forceOpen = {
+            key: spec.is_intro
+                ? `intro:${spec.book}`
+                : `${spec.chapter}.${spec.verse_start || 0}.${spec.verse_end || 0}`,
+            chapter: spec.chapter,
+        };
+        _forceScroll = true;
+        // Book intros (chapter 0) aren't a navigable reference — open chapter 1
+        // of the book instead; the intro box renders there (include_intro=1).
+        let label;
+        if (spec.is_intro) {
+            label = window.RefPreviewPopup
+                ? window.RefPreviewPopup.refLabel(`${spec.book}.1`) : `${spec.book} 1`;
+        } else {
+            label = spec.label
+                || (window.RefPreviewPopup
+                    ? window.RefPreviewPopup.refLabel(`${spec.book}.${spec.chapter}.${spec.verse_start || 1}`)
+                    : `${spec.book} ${spec.chapter}`);
+        }
+        // Suppress mainBlockChanged-driven re-renders during navigation so the
+        // forced entry isn't collapsed by an intermediate render before our
+        // own showForBlock() render runs.
+        _suppressRebind = true;
+        try {
+            if (typeof window.searchFromXref === 'function') {
+                await window.searchFromXref(label);
+            }
+            await showForBlock(0);
+        } finally {
+            _suppressRebind = false;
         }
     }
 
@@ -756,6 +843,9 @@
             _scope = null;
             _hasBeenShown = false;
             _expansionState = new Map();
+            _forceOpen = null;
+            _forceScroll = false;
+            _suppressRebind = false;
             // Keep _commentaries metadata (cheap to reuse). Wipe entries cache
             // so a fresh open re-fetches with current versification.
             _entriesCache.clear();
@@ -768,7 +858,7 @@
         },
     };
 
-    window.CommentaryModule = { moduleDef, showForBlock, showForMarkedVerses };
+    window.CommentaryModule = { moduleDef, showForBlock, showForMarkedVerses, openAtRef };
 
     function tryRegister() {
         if (window.AppSidebar && window.AppSidebar.register) {

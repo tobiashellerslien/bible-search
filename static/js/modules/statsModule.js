@@ -137,8 +137,17 @@
         document.getElementById('statsModal').classList.remove('open');
         const group = resultsWrapper.querySelector(`.book-group[data-book="${bookCode}"]`);
         if (group) {
-            group.querySelector('.book-group-header').classList.add('open');
-            animateGroupItem(group.querySelector('.book-group-items'), true);
+            const header = group.querySelector('.book-group-header');
+            const itemsEl = group.querySelector('.book-group-items');
+            const wasOpen = header.classList.contains('open');
+            header.classList.add('open');
+            // Book groups render lazily (data-pending) — materialize the verses
+            // before expanding, otherwise the box opens empty until toggled twice.
+            // Mirrors toggleGroup() in app.js.
+            if (itemsEl.dataset.pending) {
+                materializeGroup(itemsEl, bookCode, stripScopePrefix(lastTextSearchQuery), versionLang(window.versionSelect.value));
+            }
+            if (!wasOpen) animateGroupItem(itemsEl, true);
             updateExpandCollapseBtn();
             setTimeout(() => group.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
         }

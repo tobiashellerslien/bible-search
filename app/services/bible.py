@@ -1327,7 +1327,7 @@ class BibleData:
         ).fetchone()
         if not row:
             return None
-        tid, name, _parent, source = row
+        tid, name, parent_id, source = row
         path = self._topic_path(tid)
         verses = []
         for book, ch, vs_s, vs_e in self.db.execute(
@@ -1340,14 +1340,98 @@ class BibleData:
                 "book_usfm": book, "chapter": ch,
                 "verse_start": vs_s, "verse_end": vs_e, "ref_label": label,
             })
+        counts = self._ensure_topic_counts()
+        own = self._ensure_topic_own_counts()
+        child_counts = self._ensure_topic_child_counts()
         children = [
-            {"id": cid, "name": cname}
+            {"id": cid, "name": cname,
+             "verse_count": counts.get(cid, 0),
+             "own_count": own.get(cid, 0),
+             "child_count": child_counts.get(cid, 0)}
             for cid, cname in self.db.execute(
-                "SELECT id, name FROM topics WHERE parent_id=? ORDER BY name", [tid]
+                "SELECT id, name FROM topics WHERE parent_id=?", [tid]
             )
         ]
+        # Sort like the Topics module: by total subtree verse-count, then name.
+        children.sort(key=lambda c: (-c["verse_count"], c["name"]))
         return {"id": tid, "name": name, "source": source, "path": path,
+                "parent": self._topic_parent(parent_id),
+                "ancestors": self._topic_ancestors(tid),
+                "verse_count": counts.get(tid, 0), "own_count": own.get(tid, 0),
+                "child_count": child_counts.get(tid, 0),
                 "verses": verses, "children": children}
+
+    def _topic_parent(self, parent_id):
+        """Return {id, name} for a parent topic, or None if there is no parent."""
+        if parent_id is None:
+            return None
+        row = self.db.execute(
+            "SELECT id, name FROM topics WHERE id=?", [parent_id]
+        ).fetchone()
+        return {"id": row[0], "name": row[1]} if row else None
+
+    def _topic_ancestors(self, topic_id):
+        """Ancestor chain [{id,name}, …] from root down to the immediate parent
+        (excludes the topic itself). Used for clickable breadcrumbs."""
+        rows = self.db.execute(
+            """WITH RECURSIVE anc(id, name, parent_id, depth) AS (
+                   SELECT id, name, parent_id, 0 FROM topics WHERE id=?
+                   UNION ALL
+                   SELECT t.id, t.name, t.parent_id, anc.depth+1
+                   FROM topics t JOIN anc ON t.id = anc.parent_id
+               )
+               SELECT id, name FROM anc WHERE depth>0 ORDER BY depth DESC""",
+            [topic_id],
+        ).fetchall()
+        return [{"id": r[0], "name": r[1]} for r in rows]
+
+    def _ensure_topic_child_counts(self):
+        """Cached {parent_id: direct_child_count} — drives the subtopic badge and
+        tells the frontend which nodes are expandable into subtopics."""
+        if getattr(self, "_topic_child_counts", None) is not None:
+            return self._topic_child_counts
+        m = {}
+        for pid, n in self.db.execute(
+            "SELECT parent_id, COUNT(*) FROM topics WHERE parent_id IS NOT NULL GROUP BY parent_id"
+        ):
+            m[pid] = n
+        self._topic_child_counts = m
+        return m
+
+    def search_topics_by_name(self, query, limit=120):
+        """Full-text search over topic names (topics_fts). Returns topics ordered
+        by relevance, each with its path, immediate parent ({id,name}|None), and
+        verse counts (own + subtree total). Empty list if topics_fts is missing."""
+        expr, err = study_match_expr(query)
+        if err or not expr:
+            return []
+        sql = (
+            "SELECT t.id, t.name, t.parent_id, t.source "
+            "FROM topics_fts "
+            "JOIN topics t ON t.id = topics_fts.rowid "
+            "WHERE topics_fts MATCH ? "
+            "ORDER BY bm25(topics_fts), t.name "
+            "LIMIT ?"
+        )
+        try:
+            rows = self.db.execute(sql, [expr, limit]).fetchall()
+        except sqlite3.OperationalError:
+            return []
+        counts = self._ensure_topic_counts()
+        own_counts = self._ensure_topic_own_counts()
+        child_counts = self._ensure_topic_child_counts()
+        out = []
+        for tid, name, parent_id, source in rows:
+            out.append({
+                "id": tid, "name": name, "source": source,
+                "path": self._topic_path(tid),
+                "parent": self._topic_parent(parent_id),
+                "ancestors": self._topic_ancestors(tid),
+                "own_count": own_counts.get(tid, 0),
+                "verse_count": counts.get(tid, 0),
+                "child_count": child_counts.get(tid, 0),
+            })
+        return out
 
     def get_outline(self, book_usfm):
         row = self.db.execute(
@@ -1897,6 +1981,123 @@ def _build_group_sql(group_raw, excluded_raw, version_id, books, select_cols):
 
     sql = f"SELECT {select_cols} FROM verses v WHERE {' AND '.join(where)}"
     return sql, params
+
+
+def build_fts_match_expr(group_raw, excluded_raw):
+    """Build a single FTS5 MATCH expression for one OR-group (positive AND-terms)
+    plus the global exclusions, for full-text search over an arbitrary FTS5 table
+    (study-data search). Phrases use exact match, words use quoted prefix match
+    (`"word"*`), exclusions use FTS5 `NOT`. Returns the MATCH string, or None when
+    the group has no positive terms (FTS5 cannot evaluate a NOT-only query).
+
+    Unlike `_build_group_sql` (verses), `*word*` substring/LIKE matching is not
+    supported here — leading/trailing `*` are stripped and treated as a prefix."""
+    phrases = [v for k, v in group_raw if k == 'phrase']
+    words = [v for k, v in group_raw if k == 'word']
+    excl_phrases = [v for k, v in excluded_raw if k == 'phrase']
+    excl_words = [v for k, v in excluded_raw if k == 'word']
+
+    positive = [f'"{_fts_escape(p)}"' for p in phrases]
+    for w in words:
+        core = w.strip('*')
+        if core:
+            positive.append(f'"{_fts_escape(core)}"*')
+    if not positive:
+        return None
+
+    expr = "(" + " ".join(positive) + ")"
+    for ep in excl_phrases:
+        expr += f' NOT "{_fts_escape(ep)}"'
+    for w in excl_words:
+        core = w.strip('*')
+        if core:
+            expr += f' NOT "{_fts_escape(core)}"*'
+    return expr
+
+
+def study_match_expr(query):
+    """Parse a query with the shared bible-search parser and combine its OR-groups
+    into one FTS5 MATCH expression for study-data search (`(grpA) OR (grpB)`).
+    Returns (match_expr|None, error|None). Scope prefixes (nt:/book:) are ignored."""
+    parsed = parse_search_query(query)
+    if parsed.get('error'):
+        return None, parsed['error']
+    excluded_raw = parsed['raw_terms']['excluded']
+    group_exprs = []
+    for grp in parsed['raw_terms']['or_groups']:
+        e = build_fts_match_expr(grp, excluded_raw)
+        if e:
+            group_exprs.append(f"({e})")
+    if not group_exprs:
+        return None, None
+    return " OR ".join(group_exprs), None
+
+
+def search_commentaries(bible_data, query, limit=300):
+    """Full-text search over commentary bodies (commentary_fts). Returns flat
+    rows ordered by relevance: {commentary_id, book_usfm, chapter, verse_start,
+    verse_end, ref_label, is_intro, snippet}. Caller groups commentary→book."""
+    expr, err = study_match_expr(query)
+    if err or not expr:
+        return []
+    sql = (
+        "SELECT ce.commentary_id, ce.book_usfm, ce.chapter, ce.verse_start, "
+        "       ce.verse_end, "
+        "       snippet(commentary_fts, 0, '<mark>', '</mark>', '…', 16) AS snip "
+        "FROM commentary_fts "
+        "JOIN commentary_entries ce ON ce.rowid = commentary_fts.rowid "
+        "WHERE commentary_fts MATCH ? "
+        "ORDER BY bm25(commentary_fts) "
+        "LIMIT ?"
+    )
+    try:
+        rows = bible_data.db.execute(sql, [expr, limit]).fetchall()
+    except sqlite3.OperationalError:
+        return []  # commentary_fts not built yet
+    out = []
+    for cid, book, chapter, vs_s, vs_e, snip in rows:
+        is_intro = (chapter == 0)
+        if is_intro:
+            kind = "book_intro"           # whole-book introduction (chapter 0)
+            label = USFM_TO_NAME.get(book, book)
+        elif vs_s is None:
+            kind = "overview"             # chapter-level overview (no verse)
+            label = ref_label(book, chapter)
+        else:
+            kind = "verse"
+            label = ref_label(book, chapter, vs_s, vs_e)
+        out.append({
+            "commentary_id": cid, "book_usfm": book, "chapter": chapter,
+            "verse_start": vs_s, "verse_end": vs_e,
+            "ref_label": label, "is_intro": is_intro, "kind": kind, "snippet": snip,
+        })
+    return out
+
+
+def search_leksikon(bible_data, query, limit=300):
+    """Headword full-text search over dictionary_fts (leksikon matches headword
+    only). Returns flat rows ordered by relevance: {entry_id, dictionary_id,
+    headword, title, body}. Caller groups by headword + linkifies bodies."""
+    expr, err = study_match_expr(query)
+    if err or not expr:
+        return []
+    sql = (
+        "SELECT de.id, de.dictionary_id, de.headword, de.title, de.body "
+        "FROM dictionary_fts "
+        "JOIN dictionary_entries de ON de.id = dictionary_fts.rowid "
+        "WHERE dictionary_fts MATCH ? "
+        "ORDER BY bm25(dictionary_fts), de.headword "
+        "LIMIT ?"
+    )
+    try:
+        rows = bible_data.db.execute(sql, [expr, limit]).fetchall()
+    except sqlite3.OperationalError:
+        return []  # dictionary_fts not built yet
+    return [
+        {"entry_id": eid, "dictionary_id": did, "headword": hw,
+         "title": title, "body": body}
+        for eid, did, hw, title, body in rows
+    ]
 
 
 def search_text(bible_data, version_id, query, per_book=20, book_filter=None):
