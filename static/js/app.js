@@ -894,7 +894,7 @@ window.addEventListener('popstate', async e => {
         return;
     }
     if (e.state) {
-        const { q, version, mode, openXref, savedTextSearch } = e.state;
+        const { q, version, mode, openXref, savedTextSearch, scrollY: savedScroll } = e.state;
         if (version && allVersionsList.some(x => String(x.id) === version)) versionSelect.value = version;
         if (q) {
             searchInput.value = q;
@@ -916,6 +916,12 @@ window.addEventListener('popstate', async e => {
                     fixOpenGroupHeights();
                 }
                 if (savedScrollY != null) setTimeout(() => window.scrollTo({ top: savedScrollY, behavior: 'instant' }), 300);
+            } else if (savedScroll != null) {
+                // Restore scroll for normal/reference + all-versions views. Two
+                // passes: once right after render, once after late layout
+                // (images, lazily-loaded compare bodies) settles.
+                requestAnimationFrame(() => window.scrollTo({ top: savedScroll, behavior: 'instant' }));
+                setTimeout(() => window.scrollTo({ top: savedScroll, behavior: 'instant' }), 150);
             }
         } else {
             goHome(false);
@@ -981,6 +987,11 @@ async function doSearch(pushHistory = true, resetAC = true) {
     Object.keys(cardCompare).forEach(k => delete cardCompare[k]);
     if (typeof updateWideMode === 'function') updateWideMode();
     const version = versionSelect.value;
+    // Snapshot the outgoing scroll/URL/state so the entry we're about to leave
+    // gets stamped with its scroll position (restored on Back via popstate).
+    const _outScrollY = window.scrollY;
+    const _outUrl = window.location.pathname + window.location.search;
+    const _outState = history.state;
     // History entry is deferred until after the API responds so we can land on
     // the canonical /bibel/<slug>/<ch>[/<vs>] path directly — no brief flash of
     // the /?q=... form in the address bar before replaceState corrects it.
@@ -1013,7 +1024,10 @@ async function doSearch(pushHistory = true, resetAC = true) {
             lastTextSearchQuery = data.query;
             textSearchCache = { results: data.results, query: data.query, bookTotals: data.book_totals || {} };
             renderTextSearch(data.results, data.query, data.book_totals || {});
-            if (pushHistory) pushState(query, version);
+            if (pushHistory) {
+                try { history.replaceState({ ...(_outState || {}), scrollY: _outScrollY }, '', _outUrl); } catch {}
+                pushState(query, version);
+            }
             return;
         }
 
@@ -1023,7 +1037,9 @@ async function doSearch(pushHistory = true, resetAC = true) {
         detectChapterInfo(mainData);
         renderAll();
         if (compareIntent) mainData.forEach((_, idx) => toggleCardCompare(idx));
-        window.scrollTo(0, 0);
+        // Fresh forward navigation lands at the top; Back/Forward restores via
+        // popstate (pushHistory false), so don't clobber its scroll here.
+        if (pushHistory) window.scrollTo(0, 0);
         // Write the URL now that we know whether to use canonical path-form
         // (single block) or /?q= fallback (multi-block / cross-chapter).
         const block = mainData && mainData.length === 1 ? mainData[0] : null;
@@ -1032,8 +1048,14 @@ async function doSearch(pushHistory = true, resetAC = true) {
         if (finalUrl !== currentUrl) {
             const state = { q: query, version, mode: 'normal' };
             try {
-                if (pushHistory) history.pushState(state, '', finalUrl);
-                else history.replaceState(state, '', finalUrl);
+                if (pushHistory) {
+                    // Stamp the leaving entry with its scroll position first.
+                    history.replaceState({ ...(_outState || {}), scrollY: _outScrollY }, '', _outUrl);
+                    history.pushState(state, '', finalUrl);
+                } else {
+                    // Popstate restore: keep the entry's saved scroll/panel state.
+                    history.replaceState({ ...(history.state || {}), ...state }, '', finalUrl);
+                }
             } catch {}
         }
     } catch (err) {
@@ -2873,6 +2895,7 @@ const STUDY_SCOPES = ['bible', 'commentary', 'topics', 'leksikon'];
 //   excludeBible — omit the "Bibeltekst" option (used in the zero-results state,
 //                  where the user has already done the bible search).
 //   block        — render the trigger as a full-width .btn btn-secondary.
+// icon attribution: "https://www.flaticon.com/free-icons/search" Search icons created by Chanut - Flaticon
 function scopeMenuHtml(active, opts) {
     opts = opts || {};
     const activeKey = active || 'bible';
@@ -3505,13 +3528,100 @@ window.readChapter = async function(bookCode, chapter, bName, highlightKeys) {
 // ── All versions (reference) ──
 async function executeAllVersions(label) {
     currentView = 'all_versions';
+    // Snapshot for history: stamp the leaving entry's scroll, then push a fresh
+    // entry below (only on fresh entry, see below) so Back returns to it.
+    const _outScrollY = window.scrollY;
+    const _outUrl = window.location.pathname + window.location.search;
+    const _outState = history.state;
+    const _ver = versionSelect.value;
     try {
         const resp = await fetch(`/api/all_versions?q=${encodeURIComponent(label)}`);
         const data = await resp.json();
         if (data.error) { console.error('All versions error:', data.error); resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), t('loading.errorBody')); return; }
         renderAllVersions(data.results, label);
+        // Create a real history entry only on fresh entry — not when this call
+        // came from Back/Forward or a reload (the URL already matches the
+        // target), so Back returns to the reference we came from.
+        try {
+            const targetUrl = buildURL(label, _ver, 'allversions');
+            if (_outUrl !== targetUrl) {
+                history.replaceState({ ...(_outState || {}), scrollY: _outScrollY }, '', _outUrl);
+                history.pushState({ q: label, version: _ver, mode: 'allversions' }, '', targetUrl);
+                window.scrollTo(0, 0);
+            }
+        } catch {}
     } catch { resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), t('allVersions.failed')); }
 }
+
+// ── Modal ↔ history integration ──────────────────────────────────────────────
+// Make the browser Back button close an open modal (help / settings / stats /
+// feedback / map) instead of navigating the page away. Centralised via a
+// MutationObserver so every open/close path (X button, overlay click, Escape,
+// programmatic) is covered without touching each call site.
+(function () {
+    const MODAL_IDS = ['helpModal', 'settingsModal', 'statsModal', 'feedbackModal', 'mapModal'];
+    let suppress = false; // true while we mutate history ourselves
+
+    function anyModalOpen() {
+        return MODAL_IDS.some(id => {
+            const el = document.getElementById(id);
+            return el && el.classList.contains('open');
+        });
+    }
+    function closeAllModals() {
+        MODAL_IDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('open');
+        });
+    }
+    function onModalToggled(isOpen) {
+        if (isOpen) {
+            // Opened: push a throwaway entry so Back pops back to the page
+            // (don't double-push if we're already sitting on a modal entry).
+            if (history.state && history.state.modal) return;
+            suppress = true;
+            try { history.pushState({ ...(history.state || {}), modal: true }, '', location.href); } catch {}
+            suppress = false;
+        } else if (history.state && history.state.modal && !anyModalOpen()) {
+            // Closed by something other than Back (X / overlay / Escape):
+            // pop the modal entry we pushed so history stays balanced. The
+            // popstate handler below swallows the navigation for this step.
+            suppress = true;
+            history.back();
+        }
+    }
+    const obs = new MutationObserver(muts => {
+        for (const m of muts) {
+            if (m.attributeName !== 'class') continue;
+            const el = m.target;
+            const isOpen = el.classList.contains('open');
+            if (isOpen !== (el.__wasOpen === true)) {
+                el.__wasOpen = isOpen;
+                onModalToggled(isOpen);
+            }
+        }
+    });
+    function attach() {
+        MODAL_IDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el && !el.__modalHistObserved) {
+                el.__modalHistObserved = true;
+                el.__wasOpen = el.classList.contains('open');
+                obs.observe(el, { attributes: true, attributeFilter: ['class'] });
+            }
+        });
+    }
+    attach();
+    // Some modals (map / stats) may be created lazily — re-attach cheaply.
+    document.addEventListener('click', attach, true);
+
+    // Capture phase: runs before the main popstate navigation handler so we can
+    // swallow the event when a modal is involved.
+    window.addEventListener('popstate', e => {
+        if (suppress) { suppress = false; e.stopImmediatePropagation(); return; }
+        if (anyModalOpen()) { closeAllModals(); e.stopImmediatePropagation(); }
+    }, true);
+}());
 
 function renderAllVersions(allResults, label) {
     setPageTitle(label);
@@ -4393,6 +4503,11 @@ async function navigateCardToRef(cardIdx, ref, direction) {
     // Navigation — drop marked verses so MVB doesn't outlive the verses it points at.
     clearAllMarkedVerses();
     const ver = versionSelect.value;
+    // History snapshot: stamp the leaving entry's scroll, then push a new entry
+    // below (see updateUrlFromCards) so Back steps through chapter/verse arrows.
+    const _outScrollY = window.scrollY;
+    const _outUrl = window.location.pathname + window.location.search;
+    const _outState = history.state;
     // Kick off the exit animation immediately, in parallel with the fetch,
     // so the card keeps moving instead of pausing while the network resolves.
     const card = document.getElementById(`card-${cardIdx}`);
@@ -4440,8 +4555,12 @@ async function navigateCardToRef(cardIdx, ref, direction) {
                 if (newCard) { newCard.style.transition = ''; }
             }, 200);
         }
-        // Update URL — use composite query of all card refs so back/share works
-        try { updateUrlFromCards(); } catch {}
+        // Push a real history entry so Back/Forward steps through navigation,
+        // after stamping the leaving entry with its scroll position.
+        try {
+            history.replaceState({ ...(_outState || {}), scrollY: _outScrollY }, '', _outUrl);
+            updateUrlFromCards(true);
+        } catch {}
         if (cardIdx === 0) {
             try { window.AppSidebar && window.AppSidebar.notifyMainBlockChanged(); } catch {}
         }
@@ -4455,7 +4574,7 @@ async function navigateCardToRef(cardIdx, ref, direction) {
     } catch {}
 }
 
-function updateUrlFromCards() {
+function updateUrlFromCards(push) {
     if (!mainData || mainData.length === 0) return;
     const refs = mainData.map(b => {
         if (!b || !b.book || !b.verses || b.verses.length === 0) return null;
@@ -4479,7 +4598,9 @@ function updateUrlFromCards() {
     const block = mainData.length === 1 ? mainData[0] : null;
     try {
         const url = buildURL(composite, ver, 'normal', block);
-        history.replaceState({ q: composite, version: ver, mode: 'normal' }, '', url);
+        const state = { q: composite, version: ver, mode: 'normal' };
+        if (push) history.pushState(state, '', url);
+        else history.replaceState(state, '', url);
     } catch {}
 }
 

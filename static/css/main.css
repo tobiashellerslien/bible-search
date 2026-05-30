@@ -2625,17 +2625,17 @@
             font-size: 0.75rem;
             line-height: 1.4;
             font-family: var(--font-ui);
-            background: var(--accent-dim);
-            border: 1px solid var(--accent);
+            background: var(--bg);
+            border: 1px solid var(--border);
             border-radius: var(--radius-sm);
             cursor: pointer;
-            color: var(--accent);
+            color: var(--text-muted);
             transition: all 0.15s;
             white-space: nowrap;
         }
         @media (hover: hover) {
 
-        .stats-btn:hover { background: var(--accent); color: white; }
+        .stats-btn:hover { background: var(--accent-dim); border: 1px solid var(--accent); color: var(--accent); }
 
         }
 
