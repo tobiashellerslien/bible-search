@@ -534,6 +534,30 @@ function getUnknownPrefix(query) {
     return prefix;
 }
 
+// True when the query reads as a bible reference (a book name/alias followed by
+// a chapter number, e.g. "Joh 3", "1 Mos 1:1"). Used so that typing a reference
+// while a study-search scope is active jumps to the bible text instead of
+// running a fruitless study search.
+function looksLikeBibleReference(query) {
+    const q = (query || '').trim().toLowerCase();
+    if (!q || !/\d/.test(q)) return false;          // a reference needs a chapter number
+    const lang = versionLang(versionSelect.value);
+    for (const b of booksData) {
+        const names = [];
+        if (b.aliases) names.push(...b.aliases);
+        names.push(bookName(b.code, lang).toLowerCase());
+        names.push(bookName(b.code, 'en').toLowerCase());
+        for (const n of names) {
+            if (!n) continue;
+            if (q.startsWith(n)) {
+                const rest = q.slice(n.length);
+                if (/^[\s:.,]*\d/.test(rest)) return true;   // book then chapter digit
+            }
+        }
+    }
+    return false;
+}
+
 // ── Init ──
 async function init() {
     history.scrollRestoration = 'manual';
@@ -876,6 +900,10 @@ function restoreOpenXrefPanel(openXref) {
 
 window.addEventListener('popstate', async e => {
     if (e.state && e.state.modal) return;
+    // A modal open/close drives history itself (see the modal↔history block at
+    // the bottom of this file). Let it consume the pop so closing a modal (e.g.
+    // statistics) doesn't fall through and needlessly re-run the search.
+    if (typeof window.__handleModalPop === 'function' && window.__handleModalPop()) return;
     if (e.state && e.state.studyNav) {
         const nav = e.state.studyNav;
         if (nav.q != null) { searchInput.value = nav.q; updateSearchHighlight(); }
@@ -935,7 +963,10 @@ window.addEventListener('popstate', async e => {
 // Routes to study search if a scope is active and results are showing,
 // otherwise falls through to normal bible search.
 function triggerSearch() {
-    if (studySearchType && currentView === 'study_search') {
+    // A bible reference typed while a study scope is active should jump to the
+    // bible text, not be (vainly) searched within the study dataset.
+    if (studySearchType && currentView === 'study_search'
+        && !looksLikeBibleReference(searchInput.value)) {
         doStudySearch(studySearchType);
     } else {
         doSearch();
@@ -1024,6 +1055,8 @@ async function doSearch(pushHistory = true, resetAC = true) {
             lastTextSearchQuery = data.query;
             textSearchCache = { results: data.results, query: data.query, bookTotals: data.book_totals || {} };
             renderTextSearch(data.results, data.query, data.book_totals || {});
+            // Search view → sidebar modules clear stale per-text content.
+            try { window.AppSidebar && window.AppSidebar.notifyMainBlockChanged(); } catch {}
             if (pushHistory) {
                 try { history.replaceState({ ...(_outState || {}), scrollY: _outScrollY }, '', _outUrl); } catch {}
                 pushState(query, version);
@@ -2999,6 +3032,8 @@ const _STUDY_ENDPOINT = { commentary: 'commentary', topics: 'topics', leksikon: 
 function buildStudyScaffold(type) {
     studySearchType = type;
     currentView = 'study_search';
+    // Leaving the readable text → tell sidebar modules to drop stale content.
+    try { window.AppSidebar && window.AppSidebar.notifyMainBlockChanged(); } catch {}
     resultsWrapper.innerHTML = `<div class="search-controls">
             <div class="search-result-count"></div>
             <div class="search-controls-actions">${scopeMenuHtml(type)}</div>
@@ -3205,6 +3240,7 @@ window.searchAllVersionsText = async function(query) {
         if (data.error) { console.error('All versions text search error:', data.error); resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), t('loading.errorBody')); return; }
         allVersionsTextCache = { results: data.results, query: data.query };
         renderAllVersionsTextSearch(data.results, data.query);
+        try { window.AppSidebar && window.AppSidebar.notifyMainBlockChanged(); } catch {}
     } catch {
         resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), t('loading.errorBody'));
     }
@@ -3540,6 +3576,8 @@ async function executeAllVersions(label) {
         const data = await resp.json();
         if (data.error) { console.error('All versions error:', data.error); resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), t('loading.errorBody')); return; }
         renderAllVersions(data.results, label);
+        // Search view → sidebar modules clear stale per-text content.
+        try { window.AppSidebar && window.AppSidebar.notifyMainBlockChanged(); } catch {}
         // Create a real history entry only on fresh entry — not when this call
         // came from Back/Forward or a reload (the URL already matches the
         // target), so Back returns to the reference we came from.
@@ -3616,8 +3654,17 @@ async function executeAllVersions(label) {
     // Some modals (map / stats) may be created lazily — re-attach cheaply.
     document.addEventListener('click', attach, true);
 
-    // Capture phase: runs before the main popstate navigation handler so we can
-    // swallow the event when a modal is involved.
+    // The main popstate navigation handler calls this FIRST so a modal open/close
+    // never falls through to a search re-run. Returns true when the pop was
+    // modal-related (suppressed programmatic close, or a real Back that should
+    // just close the open modal) and has been handled here.
+    function handleModalPop() {
+        if (suppress) { suppress = false; return true; }
+        if (anyModalOpen()) { closeAllModals(); return true; }
+        return false;
+    }
+    window.__handleModalPop = handleModalPop;
+    // Backstop in capture phase in case the main handler isn't installed yet.
     window.addEventListener('popstate', e => {
         if (suppress) { suppress = false; e.stopImmediatePropagation(); return; }
         if (anyModalOpen()) { closeAllModals(); e.stopImmediatePropagation(); }
@@ -4800,6 +4847,7 @@ window.versionSelect = versionSelect;
 Object.defineProperty(window, 'booksData', { get: () => booksData, configurable: true });
 
 // ── Shared state for sub-modules ──
+Object.defineProperty(window, 'currentView', { get: () => currentView, configurable: true });
 Object.defineProperty(window, 'statsNormMode', { get: () => statsNormMode, set: v => { statsNormMode = v; }, configurable: true });
 Object.defineProperty(window, 'lastStatsData', { get: () => lastStatsData, set: v => { lastStatsData = v; }, configurable: true });
 Object.defineProperty(window, 'currentChapterInfo', { get: () => currentChapterInfo, configurable: true });

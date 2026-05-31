@@ -694,9 +694,13 @@
 
     function rebindToMainBlock() {
         if (_suppressRebind) return;   // openAtRef drives its own render
-        if (!_scope) return;
         const ns = scopeFromMainBlock();
-        if (!ns) return;
+        if (!ns) {
+            // Search/empty view — clear stale commentary, stay mounted empty.
+            if (_scope) { _scope = null; _forceOpen = null; setScopeLabel(''); setStatus(''); }
+            return;
+        }
+        if (!_scope) { _scope = ns; loadAndRender(); return; }
         if (_scope.source === 'tray') {
             if (scopeKey(ns) === scopeKey(_scope)) return;
             _forceOpen = null;   // user navigated away from the forced entry

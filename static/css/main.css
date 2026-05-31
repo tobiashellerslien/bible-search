@@ -5785,6 +5785,14 @@
         .topic-subgroup-body {
             padding: 2px 0 4px 0;
         }
+        /* Simple expand animation on subgroups (Topics module + study search). */
+        details.topic-subgroup-det[open] > .topic-subgroup-body {
+            animation: topicSubgroupOpen 0.2s ease;
+        }
+        @keyframes topicSubgroupOpen {
+            from { opacity: 0; transform: translateY(-4px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
         .topic-seealso {
             font-size: 0.78rem;
             color: var(--accent);

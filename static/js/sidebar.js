@@ -109,6 +109,10 @@ window.AppModuleBus = (function () {
             },
             getBlock(idx) { return (window.mainData && window.mainData[idx]) || null; },
             getMainBlock() {
+                // In a search-results view (text/study/all-versions) there is no
+                // single readable block — modules clear rather than show the
+                // stale text the user was on before searching.
+                if (window.currentView && window.currentView !== 'normal') return null;
                 const md = window.mainData;
                 if (!md || !md.length) return null;
                 return { blockIdx: 0, block: md[0] };
@@ -607,8 +611,11 @@ window.AppModuleBus = (function () {
     // collapse, fresh search, isolation). Fires regardless of sidebar open
     // state so future modules with persistent state can stay in sync.
     function notifyMainBlockChanged() {
+        // A search-results view has no readable block; emit a null block so
+        // modules clear instead of rebinding to stale text.
+        const inReading = !(window.currentView && window.currentView !== 'normal');
         const md = window.mainData;
-        const payload = (md && md.length)
+        const payload = (inReading && md && md.length)
             ? { blockIdx: 0, block: md[0] }
             : { blockIdx: 0, block: null };
         emit('mainBlockChanged', payload);

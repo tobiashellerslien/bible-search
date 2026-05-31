@@ -289,6 +289,16 @@
 
     function rebindToMainBlock() {
         if (!_hasBeenShown) return;
+        // Search/empty view — clear stale outline, stay mounted empty.
+        if (window.currentView && window.currentView !== 'normal') {
+            if (_currentBook) {
+                _currentBook = null;
+                _currentTree = null;
+                setHeader('');
+                setStatus('');
+            }
+            return;
+        }
         // If MVB-pinned and the user is still on the same verses, freeze.
         // Otherwise drop the pin and rebind to the new top block.
         if (_pinnedFocus) {

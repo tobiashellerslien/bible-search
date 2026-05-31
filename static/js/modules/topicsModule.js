@@ -466,9 +466,13 @@
     }
 
     function rebindToMainBlock() {
-        if (!_scope) return;
         const ns = scopeFromMainBlock();
-        if (!ns) return;
+        if (!ns) {
+            // Entered a search/empty view — drop stale topics, stay mounted empty.
+            if (_scope) { _scope = null; setScopeLabel(''); renderTree(null); }
+            return;
+        }
+        if (!_scope) { _scope = ns; loadAndRender(); return; }
         if (_scope.source === 'tray') {
             if (scopeKey(ns) === scopeKey(_scope)) return;
             _scope = ns;

@@ -1759,6 +1759,23 @@
     // new block has no places, swaps the module to an empty state instead
     // of auto-closing — _hasBeenShown keeps the sidebar open.
     function rebindToMainBlock() {
+        // In any search view there is no "current text" to map — clear and show
+        // the empty state so the module doesn't keep places from before the search.
+        if (window.currentView && window.currentView !== 'normal') {
+            _selectToken++;
+            closeSubPopup({ silent: true });
+            clearVerseHighlight(null);
+            _places = [];
+            _entries = [];
+            _visibility = new Map();
+            _focusId = null;
+            _selectedId = null;
+            _hoveredId = null;
+            _activeBook = null;
+            if (_layerGroup) _layerGroup.clearLayers();
+            renderEmptyState();
+            return;
+        }
         const md = window.mainData;
         const newBlock = (md && md.length) ? md[0] : null;
         const reg = window.blockPlacesRegistry || {};
