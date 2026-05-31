@@ -845,6 +845,29 @@ function pushState(q, version, mode, block) {
     history.pushState({ q, version, mode: mode || 'normal' }, '', url);
 }
 
+// Build the URL for a study-data view. A study *search* is
+// /studie?scope=<type>&q=<query>; a single-topic drilldown additionally
+// carries &topic=<id>[&sg=<subgroupId>]. Unlike bible references these have
+// their own URL (instead of reusing location.href) so reload / share / Back
+// all restore the exact study view.
+function buildStudyURL(type, q, version, topicId, sgId) {
+    const p = new URLSearchParams();
+    if (type) p.set('scope', type);
+    if (q) p.set('q', q);
+    if (topicId != null && topicId !== '') p.set('topic', String(topicId));
+    if (sgId != null && sgId !== '') p.set('sg', String(sgId));
+    if (version) p.set('v', String(version));
+    const qs = p.toString();
+    return qs ? `/studie?${qs}` : '/studie';
+}
+window.buildStudyURL = buildStudyURL;
+
+// Cache of study-search responses keyed by `${type}|${query}|${version}` so a
+// Back/Forward into a study search (or a scope re-toggle) restores instantly
+// instead of re-hitting the API and losing scroll/expansion state.
+const studyResultCache = new Map();
+function studyCacheKey(type, q, version) { return `${type}|${q}|${version}`; }
+
 // Read server-injected boot state (set on /bibel/... and /sok routes). Returns
 // {q, v, noindex} or null if absent.
 function readBootState() {
@@ -853,11 +876,50 @@ function readBootState() {
     try { return JSON.parse(el.textContent || '{}'); } catch { return null; }
 }
 
+// Render a study view (search or single-topic drilldown) from a restored URL,
+// then stamp the matching studyNav state onto the current history entry so
+// Back / modal balancing have a consistent base to work from.
+function restoreStudyView(study, v) {
+    if (!study || !study.scope) { goHome(false); return; }
+    if (v && allVersionsList.some(x => String(x.id) === String(v))) {
+        versionSelect.value = String(v);
+    }
+    searchInput.value = study.q || '';
+    updateSearchHighlight();
+    const version = versionSelect.value;
+    if (study.topic) {
+        const sgId = study.sg || null;
+        if (window.StudySearch && typeof window.StudySearch.restoreTopic === 'function') {
+            window.StudySearch.restoreTopic(Number(study.topic), { query: study.q, version, subgroupId: sgId });
+        }
+        try {
+            history.replaceState({ studyNav: { kind: 'topic', id: Number(study.topic), type: 'topics', subgroupId: sgId, q: study.q, version } }, '', location.href);
+        } catch {}
+    } else {
+        doStudySearch(study.scope, false);
+        try {
+            history.replaceState({ studyNav: { kind: 'search', type: study.scope, q: study.q, version } }, '', location.href);
+        } catch {}
+    }
+}
+
 function restoreFromURL() {
     try {
         // Server-rendered routes inject a bootState script. Trust it over URL
         // parsing — the server already resolved the label and version.
         const boot = readBootState();
+        // Study view (search or topic drilldown) — own URL /studie?... . Prefer
+        // the live URL params over the (initial-render) bootState, so a
+        // null-state popstate back onto /studie restores the right view.
+        if (window.location.pathname === '/studie') {
+            const p = new URLSearchParams(window.location.search);
+            const study = (boot && boot.study) || {
+                scope: p.get('scope') || '', q: p.get('q') || '',
+                topic: p.get('topic') || '', sg: p.get('sg') || '',
+            };
+            restoreStudyView(study, p.get('v') || (boot && boot.v) || '');
+            return;
+        }
         if (boot && boot.q) {
             if (boot.v && allVersionsList.some(x => String(x.id) === String(boot.v))) {
                 versionSelect.value = String(boot.v);
@@ -917,7 +979,14 @@ window.addEventListener('popstate', async e => {
         if (nav.kind === 'topic' && window.StudySearch && typeof window.StudySearch.restoreTopic === 'function') {
             window.StudySearch.restoreTopic(nav.id, { query: nav.q, version: nav.version, subgroupId: nav.subgroupId });
         } else {
-            doStudySearch(nav.type, false);
+            await doStudySearch(nav.type, false);
+        }
+        // Restore the scroll position stamped on this entry when we left it
+        // (study results are cached, so the layout is back instantly).
+        const savedScroll = e.state.scrollY;
+        if (savedScroll != null) {
+            requestAnimationFrame(() => window.scrollTo({ top: savedScroll, behavior: 'instant' }));
+            setTimeout(() => window.scrollTo({ top: savedScroll, behavior: 'instant' }), 150);
         }
         return;
     }
@@ -1058,8 +1127,20 @@ async function doSearch(pushHistory = true, resetAC = true) {
             // Search view → sidebar modules clear stale per-text content.
             try { window.AppSidebar && window.AppSidebar.notifyMainBlockChanged(); } catch {}
             if (pushHistory) {
-                try { history.replaceState({ ...(_outState || {}), scrollY: _outScrollY }, '', _outUrl); } catch {}
-                pushState(query, version);
+                const finalUrl = buildURL(query, version);
+                const currentUrl = window.location.pathname + window.location.search;
+                const state = { q: query, version, mode: 'normal' };
+                try {
+                    if (finalUrl !== currentUrl) {
+                        history.replaceState({ ...(_outState || {}), scrollY: _outScrollY }, '', _outUrl);
+                        history.pushState(state, '', finalUrl);
+                    } else {
+                        // Same URL (e.g. re-running the same query, or landing
+                        // where a study view sat): replace in place so we never
+                        // stack a duplicate entry or leave a stale studyNav flag.
+                        history.replaceState(state, '', finalUrl);
+                    }
+                } catch {}
             }
             return;
         }
@@ -1078,19 +1159,26 @@ async function doSearch(pushHistory = true, resetAC = true) {
         const block = mainData && mainData.length === 1 ? mainData[0] : null;
         const finalUrl = buildURL(query, version, 'normal', block);
         const currentUrl = window.location.pathname + window.location.search;
-        if (finalUrl !== currentUrl) {
-            const state = { q: query, version, mode: 'normal' };
-            try {
-                if (pushHistory) {
+        const state = { q: query, version, mode: 'normal' };
+        try {
+            if (pushHistory) {
+                if (finalUrl !== currentUrl) {
                     // Stamp the leaving entry with its scroll position first.
                     history.replaceState({ ...(_outState || {}), scrollY: _outScrollY }, '', _outUrl);
                     history.pushState(state, '', finalUrl);
                 } else {
-                    // Popstate restore: keep the entry's saved scroll/panel state.
-                    history.replaceState({ ...(history.state || {}), ...state }, '', finalUrl);
+                    // Same URL (e.g. a reference that resolves to where a study
+                    // view was showing): replace in place so the entry's state
+                    // matches the bible view — never leave a stale studyNav flag.
+                    history.replaceState(state, '', finalUrl);
                 }
-            } catch {}
-        }
+            } else {
+                // Popstate restore: keep the entry's saved scroll/panel state,
+                // but drop any studyNav marker so it reads as a bible view.
+                const { studyNav: _drop, ...keep } = (history.state || {});
+                history.replaceState({ ...keep, ...state }, '', finalUrl);
+            }
+        } catch {}
     } catch (err) {
         resultsWrapper.innerHTML = errorCardHtml(t('loading.errorGeneric'), t('loading.errorBody'));
     }
@@ -3014,10 +3102,27 @@ function selectSearchScope(type) {
         studySearchType = null;
         const q = searchInput.value.trim();
         if (textSearchCache && textSearchCache.query === q) {
+            // Re-render the cached text search, but still create a real
+            // bible-view history entry (we're leaving the /studie URL) so Back
+            // returns to the study search we just switched away from.
+            const _outScrollY = window.scrollY;
+            const _outUrl = window.location.pathname + window.location.search;
+            const _outState = history.state;
             currentView = 'text_search';
+            lastTextSearchQuery = textSearchCache.query;
             renderTextSearch(textSearchCache.results, textSearchCache.query, textSearchCache.bookTotals || {});
+            try { window.AppSidebar && window.AppSidebar.notifyMainBlockChanged(); } catch {}
+            const version = versionSelect.value;
+            const targetUrl = buildURL(q, version);
+            if (targetUrl !== _outUrl) {
+                try {
+                    history.replaceState({ ...(_outState || {}), scrollY: _outScrollY }, '', _outUrl);
+                    history.pushState({ q, version, mode: 'normal' }, '', targetUrl);
+                    window.scrollTo(0, 0);
+                } catch {}
+            }
         } else {
-            doSearch(false);
+            doSearch(true);
         }
         return;
     }
@@ -3044,33 +3149,10 @@ function buildStudyScaffold(type) {
 }
 window.buildStudyScaffold = buildStudyScaffold;
 
-async function doStudySearch(type, push = true) {
-    const query = searchInput.value.trim();
-    if (!query || !_STUDY_ENDPOINT[type]) return;
-    setPageTitle(`"${query}"`);
-    const bodyEl = buildStudyScaffold(type);
-    const countEl = resultsWrapper.querySelector('.search-result-count');
-    if (countEl) countEl.textContent = t('searchResults.studyLoading');
-    bodyEl.innerHTML = `<div class="study-loading">${escHtml(t('searchResults.studyLoading'))}</div>`;
-    const version = versionSelect.value;
-    if (push) {
-        try {
-            history.pushState({ studyNav: { kind: 'search', type, q: query, version } }, '', location.href);
-        } catch { /* ignore */ }
-    }
-
-    let data;
-    try {
-        const resp = await fetch(`/api/search/${_STUDY_ENDPOINT[type]}?q=${encodeURIComponent(query)}&version=${encodeURIComponent(version)}`);
-        data = await resp.json();
-    } catch (err) {
-        const body = resultsWrapper.querySelector('#studyResults');
-        if (body) body.innerHTML = errorCardHtml(t('loading.errorGeneric'), t('loading.errorBody'));
-        return;
-    }
-    // The user may have moved on (new search / scope switch) while we awaited.
+// Render a study-search response into the (already-built) scaffold. Bails if
+// the user has navigated away while an async fetch was in flight.
+function renderStudyResults(type, data, query, version) {
     if (currentView !== 'study_search' || studySearchType !== type) return;
-
     const total = data.total || 0;
     const cEl = resultsWrapper.querySelector('.search-result-count');
     if (cEl) cEl.textContent = total ? t('searchResults.studyCount', total) : t('searchResults.studyNoResults');
@@ -3084,6 +3166,59 @@ async function doStudySearch(type, push = true) {
     if (window.StudySearch && typeof window.StudySearch.render === 'function') {
         window.StudySearch.render(type, data, body, { query, version });
     }
+}
+
+async function doStudySearch(type, push = true) {
+    const query = searchInput.value.trim();
+    if (!query || !_STUDY_ENDPOINT[type]) return;
+    setPageTitle(`"${query}"`);
+    const version = versionSelect.value;
+    // History: a study search has its own /studie?scope=&q= URL. On forward
+    // navigation, stamp the leaving entry's scroll then push the study entry so
+    // Back returns there with state intact; when the target URL already matches
+    // (same-URL re-toggle) just replace so we don't stack a duplicate.
+    if (push) {
+        try {
+            const _outScrollY = window.scrollY;
+            const _outUrl = window.location.pathname + window.location.search;
+            const _outState = history.state;
+            const targetUrl = buildStudyURL(type, query, version);
+            const navState = { studyNav: { kind: 'search', type, q: query, version } };
+            if (targetUrl !== _outUrl) {
+                history.replaceState({ ...(_outState || {}), scrollY: _outScrollY }, '', _outUrl);
+                history.pushState(navState, '', targetUrl);
+                window.scrollTo(0, 0);
+            } else {
+                history.replaceState(navState, '', targetUrl);
+            }
+        } catch { /* ignore */ }
+    }
+    const bodyEl = buildStudyScaffold(type);
+
+    // Cache hit → render immediately (instant Back / scope re-toggle, no refetch).
+    const cached = studyResultCache.get(studyCacheKey(type, query, version));
+    if (cached) {
+        renderStudyResults(type, cached, query, version);
+        return;
+    }
+
+    const countEl = resultsWrapper.querySelector('.search-result-count');
+    if (countEl) countEl.textContent = t('searchResults.studyLoading');
+    bodyEl.innerHTML = `<div class="study-loading">${escHtml(t('searchResults.studyLoading'))}</div>`;
+
+    let data;
+    try {
+        const resp = await fetch(`/api/search/${_STUDY_ENDPOINT[type]}?q=${encodeURIComponent(query)}&version=${encodeURIComponent(version)}`);
+        data = await resp.json();
+    } catch (err) {
+        const body = resultsWrapper.querySelector('#studyResults');
+        if (body) body.innerHTML = errorCardHtml(t('loading.errorGeneric'), t('loading.errorBody'));
+        return;
+    }
+    // The user may have moved on (new search / scope switch) while we awaited.
+    if (currentView !== 'study_search' || studySearchType !== type) return;
+    studyResultCache.set(studyCacheKey(type, query, version), data);
+    renderStudyResults(type, data, query, version);
 }
 
 function animateGroupItem(itemsEl, open) {

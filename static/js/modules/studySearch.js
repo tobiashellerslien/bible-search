@@ -274,56 +274,13 @@
         };
     }
 
-    // Nearest scrollable ancestor, so "Se også" → Back can restore scroll pos.
-    function scrollParentOf(el) {
-        let n = el && el.parentElement;
-        while (n) {
-            const oy = getComputedStyle(n).overflowY;
-            if ((oy === 'auto' || oy === 'scroll') && n.scrollHeight > n.clientHeight + 2) return n;
-            n = n.parentElement;
-        }
-        return null;
-    }
-
-    // "Se også" inside study-search results: stack a single-topic view on top of
-    // the current view (results list or a previous topic) with a Back button that
-    // restores the previous view and scroll position — mirrors the Topics module.
-    async function openSeeAlso(topicId, subgroupId) {
-        if (!_topicRoot || !_topicRoot.isConnected) {
-            return showTopic(topicId, { push: true, subgroupId });
-        }
-        let detail;
-        try { detail = await fetchTopicDetail(topicId); }
-        catch (e) { return; }
-        const sp = scrollParentOf(_topicRoot);
-        const savedTop = sp ? sp.scrollTop : window.scrollY;
-        const prevChildren = Array.from(_topicRoot.children);
-        const prevDisplay = prevChildren.map(el => el.style.display);
-        prevChildren.forEach(el => { el.style.display = 'none'; });
-
-        const view = document.createElement('div');
-        view.className = 'study-seealso-view';
-        view.innerHTML =
-            `<button type="button" class="topics-back">${esc(tFn('sidebar.topics.back'))}</button>`
-            + `<div class="study-topics study-topics-single">${topicNodeHtml(detail, true)}</div>`;
-        _topicRoot.appendChild(view);
-
-        const wrap = view.querySelector('.study-topics');
-        wireTopicNodes(wrap);
-        const det = wrap.querySelector('.topic-node');
-        if (det) {
-            await loadTopicNode(det);
-            if (subgroupId != null && window.TopicSubgroups && window.TopicSubgroups.focusSubgroup) {
-                const sgEl = det.querySelector('.topic-subgroups');
-                if (sgEl) window.TopicSubgroups.focusSubgroup(sgEl, subgroupId);
-            }
-        }
-        const back = view.querySelector('.topics-back');
-        if (back) back.addEventListener('click', () => {
-            view.remove();
-            prevChildren.forEach((el, i) => { el.style.display = prevDisplay[i] || ''; });
-            if (sp) sp.scrollTop = savedTop; else window.scrollTo(0, savedTop);
-        });
+    // "Se også" → navigate to the linked topic as a real history step (its own
+    // /studie?...&topic=<id> URL), so the browser Back button returns to the
+    // view we came from (the results list or the previous topic) with scroll
+    // and expansion restored — instead of an ad-hoc in-DOM stack that Back
+    // can't see.
+    function openSeeAlso(topicId, subgroupId) {
+        return showTopic(topicId, { push: true, subgroupId });
     }
 
     async function loadTopicNode(det) {
@@ -392,10 +349,17 @@
         }
         if (opts.push !== false) {
             try {
+                const q = _topicCtx && _topicCtx.query;
+                const version = _topicCtx && _topicCtx.version;
+                const url = (typeof window.buildStudyURL === 'function')
+                    ? window.buildStudyURL('topics', q, version, topicId, opts.subgroupId)
+                    : location.href;
+                // Stamp the leaving entry's scroll first so Back restores it,
+                // then push the topic entry with its own URL.
+                history.replaceState({ ...(history.state || {}), scrollY: window.scrollY }, '', location.href);
                 history.pushState({ studyNav: {
-                    kind: 'topic', id: topicId, type: 'topics', subgroupId: opts.subgroupId,
-                    q: _topicCtx && _topicCtx.query, version: _topicCtx && _topicCtx.version,
-                } }, '', location.href);
+                    kind: 'topic', id: topicId, type: 'topics', subgroupId: opts.subgroupId, q, version,
+                } }, '', url);
             } catch { /* ignore */ }
         }
     }

@@ -264,8 +264,8 @@
     </div>
 </div>
 
-{% if boot_query %}
-<script id="bootState" type="application/json">{{ {"q": boot_query, "v": boot_version, "noindex": robots_noindex} | tojson }}</script>
+{% if boot_query or boot_study %}
+<script id="bootState" type="application/json">{{ {"q": boot_query, "v": boot_version, "noindex": robots_noindex, "study": boot_study} | tojson }}</script>
 {% endif %}
 
 <aside id="appSidebar" class="app-sidebar" aria-label="Festede elementer">

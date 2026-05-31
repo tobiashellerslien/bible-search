@@ -175,6 +175,7 @@ def index():
         boot_query=None,
         boot_version=None,
         robots_noindex=False,
+        boot_study=None,
     )
 
 
@@ -241,6 +242,7 @@ def bibel_path(book_slug, chapter, range_str=None):
         boot_query=boot_query,
         boot_version=(version_id if raw_v else None),
         robots_noindex=False,
+        boot_study=None,
     )
 
 
@@ -259,6 +261,36 @@ def sok():
         boot_query=request.args.get("q", ""),
         boot_version=None,
         robots_noindex=True,
+        boot_study=None,
+    )
+
+
+@bp.get("/studie")
+def studie():
+    """Study-data view (commentary / topics / leksikon search, or a single
+    topic drilldown). Renders the same SPA shell with a study boot payload so
+    the page can be reloaded / shared / restored directly. noindex — these are
+    result pages, not canonical content."""
+    scope = request.args.get("scope", "")
+    topic = request.args.get("topic", "")
+    sg = request.args.get("sg", "")
+    return render_template(
+        "index.html",
+        og_title="Studiesøk – Bibelsøk",
+        og_description="Søk i bibelkommentarer, bibelleksikon og temaregister.",
+        og_url="https://xn--bibelsk-v1a.no/studie",
+        canonical_url=None,
+        prerendered_block=None,
+        is_canonical_version=True,
+        boot_query=None,
+        boot_version=None,
+        robots_noindex=True,
+        boot_study={
+            "scope": scope,
+            "q": request.args.get("q", ""),
+            "topic": topic,
+            "sg": sg,
+        },
     )
 
 
