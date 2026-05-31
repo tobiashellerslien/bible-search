@@ -186,10 +186,12 @@
                 + `<span class="leksikon-headword">${esc(prettyTitle(g.title || g.headword))}</span>`
                 + `<span class="study-leksikon-sources">${esc(sourceNames)}</span>`
                 + `</summary>`);
-            const tabs = entries.map((e, i) =>
-                `<button type="button" class="leksikon-tab${i === 0 ? ' active' : ''}" data-idx="${i}" role="tab">`
-                + `${esc(e.dictionary_short_name || e.dictionary_code)}</button>`
-            ).join('');
+            const tabs = entries.map((e, i) => {
+                const note = e.dictionary_code === 'hitchcock'
+                    ? ` <span class="leksikon-tab-note">(navneforklaring)</span>` : '';
+                return `<button type="button" class="leksikon-tab${i === 0 ? ' active' : ''}" data-idx="${i}" role="tab">`
+                    + `${esc(e.dictionary_short_name || e.dictionary_code)}${note}</button>`;
+            }).join('');
             parts.push(`<div class="leksikon-box-body">`);
             if (entries.length > 1) parts.push(`<div class="leksikon-tabs" role="tablist">${tabs}</div>`);
             parts.push(`<div class="study-leksikon-content">${renderLeksikonBody(entries[0].body)}</div>`);

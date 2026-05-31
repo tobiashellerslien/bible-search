@@ -5148,19 +5148,19 @@
             gap: 8px;
         }
         .commentary-box > summary::-webkit-details-marker { display: none; }
-        .commentary-box > summary::before {
+        .commentary-box > summary::after {
             content: '';
             width: 5px;
             height: 5px;
             border: solid currentColor;
             border-width: 0 1.3px 1.3px 0;
             opacity: 0.6;
-            margin: 0 1px;
+            margin-left: auto;
             transform: rotate(-45deg);
             transition: transform 0.18s ease;
             flex-shrink: 0;
         }
-        .commentary-box[open] > summary::before { transform: rotate(45deg); }
+        .commentary-box[open] > summary::after { transform: rotate(45deg); }
         @media (hover: hover) {
 
         .commentary-box > summary:hover { background: var(--accent-dim); }
@@ -5260,7 +5260,7 @@
         .ref-popup-body {
             font-family: var(--font-serif, var(--font-ui));
             font-size: var(--preview-font-size);
-            line-height: 1.85;
+            line-height: 1.45;
             max-height: 9em;
             overflow: auto;
         }
@@ -5500,19 +5500,20 @@
             gap: 8px;
         }
         .leksikon-box > summary::-webkit-details-marker { display: none; }
-        .leksikon-box > summary::before {
+        .leksikon-box > summary .leksikon-headword { flex: 1; }
+        .leksikon-box > summary::after {
             content: '';
             width: 5px;
             height: 5px;
             border: solid currentColor;
             border-width: 0 1.3px 1.3px 0;
             opacity: 0.6;
-            margin: 0 1px;
+            margin-left: auto;
             transform: rotate(-45deg);
             transition: transform 0.18s ease;
             flex-shrink: 0;
         }
-        .leksikon-box[open] > summary::before { transform: rotate(45deg); }
+        .leksikon-box[open] > summary::after { transform: rotate(45deg); }
         @media (hover: hover) {
 
         .leksikon-box > summary:hover { background: var(--accent-dim); }
@@ -5660,7 +5661,7 @@
             margin-top: 0;
         }
         details.topic-node > summary::-webkit-details-marker { display: none; }
-        details.topic-node > summary::before {
+        details.topic-node > summary::after {
             content: '';
             width: 5px;
             height: 5px;
@@ -5672,7 +5673,7 @@
             transform: rotate(-45deg);
             transition: transform 0.18s ease;
         }
-        details.topic-node[open] > summary::before { transform: rotate(45deg); }
+        details.topic-node[open] > summary::after { transform: rotate(45deg); }
         @media (hover: hover) {
 
         details.topic-node > summary:hover { background: var(--accent-dim); }
@@ -6420,18 +6421,20 @@
         }
         .study-comm-group > summary::-webkit-details-marker,
         .study-comm-book > summary::-webkit-details-marker { display: none; }
-        /* Top-level commentary box: chevron on the LEFT (::before). */
-        .study-comm-group > summary::before {
+        /* Top-level commentary box: chevron on the RIGHT (::after), like normal search. */
+        .study-comm-group > summary > span:first-child { flex: 1; min-width: 0; }
+        .study-comm-group > summary::after {
             content: '';
             width: 5px; height: 5px;
             border: solid currentColor;
             border-width: 0 1.3px 1.3px 0;
-            opacity: 0.55;
+            color: var(--text-muted);
+            opacity: 0.8;
             flex-shrink: 0;
             transform: rotate(-45deg);
             transition: transform 0.2s;
         }
-        .study-comm-group[open] > summary::before { transform: rotate(45deg); }
+        .study-comm-group[open] > summary::after { transform: rotate(45deg); }
         /* Book sub-box: chevron on the RIGHT (::after), like normal search. */
         .study-comm-book > summary::after {
             content: '';
@@ -6449,10 +6452,9 @@
         .study-comm-group > summary:hover,
         .study-comm-book > summary:hover { background: var(--accent-dim); }
         }
-        .study-comm-name { font-family: 'Lora', Georgia, serif; font-weight: 600; font-size: 0.98rem; color: var(--accent); }
+        .study-comm-name { font-family: var(--font-ui); font-weight: 600; font-size: 0.95rem; color: var(--accent); }
         .study-comm-books { display: flex; flex-direction: column; gap: 6px; padding: 0 10px 10px; }
         .study-comm-expand-all {
-            margin-left: auto;
             background: transparent;
             border: 1px solid var(--border);
             border-radius: var(--radius-sm);
@@ -6538,7 +6540,6 @@
             padding-bottom: 12px;
         }
         .study-leksikon-sources {
-            margin-left: auto;
             font-size: 0.72rem;
             font-weight: 400;
             color: var(--text-muted);
@@ -6579,6 +6580,14 @@
         .study-topics > .topic-node > summary {
             padding: 13px 16px;
             font-size: 0.95rem;
+            font-weight: 600;
+        }
+        /* Uniform chevron color across all three box types. */
+        .study-comm-group > summary::after,
+        .study-leksikon-box > summary::after,
+        .study-topics > .topic-node > summary::after {
+            color: var(--text-muted);
+            opacity: 0.8;
         }
         /* Same title text size across all three box types. */
         .study-comm-name,
