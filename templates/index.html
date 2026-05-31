@@ -16,25 +16,6 @@
     <title>{{ og_title }}</title>
     <meta name="description" content="{{ og_description }}">
     <link rel="canonical" href="{{ canonical_url or og_url }}">
-    {% if robots_noindex %}<meta name="robots" content="noindex, follow">{% endif %}
-
-    {% if prerendered_block %}
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "Article",
-      "headline": {{ prerendered_block.label | tojson }},
-      "inLanguage": "nb-NO",
-      "isPartOf": {
-        "@type": "WebSite",
-        "name": "Bibelsøk",
-        "url": "https://xn--bibelsk-v1a.no/"
-      },
-      "mainEntityOfPage": {{ canonical_url | tojson }},
-      "articleBody": {{ (prerendered_block.verses | map(attribute='text') | join(' ')) | tojson }}
-    }
-    </script>
-    {% endif %}
 
     <!-- Open Graph (link-preview i WhatsApp, iMessage, Signal, Discord, Facebook m.fl.) -->
     <meta property="og:type" content="website">

@@ -6474,7 +6474,7 @@
             overflow: hidden;
         }
         .study-comm-book > summary { font-weight: 600; font-size: 0.88rem; color: var(--text); padding-top: 9px; padding-bottom: 9px; }
-        .study-comm-items { display: flex; flex-direction: column; border-top: 1px solid var(--border); }
+        .study-comm-items { display: flex; flex-direction: column; }
         .study-comm-entry {
             display: flex;
             flex-direction: column;
