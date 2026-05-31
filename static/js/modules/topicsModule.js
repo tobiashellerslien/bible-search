@@ -1,28 +1,21 @@
 // ── Topics module (PC sidebar + mobile module host) ──
-// Surfaces BSB topical-index entries that overlap the in-view passage (study
-// tray) or the marked verses (MVB). Topics nest as a tree, sorted by total
-// descendant verse-count desc; matched leaves carry chips back to the verse(s)
-// in the main view that surfaced them. Verse previews load lazily and reuse
-// the cross-reference visual pattern (.xr-item / .xr-ref / .xr-preview).
+// Surfaces Nave's topics that overlap the in-view passage (study tray) or the
+// marked verses (MVB). A topic (subject) is shown as a box; opening it reveals
+// its *subgroups* (labelled groups of refs) via the shared TopicSubgroups
+// renderer — triggered subgroups float to the top with accent styling and chips
+// back to the verse(s) that surfaced them. Subgroups are not standalone topics.
 (function () {
     let _container = null;
     let _unsubMainBlock = null;
     let _ctx = null;
 
     let _scope = null;                  // {source, range, markedVerses}
-    const _dataCache = new Map();       // scopeKey -> tree
+    const _dataCache = new Map();       // scopeKey -> topics[]
     const _topicDetailCache = new Map();// topic_id -> /api/topic/<id> payload
-    const _previewCache = new Map();    // ref_label -> preview text
     let _hasBeenShown = false;
     let _isMobile = false;
 
-    // Filter: by default only render topics on the match-path (matched topic
-    // + its ancestors). A per-parent "Vis alle undertemaer" button reveals
-    // the rest of that parent's children. The set holds parent-topic IDs
-    // whose siblings have been revealed; sentinel 0 means "all globally".
-    let _expandedSmall = new Set();
-    let _currentTree = null;
-    let _lastScopeKey = '';
+    let _currentTopics = null;          // last rendered topics[] (subjects)
 
     function isMobileNow() {
         return !!(window.AppModuleHost && window.AppModuleHost.isMobile && window.AppModuleHost.isMobile());
@@ -122,32 +115,7 @@
         return data;
     }
 
-    async function fetchVersePreview(refLabel) {
-        if (_previewCache.has(refLabel)) return _previewCache.get(refLabel);
-        const version = _scope && _scope.range && _scope.range.version;
-        const params = new URLSearchParams();
-        params.set('q', refLabel);
-        if (version) params.set('version', version);
-        try {
-            const resp = await fetch('/api/search?' + params.toString());
-            const data = await resp.json();
-            let preview = '';
-            if (data && data.type === 'reference' && Array.isArray(data.results)) {
-                const first = data.results[0];
-                if (first && first.verses && first.verses.length) {
-                    preview = first.verses.slice(0, 3).map(v => v.text).join(' ');
-                    if (first.verses.length > 3) preview += ' …';
-                }
-            }
-            _previewCache.set(refLabel, preview);
-            return preview;
-        } catch {
-            _previewCache.set(refLabel, '');
-            return '';
-        }
-    }
-
-    // ── Render ──────────────────────────────────────────────────────
+    // ── Scope label ──────────────────────────────────────────────────
     function setScopeLabel(text, opts) {
         const el = _container && _container.querySelector('.topics-scope-label');
         if (!el) return;
@@ -173,208 +141,93 @@
         if (el) el.innerHTML = html;
     }
 
-    function refLabelForVerse(book, chapter, verse) {
-        const lang = (typeof window.versionLang === 'function' && _scope && _scope.range)
-            ? window.versionLang(_scope.range.version) : 'no';
-        const bName = (typeof window.bookName === 'function')
-            ? window.bookName(book, lang) : book;
-        return window.fmtVerseRef(book, bName, chapter, verse);
-    }
-
-    function refLabelFromVerseSpec(v) {
-        const lang = (typeof window.versionLang === 'function' && _scope && _scope.range)
-            ? window.versionLang(_scope.range.version) : 'no';
-        const bName = (typeof window.bookName === 'function')
-            ? window.bookName(v.book_usfm, lang) : v.book_usfm;
-        return window.fmtVerseRef(v.book_usfm, bName, v.chapter, v.verse_start, v.verse_end);
-    }
-
-    function buildTriggerChips(node) {
-        const tb = node.triggered_by || [];
-        if (!tb.length) return '';
-        // Dedup by chapter+verse_start
-        const seen = new Set();
-        const items = [];
-        for (const t of tb) {
-            const key = `${t.chapter}.${t.verse_start}.${t.verse_end || ''}`;
-            if (seen.has(key)) continue;
-            seen.add(key);
-            const book = _scope.range.book;
-            const vsEnd = (t.verse_end && t.verse_end !== t.verse_start) ? t.verse_end : t.verse_start;
-            const label = (vsEnd !== t.verse_start)
-                ? `${refLabelForVerse(book, t.chapter, t.verse_start)}-${vsEnd}`
-                : refLabelForVerse(book, t.chapter, t.verse_start);
-            items.push(
-                `<button type="button" class="topic-trigger-chip"`
-                + ` data-book="${esc(book)}" data-chapter="${t.chapter}"`
-                + ` data-verse-start="${t.verse_start}" data-verse-end="${vsEnd}"`
-                + ` title="${esc(tFn('sidebar.topics.jumpToTrigger'))}">${esc(label)}</button>`
-            );
+    // ── Trigger-chip jump: scroll to + flash the verse(s) in the main view ──
+    // The verses are in the current main view (it's why the topic showed up), so
+    // we locate the existing DOM nodes rather than re-navigating.
+    function jumpToTrigger(book, chapter, vsStart, vsEnd) {
+        const found = [];
+        for (let v = vsStart; v <= vsEnd; v++) {
+            const sel = `.verse-text-clickable[data-book="${book}"][data-chapter="${chapter}"][data-verse="${v}"]`;
+            const el = document.querySelector(sel);
+            if (el) found.push(el);
         }
-        return `<span class="topic-trigger-chips">${items.join('')}</span>`;
-    }
-
-    function visibleSubtreeCount(node) {
-        let n = (typeof node.own_count === 'number') ? node.own_count : 0;
-        if (node.children) for (const c of node.children) n += visibleSubtreeCount(c);
-        return n;
-    }
-
-    // Memoised: does this node or any descendant carry is_match=true?
-    // Drives match-path highlighting and bypasses the small-topic filter.
-    const _matchPathMemo = new WeakMap();
-    function subtreeHasMatch(node) {
-        if (!node) return false;
-        if (_matchPathMemo.has(node)) return _matchPathMemo.get(node);
-        let v = !!node.is_match;
-        if (!v && node.children) {
-            for (const c of node.children) {
-                if (subtreeHasMatch(c)) { v = true; break; }
-            }
+        if (found.length) {
+            found[0].scrollIntoView({ block: 'center', behavior: 'smooth' });
+            found.forEach(el => {
+                el.classList.add('topic-trigger-flash');
+                setTimeout(() => el.classList.remove('topic-trigger-flash'), 3000);
+            });
+        } else {
+            const lang = (typeof window.versionLang === 'function' && _scope && _scope.range)
+                ? window.versionLang(_scope.range.version) : 'no';
+            const bName = (typeof window.bookName === 'function') ? window.bookName(book, lang) : book;
+            const label = window.fmtVerseRef(book, bName, chapter, vsStart, vsEnd);
+            if (typeof window.searchFromXref === 'function') window.searchFromXref(label);
         }
-        _matchPathMemo.set(node, v);
-        return v;
     }
 
-    function shouldRenderNode(node, parentId) {
-        if (subtreeHasMatch(node)) return true;
-        if (_expandedSmall.has(0)) return true;
-        if (parentId != null && _expandedSmall.has(parentId)) return true;
-        return false;
+    function subgroupCtx() {
+        return {
+            version: _scope && _scope.range ? _scope.range.version : '',
+            book: _scope && _scope.range ? _scope.range.book : null,
+            onTriggerJump: jumpToTrigger,
+            onVerseClick: (label) => { if (typeof window.searchFromXref === 'function') window.searchFromXref(label); },
+            onSeeAlso: (id, sgid) => openSeeAlso(id, sgid),
+        };
     }
 
-    function buildTopicNodeHtml(node, depth, parentId) {
-        const allChildren = node.children || [];
-        let renderedChildHtml = '';
-        let hiddenSmallCount = 0;
-        if (allChildren.length) {
-            const parts = [];
-            for (const c of allChildren) {
-                if (shouldRenderNode(c, node.id)) {
-                    parts.push(buildTopicNodeHtml(c, depth + 1, node.id));
-                } else {
-                    hiddenSmallCount++;
-                }
-            }
-            if (hiddenSmallCount > 0) {
-                parts.push(
-                    `<button type="button" class="topics-show-small"`
-                    + ` data-parent-id="${node.id}">`
-                    + esc(tFn('sidebar.topics.showAllSubtopics', hiddenSmallCount))
-                    + `</button>`
-                );
-            }
-            if (parts.length) {
-                renderedChildHtml = `<div class="topic-children">${parts.join('')}</div>`;
-            }
+    // Nearest scrollable ancestor, so "Se også" → Back can restore scroll pos.
+    function scrollParent(el) {
+        let n = el && el.parentElement;
+        while (n) {
+            const oy = getComputedStyle(n).overflowY;
+            if ((oy === 'auto' || oy === 'scroll') && n.scrollHeight > n.clientHeight + 2) return n;
+            n = n.parentElement;
         }
+        return null;
+    }
 
-        const hasRenderedChildren = renderedChildHtml.length > 0;
-        const triggers = buildTriggerChips(node);
-        const visibleCount = visibleSubtreeCount(node);
-        const count = `<span class="topic-count" title="${esc(tFn('sidebar.topics.countTitle'))}">${visibleCount}</span>`;
-        const childBadgeCount = allChildren.length;
-        const parentBadge = childBadgeCount > 0
-            ? `<span class="topic-parent-badge" title="${esc(tFn('sidebar.topics.subtopicsCount', childBadgeCount))}">↳ ${childBadgeCount}</span>`
-            : '';
+    // ── Render the topic list (subjects) ─────────────────────────────
+    // Three descriptive numbers: ref (passage refs that hit this topic — the
+    // relevance), vers (total verses in the topic — the size), and ↳ N subgroups.
+    function topicNumsHtml(topic) {
+        const trig = topic.triggered_count || 0;
+        const sgN = topic.subgroup_count
+            || (topic.subgroups ? topic.subgroups.length : 0);
+        const parts = [];
+        if (trig > 0) {
+            parts.push(`<span class="topic-num topic-num--ref" title="${esc(tFn('sidebar.topics.refCountTitle'))}">`
+                + esc(tFn('sidebar.topics.refCount', trig)) + `</span>`);
+        }
+        parts.push(`<span class="topic-num topic-num--vers" title="${esc(tFn('sidebar.topics.versesCountTitle'))}">`
+            + esc(tFn('sidebar.topics.versesCount', topic.verse_count || 0)) + `</span>`);
+        if (sgN > 0) {
+            parts.push(`<span class="topic-num topic-num--sg" title="${esc(tFn('sidebar.topics.subgroupCountTitle'))}">`
+                + `↳ ${sgN}</span>`);
+        }
+        return `<span class="topic-nums">${parts.join('')}</span>`;
+    }
 
-        let cls = 'topic-node';
-        if (hasRenderedChildren) cls += ' has-children';
-        if (node.is_match) cls += ' topic-node--match';
-        else if (subtreeHasMatch(node)) cls += ' topic-node--in-match-path';
-
-        const matchTitle = node.is_match
-            ? ` title="${esc(tFn('sidebar.topics.matchBadgeTitle'))}"`
-            : '';
-
-        return `<details class="${cls}" data-topic-id="${node.id}" data-depth="${depth}">`
+    function topicNodeHtml(topic) {
+        return `<details class="topic-node" data-topic-id="${topic.id}">`
             + `<summary>`
-              + `<span class="topic-name"${matchTitle}>${esc(node.name)}</span>`
-              + count
-              + parentBadge
-              + triggers
+            + `<span class="topic-name">${esc(topic.name)}</span>`
+            + topicNumsHtml(topic)
             + `</summary>`
-            + `<div class="topic-body">`
-              + `<div class="topic-verses xr-panel-inner" data-loaded="0"></div>`
-              + renderedChildHtml
-            + `</div>`
+            + `<div class="topic-body" data-loaded="0"></div>`
             + `</details>`;
     }
 
-    const VERSE_PREVIEW_INITIAL = 8;
-
-    // Single shared IntersectionObserver: previews only fetch when the row
-    // actually enters the viewport, so a topic with 200 verses doesn't trigger
-    // 200 /api/search calls up-front.
-    let _previewObserver = null;
-    const _previewQueue = [];
-    let _previewWorking = false;
-
-    function ensurePreviewObserver() {
-        if (_previewObserver) return _previewObserver;
-        _previewObserver = new IntersectionObserver((entries) => {
-            for (const entry of entries) {
-                if (!entry.isIntersecting) continue;
-                const it = entry.target;
-                _previewObserver.unobserve(it);
-                if (it.dataset.previewQueued === '1') continue;
-                it.dataset.previewQueued = '1';
-                _previewQueue.push(it);
-                pumpPreviewQueue();
-            }
-        }, { rootMargin: '120px 0px' });
-        return _previewObserver;
-    }
-
-    async function pumpPreviewQueue() {
-        if (_previewWorking) return;
-        _previewWorking = true;
-        try {
-            while (_previewQueue.length) {
-                const it = _previewQueue.shift();
-                if (!it.isConnected) continue;
-                const label = it.dataset.label;
-                const preview = await fetchVersePreview(label);
-                const previewEl = it.querySelector('.topic-verse-preview');
-                if (previewEl) previewEl.textContent = preview || '';
-            }
-        } finally {
-            _previewWorking = false;
+    function renderTree(topics) {
+        _currentTopics = topics;
+        if (!topics || !topics.length) {
+            setTreeHtml(`<div class="topics-empty">${esc(tFn('sidebar.topics.empty'))}</div>`);
+            return;
         }
-    }
-
-    function renderVerseRows(versesEl, verses, showAll) {
-        const limit = showAll ? verses.length : Math.min(VERSE_PREVIEW_INITIAL, verses.length);
-        const visible = verses.slice(0, limit);
-        const remaining = verses.length - limit;
-        let html = visible.map(v => {
-            const label = refLabelFromVerseSpec(v);
-            return `<div class="xr-item topic-verse-item" data-label="${esc(label)}">`
-                + `<span class="xr-ref">${esc(label)}</span>`
-                + `<span class="xr-preview topic-verse-preview"></span>`
-                + `</div>`;
-        }).join('');
-        if (remaining > 0) {
-            html += `<button type="button" class="topics-show-all">`
-                + esc(tFn('sidebar.topics.showAll', remaining))
-                + `</button>`;
-        }
-        versesEl.innerHTML = html;
-        const observer = ensurePreviewObserver();
-        versesEl.querySelectorAll('.topic-verse-item').forEach(it => {
-            it.addEventListener('click', () => {
-                const label = it.dataset.label;
-                if (typeof window.searchFromXref === 'function') window.searchFromXref(label);
-            });
-            observer.observe(it);
-        });
-        const showAllBtn = versesEl.querySelector('.topics-show-all');
-        if (showAllBtn) {
-            showAllBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                renderVerseRows(versesEl, verses, true);
-            });
-        }
+        const openIds = captureOpenTopicIds();
+        setTreeHtml(`<div class="topics-list">${topics.map(topicNodeHtml).join('')}</div>`);
+        restoreOpenTopicIds(openIds);
+        attachHandlers();
     }
 
     function captureOpenTopicIds() {
@@ -395,126 +248,94 @@
         });
     }
 
-    function renderTree(tree) {
-        const openIds = captureOpenTopicIds();
-        _currentTree = tree;
-        if (!tree || !tree.length) {
-            setTreeHtml(`<div class="topics-empty">${esc(tFn('sidebar.topics.empty'))}</div>`);
-            return;
+    function triggeredMapFor(topic) {
+        const m = new Map();
+        for (const sg of (topic.triggered_subgroups || [])) {
+            m.set(sg.id, sg.triggered_by || []);
         }
-        const parts = [];
-        let hiddenRoots = 0;
-        for (const n of tree) {
-            if (shouldRenderNode(n, null)) {
-                parts.push(buildTopicNodeHtml(n, 0, null));
-            } else {
-                hiddenRoots++;
-            }
+        return m;
+    }
+
+    async function loadTopicBody(det) {
+        const body = det.querySelector(':scope > .topic-body');
+        const tid = Number(det.dataset.topicId);
+        if (!body || body.dataset.loaded === '1') return;
+        body.dataset.loaded = '1';
+        const topic = (_currentTopics || []).find(t => t.id === tid);
+        try {
+            const detail = await fetchTopicDetail(tid);
+            const ctx = subgroupCtx();
+            ctx.triggered = topic ? triggeredMapFor(topic) : null;
+            window.TopicSubgroups.renderInto(body, detail.subgroups || [], ctx);
+        } catch (err) {
+            console.error(err);
+            body.innerHTML = '';
+            body.dataset.loaded = '0';
         }
-        if (hiddenRoots > 0) {
-            parts.push(
-                `<button type="button" class="topics-show-small topics-show-small--global"`
-                + ` data-parent-id="0">`
-                + esc(tFn('sidebar.topics.showAllSubtopics', hiddenRoots))
-                + `</button>`
-            );
-        }
-        if (!parts.length) {
-            setTreeHtml(`<div class="topics-empty">${esc(tFn('sidebar.topics.empty'))}</div>`);
-            return;
-        }
-        setTreeHtml(parts.join(''));
-        restoreOpenTopicIds(openIds);
-        attachHandlers();
     }
 
     function attachHandlers() {
         if (!_container) return;
-        // Show-small toggles: reveal previously filtered tiny topics. Click on
-        // a per-parent button only widens that subtree; the global button at
-        // the root reveals every hidden topic in one go.
-        _container.querySelectorAll('.topics-show-small').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                const pid = Number(btn.dataset.parentId);
-                _expandedSmall.add(pid);
-                renderTree(_currentTree);
-            });
-        });
-        // Lazy-load verses when a topic node opens. We fetch + render the
-        // verses *before* letting the panel animate open, so the content is
-        // already in place — otherwise a "Laster temaer…" placeholder would
-        // appear inside, then swap to verses, shoving the rest of the tree
-        // around twice on every expand.
         _container.querySelectorAll('.topic-node').forEach(det => {
             const summary = det.querySelector(':scope > summary');
-            const versesEl = det.querySelector(':scope > .topic-body > .topic-verses');
-            const tid = Number(det.dataset.topicId);
-
-            async function loadVerses() {
-                if (!versesEl || versesEl.dataset.loaded === '1') return;
-                versesEl.dataset.loaded = '1';
-                try {
-                    const detail = await fetchTopicDetail(tid);
-                    const verses = (detail && detail.verses) || [];
-                    if (!verses.length) { versesEl.innerHTML = ''; return; }
-                    renderVerseRows(versesEl, verses, false);
-                } catch (err) {
-                    console.error(err);
-                    versesEl.innerHTML = '';
-                    versesEl.dataset.loaded = '0';
-                }
-            }
-
+            const body = det.querySelector(':scope > .topic-body');
+            // Render subgroups *before* the panel animates open so content is
+            // already in place (avoids a flicker / double layout shift).
             if (summary) {
                 summary.addEventListener('click', async (e) => {
-                    // Only defer the *opening* click on a not-yet-loaded node.
-                    if (det.open || !versesEl || versesEl.dataset.loaded === '1') return;
+                    if (det.open || !body || body.dataset.loaded === '1') return;
                     e.preventDefault();
-                    await loadVerses();
+                    await loadTopicBody(det);
                     det.open = true;
                 });
             }
-            // Fallback for programmatic opens (e.g. restored open state).
-            det.addEventListener('toggle', () => {
-                if (det.open) loadVerses();
-            });
+            det.addEventListener('toggle', () => { if (det.open) loadTopicBody(det); });
         });
-        // Trigger chips: scroll to + flash every verse in the range that
-        // surfaced this topic. Verses are in the current main view (it's why
-        // the topic showed up), so we locate existing DOM nodes rather than
-        // re-navigating.
-        _container.querySelectorAll('.topic-trigger-chip').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                const book = btn.dataset.book;
-                const chapter = Number(btn.dataset.chapter);
-                const vsStart = Number(btn.dataset.verseStart);
-                const vsEnd = Number(btn.dataset.verseEnd) || vsStart;
-                const found = [];
-                for (let v = vsStart; v <= vsEnd; v++) {
-                    const sel = `.verse-text-clickable[data-book="${book}"][data-chapter="${chapter}"][data-verse="${v}"]`;
-                    const el = document.querySelector(sel);
-                    if (el) found.push(el);
-                }
-                if (found.length) {
-                    found[0].scrollIntoView({ block: 'center', behavior: 'smooth' });
-                    found.forEach(el => {
-                        el.classList.add('topic-trigger-flash');
-                        setTimeout(() => el.classList.remove('topic-trigger-flash'), 3000);
-                    });
-                } else {
-                    const lang = (typeof window.versionLang === 'function' && _scope && _scope.range)
-                        ? window.versionLang(_scope.range.version) : 'no';
-                    const bName = (typeof window.bookName === 'function')
-                        ? window.bookName(book, lang) : book;
-                    const label = window.fmtVerseRef(book, bName, chapter, vsStart, vsEnd);
-                    if (typeof window.searchFromXref === 'function') window.searchFromXref(label);
-                }
-            });
+    }
+
+    // ── "Se også" cross-reference: show one topic alone, with a back link ──
+    // The list is hidden (not destroyed) and its scroll position saved, so Back
+    // returns the user exactly where they were — open topics and all.
+    async function openSeeAlso(topicId, subgroupId) {
+        let detail;
+        try {
+            detail = await fetchTopicDetail(topicId);
+        } catch (e) {
+            return;
+        }
+        const treeEl = _container && _container.querySelector('.topics-tree');
+        if (!treeEl) return;
+        const listEl = treeEl.querySelector('.topics-list');
+        const sp = scrollParent(treeEl);
+        const restore = { listEl, sp, top: sp ? sp.scrollTop : 0 };
+        if (listEl) listEl.style.display = 'none';
+        const prev = treeEl.querySelector('.topics-seealso-view');
+        if (prev) prev.remove();
+
+        const view = document.createElement('div');
+        view.className = 'topics-seealso-view';
+        view.innerHTML =
+            `<button type="button" class="topics-back">${esc(tFn('sidebar.topics.back'))}</button>`
+            + `<div class="topic-node topic-node--single" data-topic-id="${detail.id}">`
+            + `<div class="topic-single-head"><span class="topic-name">${esc(detail.name)}</span>`
+            + topicNumsHtml(detail) + `</div>`
+            + `<div class="topic-body"></div></div>`;
+        treeEl.appendChild(view);
+
+        const backBtn = view.querySelector('.topics-back');
+        if (backBtn) backBtn.addEventListener('click', () => {
+            view.remove();
+            if (restore.listEl) restore.listEl.style.display = '';
+            if (restore.sp) restore.sp.scrollTop = restore.top;
         });
+
+        const body = view.querySelector('.topic-node--single > .topic-body');
+        const ctx = subgroupCtx();
+        ctx.triggered = null;
+        window.TopicSubgroups.renderInto(body, detail.subgroups || [], ctx);
+        if (subgroupId != null && window.TopicSubgroups.focusSubgroup) {
+            window.TopicSubgroups.focusSubgroup(body, subgroupId);
+        }
     }
 
     // ── MVB scope expand-to-chapter (mirrors commentaryModule) ──────
@@ -533,10 +354,6 @@
             if (hit) { targetIdx = i; targetBlock = b; break; }
         }
         if (targetIdx >= 0 && !isMobileNow() && typeof window.toggleChapterExpand === 'function') {
-            // Only toggle when the block isn't already showing the whole chapter.
-            // The expand-bar attribute only exists for verse-isolated cards; chapter
-            // queries land directly on a whole_chapter block with no bar — skip
-            // there too (block.is_chapter true).
             const bar = document.querySelector(`.chapter-expand-bar[data-card-idx="${targetIdx}"]`);
             const expandedViaBar = bar && bar.getAttribute('data-expanded') === 'true';
             const alreadyChapter = !!(targetBlock && targetBlock.is_chapter);
@@ -547,10 +364,8 @@
             }
         }
 
-        const lang = (typeof window.versionLang === 'function')
-            ? window.versionLang(r.version) : 'no';
-        const bName = (typeof window.bookName === 'function')
-            ? window.bookName(r.book, lang) : r.book;
+        const lang = (typeof window.versionLang === 'function') ? window.versionLang(r.version) : 'no';
+        const bName = (typeof window.bookName === 'function') ? window.bookName(r.book, lang) : r.book;
         const label = (r.ch_start === r.ch_end)
             ? `${bName} ${r.ch_start}`
             : `${bName} ${r.ch_start}-${r.ch_end}`;
@@ -581,24 +396,20 @@
         setScopeLabel(scopeLabel, { showExpand: isMvbScope });
 
         const key = scopeKey(_scope);
-        if (key !== _lastScopeKey) {
-            _expandedSmall = new Set();
-            _lastScopeKey = key;
-        }
-        let tree = _dataCache.get(key);
-        if (!tree) {
+        let topics = _dataCache.get(key);
+        if (!topics) {
             setTreeHtml(`<div class="topics-loading">${esc(tFn('sidebar.topics.loading'))}</div>`);
             try {
-                tree = await fetchTopicsTree(_scope.range, _scope.markedVerses);
-                _dataCache.set(key, tree);
+                topics = await fetchTopicsTree(_scope.range, _scope.markedVerses);
+                _dataCache.set(key, topics);
             } catch (e) {
                 console.error(e);
-                setTreeHtml(`<div class="topics-empty">${esc(tFn('sidebar.topics.loading'))}</div>`);
+                setTreeHtml(`<div class="topics-empty">${esc(tFn('sidebar.topics.empty'))}</div>`);
                 return;
             }
         }
         _hasBeenShown = true;
-        renderTree(tree);
+        renderTree(topics);
     }
 
     // ── Public API ──────────────────────────────────────────────────
@@ -706,10 +517,7 @@
             _hasBeenShown = false;
             _dataCache.clear();
             _topicDetailCache.clear();
-            _previewCache.clear();
-            _expandedSmall = new Set();
-            _currentTree = null;
-            _lastScopeKey = '';
+            _currentTopics = null;
             if (_container) {
                 const tree = _container.querySelector('.topics-tree');
                 if (tree) tree.innerHTML = '';

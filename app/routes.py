@@ -833,16 +833,11 @@ def api_topics():
     # to eng before lookup.
     version_id = _resolve_version_id(bible_data, request.args.get("version"))
 
-    # Single-verse mode (legacy): /api/topics?book=&chapter=&verse=
+    # Single-verse mode (legacy) is just a 1-verse range.
     if verse_start is None and chapter_end is None and verse is not None:
-        if version_id is not None:
-            eb, ec, ev = bible_data.vsf.translation_to_eng(version_id, book, chapter, verse)
-            topics = bible_data.get_topics_for_verse(eb, ec, ev)
-        else:
-            topics = bible_data.get_topics_for_verse(book, chapter, verse)
-        return jsonify({"topics": topics})
+        verse_start = verse_end = verse
 
-    # Range mode: returns aggregated tree sorted by descendant verse-count.
+    # Range mode: subjects (with their triggered subgroups), sorted by verse-count.
     ch_start = chapter
     ch_end = chapter_end if chapter_end is not None else chapter
     tx_vsf = bible_data.vsf.translation_vsf(version_id) if version_id is not None else "eng"
@@ -861,12 +856,12 @@ def api_topics():
             _eb2, ec_e, ev_e = bible_data.vsf.to_eng(tx_vsf, book, ch_end, e_v)
         except Exception:
             pass
-    tree = bible_data.aggregate_topics_for_range(eb_s, ec_s, ev_s, ec_e, ev_e)
+    topics = bible_data.get_topics_for_range(eb_s, ec_s, ev_s, ec_e, ev_e)
 
     if non_eng:
         # Clamp each triggered_by to the eng query window, then remap eng→user
-        # vsf so chip labels match the rendered verses. Drops any node whose
-        # triggers all fall outside the window (clears is_match too).
+        # vsf so chip labels match the rendered verses. Drops any subgroup whose
+        # triggers all fall outside the window, and any subject left empty.
         eng_lo = ec_s * 1000 + ev_s
         eng_hi = ec_e * 1000 + ev_e
         verse_counts = bible_data.book_verse_counts.get(version_id, {}).get(book, {})
@@ -895,20 +890,28 @@ def api_topics():
                 "verse_start": m_vs_s,
                 "verse_end": m_vs_e if (m_ch_e != m_ch_s or m_vs_e != m_vs_s) else None,
             }
-        def _walk(nodes):
-            for n in nodes:
+        kept_topics = []
+        for topic in topics:
+            kept_sgs = []
+            for sg in topic.get("triggered_subgroups", []):
                 kept = []
-                for t in n.get("triggered_by", []):
+                for t in sg.get("triggered_by", []):
                     r = _remap_trig(t)
                     if r is not None:
                         kept.append(r)
-                if n.get("is_match") and not kept:
-                    n["is_match"] = False
-                n["triggered_by"] = kept
-                _walk(n.get("children") or [])
-        _walk(tree)
+                if kept:
+                    sg["triggered_by"] = kept
+                    kept_sgs.append(sg)
+            if kept_sgs:
+                topic["triggered_subgroups"] = kept_sgs
+                topic["triggered_count"] = sum(len(sg["triggered_by"]) for sg in kept_sgs)
+                kept_topics.append(topic)
+        # Re-sort: remapping may have dropped triggers, changing relevance order.
+        kept_topics.sort(key=lambda x: (-x.get("triggered_count", 0),
+                                        -x.get("verse_count", 0), x["name"]))
+        topics = kept_topics
 
-    return jsonify({"topics": tree, "mode": "range"})
+    return jsonify({"topics": topics, "mode": "range"})
 
 
 @bp.get("/api/topic/<int:topic_id>")

@@ -169,13 +169,16 @@ const I18N = {
         'sidebar.topics.scope.tray': 'Temaer i {0}',
         'sidebar.topics.scope.mvb': 'Temaer for markerte vers',
         'sidebar.topics.expandToChapter': 'Vis for hele kapittelet',
-        'sidebar.topics.countTitle': 'Antall vers (inkluderer undertemaer)',
-        'sidebar.topics.jumpToTrigger': 'Gå til verset som utløste dette temaet',
-        'sidebar.topics.subtopicsCount': '{0} undertemaer',
+        'sidebar.topics.countTitle': 'Antall vers',
+        'sidebar.topics.refCount': 'ref: {0}',
+        'sidebar.topics.refCountTitle': 'Antall referanser i gjeldende tekst',
+        'sidebar.topics.versesCount': 'vers: {0}',
+        'sidebar.topics.versesCountTitle': 'Antall vers totalt i temaet',
+        'sidebar.topics.subgroupCountTitle': 'Antall undergrupper',
+        'sidebar.topics.jumpToTrigger': 'Gå til verset som utløste denne undergruppen',
         'sidebar.topics.showAll': 'Vis alle ({0} til)',
-        'sidebar.topics.showSmall': '+ {0} små undertemaer',
-        'sidebar.topics.showAllSubtopics': '+ Vis alle undertemaer ({0})',
-        'sidebar.topics.matchBadgeTitle': 'Dette temaet matcher gjeldende tekst',
+        'sidebar.topics.seeAlso': 'Se også',
+        'sidebar.topics.back': '← Tilbake',
         'sidebar.leksikon.title': 'Leksikon',
         'sidebar.leksikon.empty': 'Ingen leksikon-oppslag for denne teksten',
         'sidebar.leksikon.loading': 'Laster leksikon…',
@@ -242,10 +245,6 @@ const I18N = {
         'searchResults.studyCount': '{0} treff',
         'searchResults.studyNoResults': 'Ingen treff',
         'searchResults.studyNoResultsBody': 'Fant ingen treff for «{0}». Husk at disse søkene kun fungerer på engelsk.',
-        'study.openAll': 'Åpne alle',
-        'study.openAllTitle': 'Åpne alle versene hver i sin boks',
-        'study.parentTopic': 'Foreldretema: {0}',
-        'study.verseCount': '{0} vers',
         'study.commentary.snippetMore': 'Åpne kommentaren',
         'study.commentary.introTag': '(intro)',
         'study.commentary.overviewTag': '(oversikt)',
@@ -888,7 +887,7 @@ window.addEventListener('popstate', async e => {
         if (window.AppSidebar && typeof window.AppSidebar.close === 'function') window.AppSidebar.close();
         if (window.AppModuleHost && typeof window.AppModuleHost.closeModule === 'function') window.AppModuleHost.closeModule();
         if (nav.kind === 'topic' && window.StudySearch && typeof window.StudySearch.restoreTopic === 'function') {
-            window.StudySearch.restoreTopic(nav.id, { query: nav.q, version: nav.version });
+            window.StudySearch.restoreTopic(nav.id, { query: nav.q, version: nav.version, subgroupId: nav.subgroupId });
         } else {
             doStudySearch(nav.type, false);
         }

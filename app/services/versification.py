@@ -6,8 +6,8 @@ versification used by:
   - BSB outlines and topical index
   - the scofield and mhenry commentaries
 
-Each translation, commentary, outline source, and topic source is tagged with
-its versification ('eng', 'heb', 'lat', 'grk'). The Versifier converts a
+Each translation, commentary, and outline source is tagged with its
+versification ('eng', 'heb', 'lat', 'grk'). The Versifier converts a
 verse reference between any pair of traditions by routing through 'eng'.
 
 Mappings come from versification_map, populated by migrations/import_tvtms.py
@@ -26,7 +26,6 @@ class Versifier:
         self._translation_vsf: dict = {}     # tid -> vsf
         self._commentary_vsf: dict = {}       # commentary_id -> vsf
         self._outline_vsf: dict = {}          # book_usfm -> vsf  (outlines is per-book)
-        self._topic_source_vsf: dict = {}     # source -> vsf
         self._load()
 
     def _load(self):
@@ -58,13 +57,6 @@ class Versifier:
                 self._outline_vsf[book] = vsf
         except Exception:
             pass
-        try:
-            for src, vsf in self.db.execute(
-                "SELECT source, COALESCE(versification,'eng') FROM topic_sources"
-            ):
-                self._topic_source_vsf[src] = vsf
-        except Exception:
-            pass
 
         n = len(self._forward)
         print(f"Loaded {n} versification mappings.")
@@ -78,9 +70,6 @@ class Versifier:
 
     def outline_vsf(self, book_usfm):
         return self._outline_vsf.get(book_usfm, "eng")
-
-    def topic_source_vsf(self, source):
-        return self._topic_source_vsf.get(source, "eng")
 
     # ── Core: convert a single verse between vsf and eng ──────────────────────
     def to_eng(self, src_vsf, book, ch, verse):

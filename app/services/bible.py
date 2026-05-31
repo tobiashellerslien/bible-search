@@ -1071,76 +1071,34 @@ class BibleData:
         ).fetchall()
         return [r[0] for r in rows]
 
-    def get_topics_for_verse(self, book_usfm, chapter, verse):
-        """Topics whose verse range covers the given verse. Returns each leaf with
-        its full path (parent chain) so the frontend can group/display naturally."""
-        rows = self.db.execute(
-            """SELECT DISTINCT t.id, t.name, t.parent_id, t.source
-               FROM topic_verses tv JOIN topics t ON t.id = tv.topic_id
-               WHERE tv.book_usfm=? AND tv.chapter=?
-                 AND tv.verse_start <= ? AND COALESCE(tv.verse_end, tv.verse_start) >= ?""",
-            [book_usfm, chapter, verse, verse],
-        ).fetchall()
-        out = []
-        for tid, name, parent_id, source in rows:
-            path = self._topic_path(tid)
-            out.append({"id": tid, "name": name, "source": source, "path": path})
-        return out
-
-    def _topic_path(self, topic_id):
-        """Return [root, …, leaf] name list using a single recursive CTE."""
-        rows = self.db.execute(
-            """WITH RECURSIVE anc(id, name, parent_id, depth) AS (
-                   SELECT id, name, parent_id, 0 FROM topics WHERE id=?
-                   UNION ALL
-                   SELECT t.id, t.name, t.parent_id, anc.depth+1
-                   FROM topics t JOIN anc ON t.id = anc.parent_id
-               )
-               SELECT name FROM anc ORDER BY depth DESC""",
-            [topic_id],
-        ).fetchall()
-        return [r[0] for r in rows]
-
-    # ── Topics: range aggregation for the Topics module ──────────────
-    def _ensure_topic_own_counts(self):
-        """Lazy-build {topic_id: rows_in_topic_verses_directly_on_this_topic}.
-        Used as the displayed badge so the number matches what a user sees when
-        they expand the topic."""
-        if getattr(self, "_topic_own_counts", None) is not None:
-            return self._topic_own_counts
-        own = {}
-        for tid, n in self.db.execute(
-            "SELECT topic_id, COUNT(*) FROM topic_verses GROUP BY topic_id"
-        ):
-            own[tid] = n
-        self._topic_own_counts = own
-        return own
-
+    # ── Topics: 2-level model (subject → subgroups → verses) ─────────
     def _ensure_topic_counts(self):
-        """Lazy-build {topic_id: total_verse_rows_in_subtree}. Cached for the
-        process lifetime — topics tree is static."""
+        """Lazy-build {topic_id: total verse rows across all its subgroups}.
+        Cached for the process lifetime — the topics table is static."""
         if getattr(self, "_topic_counts", None) is not None:
             return self._topic_counts
-        # Direct verse counts per topic.
-        own = {}
+        m = {}
         for tid, n in self.db.execute(
-            "SELECT topic_id, COUNT(*) FROM topic_verses GROUP BY topic_id"
+            "SELECT sg.topic_id, COUNT(*) FROM topic_verses tv "
+            "JOIN topic_subgroups sg ON sg.id = tv.subgroup_id "
+            "GROUP BY sg.topic_id"
         ):
-            own[tid] = n
-        # Parent map + collect all topic ids.
-        parent = {}
-        for tid, pid in self.db.execute("SELECT id, parent_id FROM topics"):
-            parent[tid] = pid
-        # Aggregate upward: for each leaf, walk to root adding its own count
-        # to every ancestor. Counts include self.
-        totals = {tid: own.get(tid, 0) for tid in parent}
-        for tid, n in own.items():
-            cur = parent.get(tid)
-            while cur is not None:
-                totals[cur] = totals.get(cur, 0) + n
-                cur = parent.get(cur)
-        self._topic_counts = totals
-        return totals
+            m[tid] = n
+        self._topic_counts = m
+        return m
+
+    def _ensure_subgroup_counts(self):
+        """Lazy-build {topic_id: number_of_subgroups}. Drives the search-result
+        badge ('N undergrupper')."""
+        if getattr(self, "_topic_subgroup_counts", None) is not None:
+            return self._topic_subgroup_counts
+        m = {}
+        for tid, n in self.db.execute(
+            "SELECT topic_id, COUNT(*) FROM topic_subgroups GROUP BY topic_id"
+        ):
+            m[tid] = n
+        self._topic_subgroup_counts = m
+        return m
 
     def _topic_range_where(self, book_usfm, ch_start, vs_start, ch_end, vs_end):
         """Build the WHERE-clause + params for a topic_verses range overlap.
@@ -1180,140 +1138,53 @@ class BibleData:
         return sql, params
 
     def get_topics_for_range(self, book_usfm, ch_start, vs_start, ch_end, vs_end):
-        """All distinct topics whose verse range overlaps the given passage.
-        Returns rows with parent path + the verse(s) inside the passage that hit
-        each topic ('triggered_by'). Versification: assumes eng input."""
-        sql, params = self._topic_range_where(book_usfm, ch_start, vs_start, ch_end, vs_end)
-        sql = ("SELECT tv.topic_id, tv.chapter, tv.verse_start, tv.verse_end,"
-               "       t.name, t.parent_id, t.source"
-               " FROM topic_verses tv JOIN topics t ON t.id = tv.topic_id"
-               + sql)
+        """Subjects whose subgroups overlap the given passage. Each returned
+        subject lists only the subgroups it was triggered by, and each of those
+        carries the passage verse(s) that hit it ('triggered_by'). Sorted by
+        triggered_count (desc), then total verse-count (desc), then name.
+        Versification: eng input.
 
-        by_topic = {}
-        for tid, ch, vs_s, vs_e, name, parent_id, source in self.db.execute(sql, params):
-            entry = by_topic.get(tid)
-            if entry is None:
-                entry = {
-                    "id": tid, "name": name, "source": source,
-                    "parent_id": parent_id,
-                    "triggered_by": [],
-                }
-                by_topic[tid] = entry
-            entry["triggered_by"].append({
-                "chapter": ch, "verse_start": vs_s, "verse_end": vs_e,
-            })
-        return by_topic  # {topic_id: {...}}
+        Shape: [{id, name, verse_count, subgroup_count, triggered_count,
+                 triggered_subgroups:[{id, label, triggered_by:[{chapter,verse_start,verse_end}]}]}]
+        """
+        where, params = self._topic_range_where(book_usfm, ch_start, vs_start, ch_end, vs_end)
+        sql = ("SELECT t.id, t.name, sg.id, sg.label, sg.sort_order,"
+               "       tv.chapter, tv.verse_start, tv.verse_end"
+               " FROM topic_verses tv"
+               " JOIN topic_subgroups sg ON sg.id = tv.subgroup_id"
+               " JOIN topics t ON t.id = sg.topic_id"
+               + where)
+        topics = {}
+        for tid, tname, sgid, label, sg_order, ch, vs_s, vs_e in self.db.execute(sql, params):
+            topic = topics.get(tid)
+            if topic is None:
+                topic = {"id": tid, "name": tname, "_sgs": {}}
+                topics[tid] = topic
+            sg = topic["_sgs"].get(sgid)
+            if sg is None:
+                sg = {"id": sgid, "label": label, "_order": sg_order, "triggered_by": []}
+                topic["_sgs"][sgid] = sg
+            sg["triggered_by"].append({"chapter": ch, "verse_start": vs_s, "verse_end": vs_e})
 
-    def aggregate_topics_for_range(self, book_usfm, ch_start, vs_start, ch_end, vs_end):
-        """Build a tree of topics for the range. For each matched topic we
-        include its full ancestor chain AND every other descendant of the
-        matched roots — so the user sees matched leaves in the context of
-        their siblings, not in isolation. Matched nodes carry 'triggered_by'
-        and `is_match=True`. Sorted at every level by total descendant
-        verse-count (incl. self) descending."""
-        matched = self.get_topics_for_range(book_usfm, ch_start, vs_start, ch_end, vs_end)
-        if not matched:
-            return []
         counts = self._ensure_topic_counts()
-        own_counts = self._ensure_topic_own_counts()
-
-        # Walk each matched topic up to root, collecting ancestors + finding
-        # root ancestors. We then bulk-load every descendant of those roots
-        # so siblings of matched nodes are present in the returned tree.
-        nodes = {}  # tid -> {id, name, source, parent_id, verse_count, ...}
-        def _make_node(tid, name, parent_id, source):
-            return {
-                "id": tid, "name": name, "source": source,
-                "parent_id": parent_id,
+        sg_counts = self._ensure_subgroup_counts()
+        out = []
+        for tid, topic in topics.items():
+            sgs = sorted(topic["_sgs"].values(), key=lambda s: s["_order"])
+            for s in sgs:
+                s.pop("_order", None)
+            trig_count = sum(len(s["triggered_by"]) for s in sgs)
+            out.append({
+                "id": tid, "name": topic["name"],
                 "verse_count": counts.get(tid, 0),
-                "own_count": own_counts.get(tid, 0),
-                "triggered_by": [],
-                "is_match": False,
-                "children": [],
-            }
-
-        def _ensure_node(tid):
-            if tid in nodes:
-                return nodes[tid]
-            row = self.db.execute(
-                "SELECT name, parent_id, source FROM topics WHERE id=?", [tid]
-            ).fetchone()
-            if not row:
-                return None
-            name, parent_id, source = row
-            n = _make_node(tid, name, parent_id, source)
-            nodes[tid] = n
-            return n
-
-        root_ids = set()
-        for tid, m in matched.items():
-            node = _ensure_node(tid)
-            if node is None:
-                continue
-            node["triggered_by"] = m["triggered_by"]
-            node["is_match"] = True
-            cur = node["parent_id"]
-            last_id = tid
-            while cur is not None:
-                p = _ensure_node(cur)
-                if p is None:
-                    break
-                last_id = cur
-                cur = p["parent_id"]
-            root_ids.add(last_id)
-
-        # Bulk-load every descendant of the collected roots so we include
-        # sibling subtopics, not just the matched path. Hierarchy is shallow
-        # (max ~4 levels) so the recursive CTE is cheap.
-        if root_ids:
-            placeholders = ",".join("?" for _ in root_ids)
-            cur = self.db.execute(
-                "WITH RECURSIVE sub(id) AS ("
-                f"  SELECT id FROM topics WHERE id IN ({placeholders})"
-                "  UNION ALL"
-                "  SELECT t.id FROM topics t JOIN sub ON t.parent_id = sub.id"
-                ") SELECT t.id, t.name, t.parent_id, t.source FROM topics t"
-                " JOIN sub ON sub.id = t.id",
-                list(root_ids),
-            )
-            for tid, name, parent_id, source in cur:
-                if tid in nodes:
-                    continue
-                nodes[tid] = _make_node(tid, name, parent_id, source)
-
-        # Build path for each node (root → leaf names).
-        for n in nodes.values():
-            path = []
-            cur = n["id"]
-            while cur is not None and cur in nodes:
-                path.append(nodes[cur]["name"])
-                cur = nodes[cur]["parent_id"]
-            if cur is not None:
-                rest = self._topic_path(cur)
-                path.extend(reversed(rest))
-            n["path"] = list(reversed(path))
-
-        # Wire children relationships among collected nodes.
-        roots = []
-        for tid, n in nodes.items():
-            pid = n["parent_id"]
-            if pid in nodes:
-                nodes[pid]["children"].append(n)
-            else:
-                roots.append(n)
-
-        def _sort_tree(lst):
-            lst.sort(key=lambda x: (-x["verse_count"], x["name"]))
-            for c in lst:
-                _sort_tree(c["children"])
-        _sort_tree(roots)
-
-        def _strip(lst):
-            for n in lst:
-                n.pop("parent_id", None)
-                _strip(n["children"])
-        _strip(roots)
-        return roots
+                "subgroup_count": sg_counts.get(tid, 0),
+                "triggered_count": trig_count,
+                "triggered_subgroups": sgs,
+            })
+        # Most-relevant first (how many passage refs hit the topic), then biggest
+        # topic, so the largest among the most relevant float to the top.
+        out.sort(key=lambda x: (-x["triggered_count"], -x["verse_count"], x["name"]))
+        return out
 
     def has_topics_for_range(self, book_usfm, ch_start, vs_start, ch_end, vs_end):
         """Cheap existence check used to grey-out the Temaer button."""
@@ -1322,116 +1193,88 @@ class BibleData:
         return self.db.execute(sql, params).fetchone() is not None
 
     def get_topic(self, topic_id):
+        """A subject with all its subgroups (in source order). Each subgroup
+        carries its label, an optional resolved 'see_also' cross-reference
+        ({id,name} when the target subject exists, else {text}), and its verses
+        (each with a display 'ref_label'). Whole-chapter refs label as 'Book N'."""
         row = self.db.execute(
-            "SELECT id, name, parent_id, source FROM topics WHERE id=?", [topic_id]
+            "SELECT id, name FROM topics WHERE id=?", [topic_id]
         ).fetchone()
         if not row:
             return None
-        tid, name, parent_id, source = row
-        path = self._topic_path(tid)
-        verses = []
-        for book, ch, vs_s, vs_e in self.db.execute(
-            """SELECT book_usfm, chapter, verse_start, verse_end FROM topic_verses
-               WHERE topic_id=? ORDER BY sort_order""",
+        tid, name = row
+        subgroups = []
+        for sgid, label, see_id, see_sgid in self.db.execute(
+            """SELECT id, label, see_also_topic_id, see_also_subgroup_id
+               FROM topic_subgroups WHERE topic_id=? ORDER BY sort_order""",
             [tid],
         ):
-            label = ref_label(book, ch, vs_s, vs_e)
-            verses.append({
-                "book_usfm": book, "chapter": ch,
-                "verse_start": vs_s, "verse_end": vs_e, "ref_label": label,
+            verses = []
+            verse_span = 0
+            for book, ch, vs_s, vs_e, whole in self.db.execute(
+                """SELECT book_usfm, chapter, verse_start, verse_end, whole_chapter
+                   FROM topic_verses WHERE subgroup_id=? ORDER BY rowid""",
+                [sgid],
+            ):
+                label_str = ref_label(book, ch, None, None) if whole else ref_label(book, ch, vs_s, vs_e)
+                verses.append({
+                    "book_usfm": book, "chapter": ch,
+                    "verse_start": vs_s, "verse_end": vs_e,
+                    "whole_chapter": whole, "ref_label": label_str,
+                })
+                verse_span += (vs_e or vs_s) - vs_s + 1
+            # Only resolved cross-refs become links; unresolved text is hidden so
+            # the UI never shows a dead "Se også".
+            see_also = None
+            if see_id:
+                r = self.db.execute("SELECT id, name FROM topics WHERE id=?", [see_id]).fetchone()
+                if r:
+                    see_also = {"id": r[0], "name": r[1]}
+                    if see_sgid is not None:
+                        see_also["subgroup_id"] = see_sgid
+                        sg_row = self.db.execute(
+                            "SELECT label FROM topic_subgroups WHERE id=?", [see_sgid]
+                        ).fetchone()
+                        if sg_row and sg_row[0]:
+                            see_also["subgroup_label"] = sg_row[0]
+            subgroups.append({
+                "id": sgid, "label": label or "", "see_also": see_also,
+                "verse_count": len(verses), "_span": verse_span, "verses": verses,
             })
+        # Most-referenced subgroups first; ties broken by total verses covered.
+        # Ref-less (cross-ref only) subgroups fall to the bottom.
+        subgroups.sort(key=lambda s: (-s["verse_count"], -s["_span"]))
+        for s in subgroups:
+            s.pop("_span", None)
         counts = self._ensure_topic_counts()
-        own = self._ensure_topic_own_counts()
-        child_counts = self._ensure_topic_child_counts()
-        children = [
-            {"id": cid, "name": cname,
-             "verse_count": counts.get(cid, 0),
-             "own_count": own.get(cid, 0),
-             "child_count": child_counts.get(cid, 0)}
-            for cid, cname in self.db.execute(
-                "SELECT id, name FROM topics WHERE parent_id=?", [tid]
-            )
-        ]
-        # Sort like the Topics module: by total subtree verse-count, then name.
-        children.sort(key=lambda c: (-c["verse_count"], c["name"]))
-        return {"id": tid, "name": name, "source": source, "path": path,
-                "parent": self._topic_parent(parent_id),
-                "ancestors": self._topic_ancestors(tid),
-                "verse_count": counts.get(tid, 0), "own_count": own.get(tid, 0),
-                "child_count": child_counts.get(tid, 0),
-                "verses": verses, "children": children}
-
-    def _topic_parent(self, parent_id):
-        """Return {id, name} for a parent topic, or None if there is no parent."""
-        if parent_id is None:
-            return None
-        row = self.db.execute(
-            "SELECT id, name FROM topics WHERE id=?", [parent_id]
-        ).fetchone()
-        return {"id": row[0], "name": row[1]} if row else None
-
-    def _topic_ancestors(self, topic_id):
-        """Ancestor chain [{id,name}, …] from root down to the immediate parent
-        (excludes the topic itself). Used for clickable breadcrumbs."""
-        rows = self.db.execute(
-            """WITH RECURSIVE anc(id, name, parent_id, depth) AS (
-                   SELECT id, name, parent_id, 0 FROM topics WHERE id=?
-                   UNION ALL
-                   SELECT t.id, t.name, t.parent_id, anc.depth+1
-                   FROM topics t JOIN anc ON t.id = anc.parent_id
-               )
-               SELECT id, name FROM anc WHERE depth>0 ORDER BY depth DESC""",
-            [topic_id],
-        ).fetchall()
-        return [{"id": r[0], "name": r[1]} for r in rows]
-
-    def _ensure_topic_child_counts(self):
-        """Cached {parent_id: direct_child_count} — drives the subtopic badge and
-        tells the frontend which nodes are expandable into subtopics."""
-        if getattr(self, "_topic_child_counts", None) is not None:
-            return self._topic_child_counts
-        m = {}
-        for pid, n in self.db.execute(
-            "SELECT parent_id, COUNT(*) FROM topics WHERE parent_id IS NOT NULL GROUP BY parent_id"
-        ):
-            m[pid] = n
-        self._topic_child_counts = m
-        return m
+        return {"id": tid, "name": name,
+                "verse_count": counts.get(tid, 0), "subgroups": subgroups}
 
     def search_topics_by_name(self, query, limit=120):
-        """Full-text search over topic names (topics_fts). Returns topics ordered
-        by relevance, each with its path, immediate parent ({id,name}|None), and
-        verse counts (own + subtree total). Empty list if topics_fts is missing."""
+        """Full-text search over subject names (topics_fts). Returns subjects
+        ordered by relevance, each with its subgroup-count and total verse-count.
+        Empty list if topics_fts is missing."""
         expr, err = study_match_expr(query)
         if err or not expr:
             return []
         sql = (
-            "SELECT t.id, t.name, t.parent_id, t.source "
-            "FROM topics_fts "
+            "SELECT t.id, t.name FROM topics_fts "
             "JOIN topics t ON t.id = topics_fts.rowid "
             "WHERE topics_fts MATCH ? "
-            "ORDER BY bm25(topics_fts), t.name "
-            "LIMIT ?"
+            "ORDER BY bm25(topics_fts), t.name LIMIT ?"
         )
         try:
             rows = self.db.execute(sql, [expr, limit]).fetchall()
         except sqlite3.OperationalError:
             return []
         counts = self._ensure_topic_counts()
-        own_counts = self._ensure_topic_own_counts()
-        child_counts = self._ensure_topic_child_counts()
-        out = []
-        for tid, name, parent_id, source in rows:
-            out.append({
-                "id": tid, "name": name, "source": source,
-                "path": self._topic_path(tid),
-                "parent": self._topic_parent(parent_id),
-                "ancestors": self._topic_ancestors(tid),
-                "own_count": own_counts.get(tid, 0),
-                "verse_count": counts.get(tid, 0),
-                "child_count": child_counts.get(tid, 0),
-            })
-        return out
+        sg_counts = self._ensure_subgroup_counts()
+        return [
+            {"id": tid, "name": name,
+             "verse_count": counts.get(tid, 0),
+             "subgroup_count": sg_counts.get(tid, 0)}
+            for tid, name in rows
+        ]
 
     def get_outline(self, book_usfm):
         row = self.db.execute(

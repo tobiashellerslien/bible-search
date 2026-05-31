@@ -23,6 +23,10 @@
             --font-serif: 'Georgia', 'Times New Roman', 'Palatino Linotype', serif;
             --verse-font-size: 1.1rem;
             --ref-font-size: calc(var(--verse-font-size) * 1);
+            /* Preview text (xrefs, topic refs, study-search snippets, ref popup).
+               Scales with --verse-font-size but stays smaller than full verse text. */
+            --preview-font-size: calc(var(--verse-font-size) * 0.78);
+            --preview-ref-font-size: calc(var(--verse-font-size) * 0.72);
             --radius-xs: 5px;
             --radius-sm: 8px;
             --radius: 13px;
@@ -1459,12 +1463,12 @@
         }
         .xr-ref {
             font-weight: 600;
-            font-size: 0.82rem;
+            font-size: var(--preview-ref-font-size);
             color: var(--accent);
             font-family: 'Lora', Georgia, serif;
         }
         .xr-preview {
-            font-size: 0.85rem;
+            font-size: var(--preview-font-size);
             color: var(--text-muted);
             font-family: var(--font-serif);
             display: -webkit-box;
@@ -5146,17 +5150,17 @@
         .commentary-box > summary::-webkit-details-marker { display: none; }
         .commentary-box > summary::before {
             content: '';
-            width: 0;
-            height: 0;
-            border-left: 5px solid currentColor;
-            border-top: 4px solid transparent;
-            border-bottom: 4px solid transparent;
+            width: 5px;
+            height: 5px;
+            border: solid currentColor;
+            border-width: 0 1.3px 1.3px 0;
             opacity: 0.6;
-            transform: rotate(0deg);
+            margin: 0 1px;
+            transform: rotate(-45deg);
             transition: transform 0.18s ease;
             flex-shrink: 0;
         }
-        .commentary-box[open] > summary::before { transform: rotate(90deg); }
+        .commentary-box[open] > summary::before { transform: rotate(45deg); }
         @media (hover: hover) {
 
         .commentary-box > summary:hover { background: var(--accent-dim); }
@@ -5248,13 +5252,14 @@
         .ref-popup-label {
             font-family: 'Lora', Georgia, serif;
             font-weight: 600;
-            font-size: 0.82rem;
+            font-size: var(--preview-ref-font-size);
             color: var(--accent);
             margin-bottom: 5px;
         }
-        /* Match the main reading pane's verse formatting. */
+        /* Match the main reading pane's verse formatting, scaled down. */
         .ref-popup-body {
             font-family: var(--font-serif, var(--font-ui));
+            font-size: var(--preview-font-size);
             line-height: 1.85;
             max-height: 9em;
             overflow: auto;
@@ -5320,17 +5325,17 @@
         details.commentary-md-h2 > summary::-webkit-details-marker { display: none; }
         details.commentary-md-h2 > summary::before {
             content: '';
-            width: 0;
-            height: 0;
-            border-left: 4px solid currentColor;
-            border-top: 3px solid transparent;
-            border-bottom: 3px solid transparent;
+            width: 4px;
+            height: 4px;
+            border: solid currentColor;
+            border-width: 0 1.2px 1.2px 0;
             opacity: 0.55;
-            transform: rotate(0deg);
+            margin: 0 1px;
+            transform: rotate(-45deg);
             transition: transform 0.18s ease;
             flex-shrink: 0;
         }
-        details.commentary-md-h2[open] > summary::before { transform: rotate(90deg); }
+        details.commentary-md-h2[open] > summary::before { transform: rotate(45deg); }
         @media (hover: hover) {
 
         details.commentary-md-h2 > summary:hover { background: var(--accent-dim); }
@@ -5497,17 +5502,17 @@
         .leksikon-box > summary::-webkit-details-marker { display: none; }
         .leksikon-box > summary::before {
             content: '';
-            width: 0;
-            height: 0;
-            border-left: 5px solid currentColor;
-            border-top: 4px solid transparent;
-            border-bottom: 4px solid transparent;
+            width: 5px;
+            height: 5px;
+            border: solid currentColor;
+            border-width: 0 1.3px 1.3px 0;
             opacity: 0.6;
-            transform: rotate(0deg);
+            margin: 0 1px;
+            transform: rotate(-45deg);
             transition: transform 0.18s ease;
             flex-shrink: 0;
         }
-        .leksikon-box[open] > summary::before { transform: rotate(90deg); }
+        .leksikon-box[open] > summary::before { transform: rotate(45deg); }
         @media (hover: hover) {
 
         .leksikon-box > summary:hover { background: var(--accent-dim); }
@@ -5598,6 +5603,11 @@
             flex-direction: column;
             gap: 6px;
         }
+        .topics-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
         .topics-loading,
         .topics-empty {
             font-size: 0.82rem;
@@ -5627,16 +5637,10 @@
             block-size: auto;
             opacity: 1;
         }
-        details.topic-node[data-depth="1"],
-        details.topic-node[data-depth="2"],
-        details.topic-node[data-depth="3"] {
-            background: transparent;
-            border: 1px solid var(--border);
-        }
         details.topic-node > summary {
             list-style: none;
             cursor: pointer;
-            padding: 7px 11px 7px 26px;
+            padding: 7px 11px;
             font-size: 0.86rem;
             color: var(--text);
             user-select: none;
@@ -5645,7 +5649,6 @@
             align-items: center;
             column-gap: 6px;
             row-gap: 2px;
-            position: relative;
             line-height: 1.45;
         }
         details.topic-node > summary .topic-name {
@@ -5659,19 +5662,17 @@
         details.topic-node > summary::-webkit-details-marker { display: none; }
         details.topic-node > summary::before {
             content: '';
-            position: absolute;
-            left: 11px;
-            top: 0.95em;
-            width: 0;
-            height: 0;
-            border-left: 5px solid currentColor;
-            border-top: 4px solid transparent;
-            border-bottom: 4px solid transparent;
+            width: 5px;
+            height: 5px;
+            border: solid currentColor;
+            border-width: 0 1.3px 1.3px 0;
             opacity: 0.55;
-            transform: rotate(0deg);
+            flex-shrink: 0;
+            align-self: center;
+            transform: rotate(-45deg);
             transition: transform 0.18s ease;
         }
-        details.topic-node[open] > summary::before { transform: rotate(90deg); }
+        details.topic-node[open] > summary::before { transform: rotate(45deg); }
         @media (hover: hover) {
 
         details.topic-node > summary:hover { background: var(--accent-dim); }
@@ -5681,17 +5682,33 @@
             font-weight: 600;
             word-break: break-word;
         }
-        .topic-count {
+        /* Descriptive topic counts: ref (relevance) · vers (size) · ↳ subgroups */
+        .topic-nums {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 4px 5px;
+        }
+        .topic-num {
             display: inline-block;
-            font-size: 0.72rem;
+            font-size: 0.71rem;
             font-weight: 500;
             color: var(--text-muted);
             background: var(--accent-dim);
             border-radius: var(--radius-pill);
             padding: 1px 7px;
-            margin-left: 6px;
             white-space: nowrap;
             vertical-align: middle;
+        }
+        .topic-num--ref {
+            color: var(--card-bg);
+            background: var(--accent);
+            font-weight: 600;
+        }
+        .topic-num--sg {
+            background: transparent;
+            border: 1px solid var(--border);
         }
         .topic-trigger-chips {
             display: flex;
@@ -5726,10 +5743,84 @@
             gap: 8px;
         }
         .topic-verses:empty { display: none; }
-        .topic-children {
+        /* ── Subgroups (a subject's labelled groups of refs) ── */
+        .topic-subgroups {
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            gap: 4px;
+        }
+        .topic-subgroup {
+            border-left: 2px solid var(--border);
+            padding-left: 8px;
+        }
+        .topic-subgroup--triggered {
+            border-left-color: var(--accent);
+        }
+        details.topic-subgroup-det > summary {
+            list-style: none;
+            cursor: pointer;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 4px 8px;
+            padding: 3px 0;
+        }
+        details.topic-subgroup-det > summary::-webkit-details-marker { display: none; }
+        .topic-subgroup-head--static {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 4px 8px;
+            padding: 3px 0;
+        }
+        .topic-subgroup-label {
+            font-weight: 500;
+            word-break: break-word;
+        }
+        .topic-subgroup--triggered .topic-subgroup-label { color: var(--accent); }
+        .topic-subgroup-count {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+        .topic-subgroup-body {
+            padding: 2px 0 4px 0;
+        }
+        .topic-seealso {
+            font-size: 0.78rem;
+            color: var(--accent);
+            text-decoration: none;
+            cursor: pointer;
+        }
+        @media (hover: hover) {
+        a.topic-seealso:hover { text-decoration: underline; }
+        }
+        /* Brief highlight when a "Se også" link scrolls to a specific subgroup. */
+        @keyframes topicSubgroupFocus {
+            0%   { background-color: var(--accent-dim); }
+            70%  { background-color: var(--accent-dim); }
+            100% { background-color: transparent; }
+        }
+        .topic-subgroup--focus {
+            animation: topicSubgroupFocus 2.6s ease-out;
+            border-radius: var(--radius-xs);
+        }
+        .topic-single-head {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            padding: 6px 11px;
+            font-weight: 600;
+        }
+        .topics-back {
+            font-family: inherit;
+            font-size: 0.8rem;
+            color: var(--accent);
+            background: transparent;
+            border: none;
+            padding: 4px 0;
+            margin-bottom: 4px;
+            cursor: pointer;
+            align-self: flex-start;
         }
         @keyframes topicTriggerFlash {
             0%   { background-color: var(--accent-dim); box-shadow: 0 0 0 4px var(--accent-dim); }
@@ -5739,19 +5830,6 @@
         .topic-trigger-flash {
             animation: topicTriggerFlash 3s ease-out;
             border-radius: var(--radius-xs);
-        }
-        .topic-parent-badge {
-            display: inline-block;
-            font-size: 0.7rem;
-            font-weight: 500;
-            color: var(--text-muted);
-            background: transparent;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-pill);
-            padding: 0 7px;
-            margin-left: 6px;
-            white-space: nowrap;
-            vertical-align: middle;
         }
         .topics-show-all {
             font-family: inherit;
@@ -5772,38 +5850,6 @@
             background: var(--accent-dim);
         }
 
-        }
-        .topics-show-small {
-            font-family: inherit;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            background: transparent;
-            border: 1px dashed var(--border);
-            border-radius: var(--radius-sm);
-            padding: 3px 8px;
-            margin: 4px 0 2px;
-            cursor: pointer;
-            display: inline-block;
-        }
-        @media (hover: hover) {
-
-        .topics-show-small:hover {
-            color: var(--accent);
-            border-style: solid;
-            background: var(--accent-dim);
-        }
-
-        }
-        .topics-show-small--global {
-            margin-top: 8px;
-            font-size: 0.78rem;
-        }
-        details.topic-node--match > summary .topic-name,
-        details.topic-node--in-match-path > summary .topic-name {
-            color: var(--accent);
-        }
-        details.topic-node--match > summary .topic-name {
-            font-weight: 600;
         }
 
 
@@ -6331,7 +6377,7 @@
         .study-loading { padding: 24px 14px; color: var(--text-muted); font-size: 0.85rem; }
 
         /* Commentary results — nested <details>: commentary → book → entries */
-        .study-commentary { display: flex; flex-direction: column; gap: 12px; }
+        .study-commentary { display: flex; flex-direction: column; gap: 8px; }
         .study-comm-group {
             background: var(--card-bg);
             border: 1px solid var(--border);
@@ -6361,27 +6407,36 @@
             user-select: none;
             display: flex;
             align-items: center;
-            padding: 11px 14px 11px 28px;
-            position: relative;
+            gap: 8px;
+            padding: 11px 14px;
         }
         .study-comm-group > summary::-webkit-details-marker,
         .study-comm-book > summary::-webkit-details-marker { display: none; }
-        .study-comm-group > summary::before,
-        .study-comm-book > summary::before {
+        /* Top-level commentary box: chevron on the LEFT (::before). */
+        .study-comm-group > summary::before {
             content: '';
-            position: absolute;
-            left: 12px;
-            top: 50%;
-            margin-top: -4px;
-            width: 0; height: 0;
-            border-left: 5px solid currentColor;
-            border-top: 4px solid transparent;
-            border-bottom: 4px solid transparent;
+            width: 5px; height: 5px;
+            border: solid currentColor;
+            border-width: 0 1.3px 1.3px 0;
             opacity: 0.55;
+            flex-shrink: 0;
+            transform: rotate(-45deg);
             transition: transform 0.2s;
         }
-        .study-comm-group[open] > summary::before,
-        .study-comm-book[open] > summary::before { transform: rotate(90deg); }
+        .study-comm-group[open] > summary::before { transform: rotate(45deg); }
+        /* Book sub-box: chevron on the RIGHT (::after), like normal search. */
+        .study-comm-book > summary::after {
+            content: '';
+            width: 5px; height: 5px;
+            border: solid currentColor;
+            border-width: 0 1.3px 1.3px 0;
+            opacity: 0.55;
+            flex-shrink: 0;
+            margin-left: auto;
+            transform: rotate(-45deg);
+            transition: transform 0.2s;
+        }
+        .study-comm-book[open] > summary::after { transform: rotate(45deg); }
         @media (hover: hover) {
         .study-comm-group > summary:hover,
         .study-comm-book > summary:hover { background: var(--accent-dim); }
@@ -6431,12 +6486,12 @@
         }
         .study-comm-ref {
             font-weight: 600;
-            font-size: 0.84rem;
+            font-size: var(--preview-ref-font-size);
             color: var(--accent);
             font-family: 'Lora', Georgia, serif;
         }
         .study-comm-snippet {
-            font-size: 0.86rem;
+            font-size: var(--preview-font-size);
             color: var(--text-muted);
             font-family: var(--font-serif);
             line-height: 1.45;
@@ -6485,44 +6540,57 @@
         .study-leksikon-content p { margin: 0.4em 0; }
         .study-leksikon-content em { font-style: italic; }
 
-        /* Topics results — reuses the Topics module's .topic-node styling */
+        /* Topics results — reuses the Topics module's .topic-node styling, but
+           sized to match the other search-group boxes (commentary / leksikon)
+           with roomier subgroup spacing. */
         .study-topics { display: flex; flex-direction: column; gap: 8px; }
-        /* Breadcrumb lives inside the box, stacked above the name; let the
-           summary grow to two lines instead of clipping. Arrow centered vertically. */
-        .study-topics .topic-node > summary { align-items: flex-start; }
-        .study-topics details.topic-node > summary::before { top: 50%; transform: translateY(-50%) rotate(0deg); }
-        .study-topics details.topic-node[open] > summary::before { transform: translateY(-50%) rotate(90deg); }
-        .study-topic-headcol {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            flex: 1 1 auto;
-            min-width: 0;
+        .study-topics .topic-node > summary {
+            font-size: 0.95rem;
+            column-gap: 8px;
         }
-        .study-topic-crumbs {
-            font-size: 0.72rem;
-            color: var(--text-muted);
-            line-height: 1.3;
+        .study-topics .topic-name {
+            font-family: 'Lora', Georgia, serif;
+            color: var(--text);
         }
-        .study-crumb { color: var(--text-muted); text-decoration: none; cursor: pointer; }
-        @media (hover: hover) {
-        .study-crumb:hover { color: var(--accent); text-decoration: underline; }
+        .study-topics .topic-body { padding: 8px 14px 14px; gap: 12px; }
+        .study-topics .topic-subgroups { gap: 10px; }
+        .study-topics .topic-subgroup { padding-left: 10px; }
+        .study-topics .topic-subgroup-body { padding-top: 4px; }
+
+        /* ── Uniform top-level study-search boxes ──
+           Make the commentary / leksikon / topic result boxes look like the
+           normal bible-search .book-group boxes: same box radius, summary
+           padding, title size, chevron placement and hover/open border. */
+        .study-comm-group,
+        .study-leksikon-box,
+        .study-topics > .topic-node {
+            border-radius: var(--radius);
         }
-        .study-crumb-sep { opacity: 0.55; }
-        .study-topic-actions:empty { display: none; }
-        .study-open-all {
+        .study-comm-group > summary,
+        .study-leksikon-box > summary,
+        .study-topics > .topic-node > summary {
+            padding: 13px 16px;
+            font-size: 0.95rem;
+        }
+        /* Same title text size across all three box types. */
+        .study-comm-name,
+        .study-topics .topic-name {
+            font-size: 0.95rem;
+        }
+        /* Hover + open: highlight the box border (like .book-group-header),
+           and drop the summary background tint so the feedback matches. */
+        .study-comm-group > summary:hover,
+        .study-leksikon-box > summary:hover,
+        .study-topics > .topic-node > summary:hover {
             background: transparent;
-            border: 1px solid var(--accent);
-            border-radius: var(--radius-sm);
-            color: var(--accent);
-            font-family: var(--font-ui);
-            font-size: 0.74rem;
-            padding: 4px 12px;
-            cursor: pointer;
-            transition: all 0.13s;
         }
-        @media (hover: hover) {
-        .study-open-all:hover { background: var(--accent); color: var(--accent-text, #fff); }
+        .study-comm-group:has(> summary:hover),
+        .study-leksikon-box:has(> summary:hover),
+        .study-topics > .topic-node:has(> summary:hover),
+        .study-comm-group[open],
+        .study-leksikon-box[open],
+        .study-topics > .topic-node[open] {
+            border-color: var(--accent);
         }
 
         /* Commentary entry flash when opened from a study-search result */

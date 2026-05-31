@@ -27,67 +27,6 @@
         return (ctx && ctx.version) || (window.versionSelect && String(window.versionSelect.value)) || '';
     }
 
-    // ── Shared inline verse-preview (lazy) for topic verse rows ──
-    const _previewCache = new Map();
-    let _previewObserver = null;
-    const _previewQueue = [];
-    let _previewWorking = false;
-    let _previewVersion = '';
-
-    function ensurePreviewObserver() {
-        if (_previewObserver) return _previewObserver;
-        _previewObserver = new IntersectionObserver((entries) => {
-            for (const entry of entries) {
-                if (!entry.isIntersecting) continue;
-                const it = entry.target;
-                _previewObserver.unobserve(it);
-                if (it.dataset.previewQueued === '1') continue;
-                it.dataset.previewQueued = '1';
-                _previewQueue.push(it);
-                pumpPreviewQueue();
-            }
-        }, { rootMargin: '120px 0px' });
-        return _previewObserver;
-    }
-
-    async function fetchVersePreview(refLabel) {
-        const key = `${_previewVersion}|${refLabel}`;
-        if (_previewCache.has(key)) return _previewCache.get(key);
-        const params = new URLSearchParams();
-        params.set('q', refLabel);
-        if (_previewVersion) params.set('version', _previewVersion);
-        let preview = '';
-        try {
-            const resp = await fetch('/api/search?' + params.toString());
-            const dt = await resp.json();
-            if (dt && dt.type === 'reference' && Array.isArray(dt.results)) {
-                const first = dt.results[0];
-                if (first && first.verses && first.verses.length) {
-                    preview = first.verses.slice(0, 3).map(v => v.text).join(' ');
-                    if (first.verses.length > 3) preview += ' …';
-                }
-            }
-        } catch { /* leave empty */ }
-        _previewCache.set(key, preview);
-        return preview;
-    }
-
-    async function pumpPreviewQueue() {
-        if (_previewWorking) return;
-        _previewWorking = true;
-        try {
-            while (_previewQueue.length) {
-                const it = _previewQueue.shift();
-                if (!it.isConnected) continue;
-                const preview = await fetchVersePreview(it.dataset.label);
-                const previewEl = it.querySelector('.topic-verse-preview');
-                if (previewEl) previewEl.textContent = preview || '';
-            }
-        } finally {
-            _previewWorking = false;
-        }
-    }
-
     // ════════════════════════════════════════════════════════════════
     //  COMMENTARY  (commentary box → book box → entries; native <details>)
     // ════════════════════════════════════════════════════════════════
@@ -287,12 +226,9 @@
     }
 
     // ════════════════════════════════════════════════════════════════
-    //  TOPICS  (mirrors the Topics module's look & behaviour)
+    //  TOPICS  (subject boxes → subgroups via shared TopicSubgroups)
     // ════════════════════════════════════════════════════════════════
     const _topicDetailCache = new Map();
-    const VERSE_PREVIEW_INITIAL = 8;
-    const SMALL_SUBTOPIC = 2;     // hide subtopics with fewer verses behind "show all"
-    const SMALL_SUBTOPIC_MIN = 10; // …only when there are this many children
     let _topicCtx = null;
     let _topicRoot = null;
 
@@ -305,101 +241,43 @@
         return dt;
     }
 
-    function topicNodeHtml(node, depth, open) {
-        const vc = node.verse_count != null ? node.verse_count
-            : (node.verses ? node.verses.length : 0);
-        const count = `<span class="topic-count">${vc}</span>`;
-        const childN = node.child_count || 0;
-        const childBadge = childN > 0
-            ? `<span class="topic-parent-badge">↳ ${childN}</span>` : '';
-        // Ancestor breadcrumb lives *inside* the box, stacked above the name
-        // (only for matched/standalone topics — children never carry ancestors).
-        const crumb = crumbHtml(node.ancestors);
-        return `<details class="topic-node" data-topic-id="${node.id}" data-depth="${depth}" data-loaded="0"${open ? ' open' : ''}>`
+    function topicNumsHtml(node) {
+        const vc = node.verse_count != null ? node.verse_count : 0;
+        const sgN = node.subgroup_count || (node.subgroups ? node.subgroups.length : 0);
+        let h = `<span class="topic-num topic-num--vers" title="${esc(tFn('sidebar.topics.versesCountTitle'))}">`
+            + esc(tFn('sidebar.topics.versesCount', vc)) + `</span>`;
+        if (sgN > 0) {
+            h += `<span class="topic-num topic-num--sg" title="${esc(tFn('sidebar.topics.subgroupCountTitle'))}">↳ ${sgN}</span>`;
+        }
+        return `<span class="topic-nums">${h}</span>`;
+    }
+
+    function topicNodeHtml(node, open) {
+        return `<details class="topic-node" data-topic-id="${node.id}" data-loaded="0"${open ? ' open' : ''}>`
             + `<summary>`
-            + `<span class="study-topic-headcol">`
-            + crumb
             + `<span class="topic-name">${esc(node.name)}</span>`
-            + `</span>`
-            + count + childBadge
+            + topicNumsHtml(node)
             + `</summary>`
             + `<div class="topic-body">`
-            + `<div class="study-topic-actions"></div>`
-            + `<div class="topic-verses xr-panel-inner" data-loaded="0"></div>`
-            + `<div class="topic-children"></div>`
+            + `<div class="topic-subgroups"></div>`
             + `</div>`
             + `</details>`;
     }
 
-    function crumbHtml(ancestors) {
-        if (!ancestors || !ancestors.length) return '';
-        const links = ancestors.map(a =>
-            `<a href="#" class="study-crumb" data-id="${a.id}">${esc(a.name)}</a>`
-        ).join('<span class="study-crumb-sep"> › </span>');
-        return `<div class="study-topic-crumbs">${links}</div>`;
-    }
-
-    function verseRowsHtml(verses, showAll) {
-        const limit = showAll ? verses.length : Math.min(VERSE_PREVIEW_INITIAL, verses.length);
-        const visible = verses.slice(0, limit);
-        const remaining = verses.length - limit;
-        let html = visible.map(v => {
-            const label = v.ref_label || '';
-            return `<div class="xr-item topic-verse-item" data-label="${esc(label)}">`
-                + `<span class="xr-ref">${esc(label)}</span>`
-                + `<span class="xr-preview topic-verse-preview"></span>`
-                + `</div>`;
-        }).join('');
-        if (remaining > 0) {
-            html += `<button type="button" class="topics-show-all" data-show-all="1">`
-                + esc(tFn('sidebar.topics.showAll', remaining)) + `</button>`;
-        }
-        return html;
-    }
-
-    function renderVerses(versesEl, verses, showAll) {
-        versesEl.innerHTML = verseRowsHtml(verses, showAll);
-        const observer = ensurePreviewObserver();
-        versesEl.querySelectorAll('.topic-verse-item').forEach(it => {
-            it.addEventListener('click', () => {
-                if (typeof window.searchFromXref === 'function') window.searchFromXref(it.dataset.label);
-            });
-            observer.observe(it);
-        });
-        const showBtn = versesEl.querySelector('[data-show-all]');
-        if (showBtn) showBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            renderVerses(versesEl, verses, true);
-        });
-    }
-
-    function renderChildren(childrenEl, children, depth, showSmall) {
-        let visible = children, hidden = [];
-        if (!showSmall && children.length > SMALL_SUBTOPIC_MIN) {
-            visible = children.filter(c => (c.verse_count || 0) >= SMALL_SUBTOPIC);
-            hidden = children.filter(c => (c.verse_count || 0) < SMALL_SUBTOPIC);
-            if (!visible.length) { visible = children; hidden = []; }
-        }
-        let html = visible.map(c => topicNodeHtml(c, depth)).join('');
-        if (hidden.length) {
-            html += `<button type="button" class="topics-show-small" data-show-small="1">`
-                + esc(tFn('sidebar.topics.showAllSubtopics', hidden.length)) + `</button>`;
-        }
-        childrenEl.innerHTML = html;
-        wireTopicNodes(childrenEl);
-        const btn = childrenEl.querySelector('[data-show-small]');
-        if (btn) btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            renderChildren(childrenEl, children, depth, true);
-        });
+    function subgroupCtx() {
+        return {
+            version: getVersion(_topicCtx),
+            triggered: null,
+            book: null,
+            onVerseClick: (label) => { if (typeof window.searchFromXref === 'function') window.searchFromXref(label); },
+            onSeeAlso: (id, sgid) => showTopic(id, { push: true, subgroupId: sgid }),
+        };
     }
 
     async function loadTopicNode(det) {
         if (!det || det.dataset.loaded === '1') return;
         det.dataset.loaded = '1';
         const id = Number(det.dataset.topicId);
-        const depth = Number(det.dataset.depth || 0);
         let detail;
         try {
             detail = await fetchTopicDetail(id);
@@ -409,27 +287,9 @@
         }
         const body = det.querySelector(':scope > .topic-body');
         if (!body) return;
-        const actionsEl = body.querySelector(':scope > .study-topic-actions');
-        const versesEl = body.querySelector(':scope > .topic-verses');
-        const childrenEl = body.querySelector(':scope > .topic-children');
-        const verses = (detail && detail.verses) || [];
-        if (versesEl && verses.length) renderVerses(versesEl, verses, false);
-        // "Åpne alle" only makes sense with more than one verse.
-        if (actionsEl && verses.length > 1) {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'study-open-all';
-            btn.textContent = tFn('study.openAll');
-            btn.title = tFn('study.openAllTitle');
-            btn.addEventListener('click', (ev) => {
-                ev.stopPropagation();
-                const q = verses.map(v => v.ref_label).filter(Boolean).join('; ');
-                if (q && typeof window.searchFromXref === 'function') window.searchFromXref(q);
-            });
-            actionsEl.appendChild(btn);
-        }
-        const children = (detail && detail.children) || [];
-        if (childrenEl && children.length) renderChildren(childrenEl, children, depth + 1, false);
+        const sgEl = body.querySelector(':scope > .topic-subgroups');
+        const subgroups = (detail && detail.subgroups) || [];
+        if (sgEl) window.TopicSubgroups.renderInto(sgEl, subgroups, subgroupCtx());
     }
 
     function wireTopicNodes(scopeEl) {
@@ -438,28 +298,18 @@
             det.dataset.wired = '1';
             det.addEventListener('toggle', () => { if (det.open) loadTopicNode(det); });
         });
-        scopeEl.querySelectorAll('.study-crumb').forEach(a => {
-            if (a.dataset.wired === '1') return;
-            a.dataset.wired = '1';
-            a.addEventListener('click', (ev) => {
-                ev.preventDefault();
-                ev.stopPropagation();
-                showTopic(Number(a.dataset.id), { push: true });
-            });
-        });
     }
 
     function renderTopics(data, container, ctx) {
         _topicCtx = ctx;
         _topicRoot = container;
-        _previewVersion = getVersion(ctx);
-        const html = data.results.map(r => topicNodeHtml(r, 0, false)).join('');
+        const html = data.results.map(r => topicNodeHtml(r, false)).join('');
         container.innerHTML = `<div class="study-topics">${html}</div>`;
         const topicsWrap = container.querySelector('.study-topics');
         wireTopicNodes(topicsWrap);
     }
 
-    // Open a single topic alone in the study view (breadcrumb navigation).
+    // Open a single topic alone in the study view (from a "Se også" link).
     async function showTopic(topicId, opts) {
         opts = opts || {};
         if (!_topicRoot || !_topicRoot.isConnected) {
@@ -476,19 +326,22 @@
             _topicRoot.innerHTML = '';
             return;
         }
-        const node = {
-            id: detail.id, name: detail.name, ancestors: detail.ancestors,
-            verse_count: detail.verse_count, child_count: detail.child_count,
-        };
-        _topicRoot.innerHTML = `<div class="study-topics study-topics-single">${topicNodeHtml(node, 0, true)}</div>`;
+        _topicRoot.innerHTML = `<div class="study-topics study-topics-single">${topicNodeHtml(detail, true)}</div>`;
         const wrap = _topicRoot.querySelector('.study-topics');
         wireTopicNodes(wrap);
         const det = wrap.querySelector('.topic-node');
-        if (det) loadTopicNode(det);
+        if (det) {
+            await loadTopicNode(det);
+            // "Se også" can target a specific subgroup — open + scroll to it.
+            if (opts.subgroupId != null && window.TopicSubgroups && window.TopicSubgroups.focusSubgroup) {
+                const sgEl = det.querySelector('.topic-subgroups');
+                if (sgEl) window.TopicSubgroups.focusSubgroup(sgEl, opts.subgroupId);
+            }
+        }
         if (opts.push !== false) {
             try {
                 history.pushState({ studyNav: {
-                    kind: 'topic', id: topicId, type: 'topics',
+                    kind: 'topic', id: topicId, type: 'topics', subgroupId: opts.subgroupId,
                     q: _topicCtx && _topicCtx.query, version: _topicCtx && _topicCtx.version,
                 } }, '', location.href);
             } catch { /* ignore */ }
@@ -498,16 +351,14 @@
     // Restore a single-topic view from a popstate (no new history entry).
     function restoreTopic(id, ctx) {
         _topicCtx = ctx || _topicCtx;
-        _previewVersion = getVersion(_topicCtx);
         if (typeof window.buildStudyScaffold === 'function') {
             _topicRoot = window.buildStudyScaffold('topics', ctx && ctx.query);
         }
-        showTopic(id, { push: false });
+        showTopic(id, { push: false, subgroupId: ctx && ctx.subgroupId });
     }
 
     // ════════════════════════════════════════════════════════════════
     function render(type, data, container, ctx) {
-        _previewVersion = getVersion(ctx);
         if (!data || !Array.isArray(data.results)) { container.innerHTML = ''; return; }
         if (type === 'commentary') return renderCommentary(data, container, ctx);
         if (type === 'leksikon') return renderLeksikon(data, container, ctx);
