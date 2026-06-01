@@ -12,7 +12,7 @@
             --error: #c04040;
             --error-bg: #fdf0f0;
             --verse-num: #2870e8;
-            --highlight: #c94444;
+            --highlight: var(--accent);
             --hover-bg: rgba(0,0,0,0.06);
             --card-bg-alt: #f0ede9;
             --text-dim: #9a9a9a;
@@ -52,7 +52,7 @@
             --error: #e05555;
             --error-bg: #2e1a1a;
             --verse-num: #5aafff;
-            --highlight: #e05555;
+            --highlight: var(--accent);
             --hover-bg: rgba(255,255,255,0.08);
             --card-bg-alt: #32323a;
             --text-dim: #707080;
@@ -6466,7 +6466,7 @@
         .study-comm-group > summary:hover,
         .study-comm-book > summary:hover { background: var(--accent-dim); }
         }
-        .study-comm-name { font-family: var(--font-ui); font-weight: 600; font-size: 0.95rem; color: var(--accent); }
+        .study-comm-name { font-family: var(--font-ui); font-weight: 600; font-size: 0.95rem; color: var(--text); }
         .study-comm-books { display: flex; flex-direction: column; gap: 6px; padding: 0 10px 10px; }
         .study-comm-expand-all {
             background: transparent;
