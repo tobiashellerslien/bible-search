@@ -2143,6 +2143,78 @@ window.openSingleVerse = async function(bookCode, chapter, verse, bName, verToSw
 // (AppModuleHost) can expand on top of MVB to show ONE module at a time, with
 // a shared swipe-down dismiss: first swipe closes the module, then MVB.
 
+// Flash-highlight a list of .verse-line elements by injecting absolutely-
+// positioned overlay divs behind the text. The overlay follows the actual
+// text shape (via Range.getClientRects, one rect per wrapped line) so it hugs
+// only the verse text — not whole lines or neighbouring text — and runs
+// continuously across consecutive verses. No layout disruption.
+window.applyGroupedFlashToLines = function(verseLines, timeout) {
+    if (!verseLines.length) return null;
+    const container = verseLines[0].closest('.verse-card') || verseLines[0].parentElement;
+    const allLines = Array.from(container.querySelectorAll('.verse-line'));
+    const sorted = verseLines
+        .map(l => ({ idx: allLines.indexOf(l), line: l }))
+        .filter(x => x.idx >= 0)
+        .sort((a, b) => a.idx - b.idx);
+    if (!sorted.length) return null;
+    // Split into runs of consecutive verse-lines; each run is highlighted as one
+    // continuous span so the verses inside it merge into a single sweep.
+    const groups = [];
+    let cur = [];
+    for (let i = 0; i < sorted.length; i++) {
+        if (cur.length === 0 || sorted[i].idx === sorted[i - 1].idx + 1) cur.push(sorted[i]);
+        else { groups.push(cur); cur = [sorted[i]]; }
+    }
+    if (cur.length) groups.push(cur);
+    // Merge raw client rects that share a visual line into one rect spanning the
+    // full text extent on that line (Range can emit several rects per line for
+    // nested spans / numbers / buttons).
+    const mergeByLine = (rects) => {
+        const lines = [];
+        rects.forEach(rc => {
+            if (rc.width <= 0 || rc.height <= 0) return;
+            const mid = rc.top + rc.height / 2;
+            const hit = lines.find(o => mid > o.top && mid < o.bottom);
+            if (hit) {
+                hit.left = Math.min(hit.left, rc.left);
+                hit.right = Math.max(hit.right, rc.right);
+                hit.top = Math.min(hit.top, rc.top);
+                hit.bottom = Math.max(hit.bottom, rc.bottom);
+            } else {
+                lines.push({ left: rc.left, right: rc.right, top: rc.top, bottom: rc.bottom });
+            }
+        });
+        return lines;
+    };
+    groups.forEach(group => {
+        const textEl = group[0].line.closest('.verse-text') || group[0].line.parentElement;
+        const firstTarget = group[0].line.querySelector('.verse-text-clickable') || group[0].line;
+        const lastTarget = group[group.length - 1].line.querySelector('.verse-text-clickable')
+            || group[group.length - 1].line;
+        const range = document.createRange();
+        range.setStartBefore(firstTarget);
+        range.setEndAfter(lastTarget);
+        const parentRect = textEl.getBoundingClientRect();
+        mergeByLine(Array.from(range.getClientRects())).forEach(r => {
+            const overlay = document.createElement('div');
+            overlay.className = 'verse-flash-overlay';
+            overlay.style.left = `${r.left - parentRect.left - 3}px`;
+            overlay.style.top = `${r.top - parentRect.top}px`;
+            overlay.style.width = `${(r.right - r.left) + 6}px`;
+            overlay.style.height = `${r.bottom - r.top}px`;
+            textEl.appendChild(overlay);
+            setTimeout(() => overlay.remove(), timeout + 100);
+        });
+    });
+    return sorted[0].line;
+};
+
+function applyGroupedFlashByMatch(container, matchFn, timeout) {
+    const lines = Array.from(container.querySelectorAll('.verse-line'))
+        .filter(l => { const tc = l.querySelector('.verse-text-clickable'); return tc && matchFn(tc); });
+    return window.applyGroupedFlashToLines(lines, timeout);
+}
+
 function clearAllMarkedVerses() {
     markedVerses.clear();
     document.querySelectorAll('.verse-marked').forEach(el => el.classList.remove('verse-marked'));
@@ -3579,16 +3651,11 @@ window.toggleChapterExpand = async function(idx) {
         const card = document.getElementById(`card-${idx}`);
         let firstLine = null;
         if (card) {
-            const lines = card.querySelectorAll('.verse-line');
-            lines.forEach(line => {
-                const tc = line.querySelector('.verse-text-clickable');
-                if (!tc) return;
-                if (verseKeys.has(`${tc.dataset.chapter}:${tc.dataset.verse}`)) {
-                    if (!firstLine) firstLine = line;
-                    line.classList.add('topic-trigger-flash');
-                    setTimeout(() => line.classList.remove('topic-trigger-flash'), 3000);
-                }
-            });
+            firstLine = applyGroupedFlashByMatch(
+                card,
+                tc => verseKeys.has(`${tc.dataset.chapter}:${tc.dataset.verse}`),
+                3000
+            );
         }
         await animPromise;
         if (firstLine) firstLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -3681,17 +3748,11 @@ window.readChapter = async function(bookCode, chapter, bName, highlightKeys) {
     if (highlightKeys) {
         const keys = new Set(highlightKeys.split(','));
         requestAnimationFrame(() => {
-            const lines = resultsWrapper.querySelectorAll('.verse-line');
-            let firstLine = null;
-            lines.forEach(line => {
-                const tc = line.querySelector('.verse-text-clickable');
-                if (!tc) return;
-                if (keys.has(`${tc.dataset.chapter}:${tc.dataset.verse}`)) {
-                    if (!firstLine) firstLine = line;
-                    line.classList.add('topic-trigger-flash');
-                    setTimeout(() => line.classList.remove('topic-trigger-flash'), 3000);
-                }
-            });
+            const firstLine = applyGroupedFlashByMatch(
+                resultsWrapper,
+                tc => keys.has(`${tc.dataset.chapter}:${tc.dataset.verse}`),
+                3000
+            );
             if (firstLine) firstLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
     }

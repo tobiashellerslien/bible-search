@@ -772,6 +772,12 @@
         }
         .display-bar-btn.open,
         .display-bar-btn[aria-pressed="true"] { color: var(--accent); background: var(--accent-dim); }
+        @media (hover: hover) {
+
+        .display-bar-btn.open:hover,
+        .display-bar-btn[aria-pressed="true"]:hover { color: var(--accent); background: var(--accent-dim); }
+
+        }
         .display-bar-icon { width: 13px; height: 13px; flex-shrink: 0; }
         .display-bar-hint { font-size: 0.72em; opacity: 0.55; margin-left: 2px; vertical-align: middle; }
         .display-bar-label-short { display: none; }
@@ -1300,6 +1306,8 @@
             line-height: 1.85;
             color: var(--text);
             flex: 1;
+            position: relative;
+            z-index: 0; /* stacking context so .verse-flash-overlay (z-index:-1) sits behind text */
         }
         .verse-line {
             display: inline;
@@ -2987,7 +2995,6 @@
             align-items: center;
             gap: 8px;
             padding: 8px 10px;
-            border-bottom: 1px solid var(--border);
             font-family: var(--font-ui);
             font-size: 0.85rem;
             font-weight: 600;
@@ -3699,7 +3706,7 @@
         .map-popup .popup-pill:focus .popup-pill-icon { opacity: 0.9; }
         @media (hover: hover) {
 
-        .map-popup .popup-pill:hover { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+        .map-popup .popup-pill:hover { background: var(--accent-dim); border-color: var(--accent); }
 
         }
         .map-popup .popup-refs {
@@ -3899,6 +3906,11 @@
             color: var(--accent);
             border-color: var(--accent);
         }
+
+        }
+        @media (hover: hover) {
+
+        .place-stats-top:hover { background: var(--accent-dim); border-color: var(--accent); }
 
         }
         .place-stats-book-count {
@@ -4119,10 +4131,6 @@
             user-select: none;
             background: transparent;
             transition: background 0.15s ease;
-            border-bottom: 1px solid transparent;
-        }
-        .sidebar-module:not([data-collapsed="true"]) .sidebar-module-header {
-            border-bottom-color: var(--border);
         }
         @media (hover: hover) {
 
@@ -5832,12 +5840,18 @@
             align-self: flex-start;
         }
         @keyframes topicTriggerFlash {
-            0%   { background-color: var(--accent-dim); box-shadow: 0 0 0 4px var(--accent-dim); }
-            60%  { background-color: var(--accent-dim); box-shadow: 0 0 0 4px var(--accent-dim); }
-            100% { background-color: transparent; box-shadow: 0 0 0 4px transparent; }
+            0%, 60% { background-color: var(--accent-dim); }
+            100%    { background-color: transparent; }
         }
-        .topic-trigger-flash {
-            animation: topicTriggerFlash 3s ease-out;
+        /* Absolutely-positioned overlay injected by applyGroupedFlashToLines.
+           One per wrapped line; left/top/width/height are set inline to hug the
+           verse text. z-index:-1 keeps it behind the text (.verse-text sets a
+           stacking context). No layout impact. */
+        .verse-flash-overlay {
+            position: absolute;
+            z-index: -1;
+            pointer-events: none;
+            animation: topicTriggerFlash 3s ease-out forwards;
             border-radius: var(--radius-xs);
         }
         .topics-show-all {

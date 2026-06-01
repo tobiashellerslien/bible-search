@@ -63,13 +63,13 @@
             <div class="stats-card"><div class="stats-card-label">${escHtml(t('stats.ntHits'))}</div><div class="stats-card-value">${ntHits}</div></div>`;
 
         if (topOT) {
-            html += `<div class="stats-card" style="cursor:pointer${otIsTop ? ';border-color:var(--accent)' : ''}" onclick="navigateToBookInResults('${topOT.code}')" title="${escAttr(t('stats.goToResults'))}">
+            html += `<div class="stats-card place-stats-top" style="cursor:pointer${otIsTop ? ';border-color:var(--accent)' : ''}" onclick="navigateToBookInResults('${topOT.code}')" title="${escAttr(t('stats.goToResults'))}">
                 <div class="stats-card-label">${otIsTop ? '&#127942; ' : ''}${escHtml(t('stats.topGT'))}</div>
                 <div class="stats-card-value" style="font-size:0.85rem;">${escHtml(displayBookName(topOT))}<br><span style="font-size:0.75rem;opacity:0.7">${escHtml(normLabel(topOT))}</span></div>
             </div>`;
         }
         if (topNT) {
-            html += `<div class="stats-card" style="cursor:pointer${ntIsTop ? ';border-color:var(--accent)' : ''}" onclick="navigateToBookInResults('${topNT.code}')" title="${escAttr(t('stats.goToResults'))}">
+            html += `<div class="stats-card place-stats-top" style="cursor:pointer${ntIsTop ? ';border-color:var(--accent)' : ''}" onclick="navigateToBookInResults('${topNT.code}')" title="${escAttr(t('stats.goToResults'))}">
                 <div class="stats-card-label">${ntIsTop ? '&#127942; ' : ''}${escHtml(t('stats.topNT'))}</div>
                 <div class="stats-card-value" style="font-size:0.85rem;">${escHtml(displayBookName(topNT))}<br><span style="font-size:0.75rem;opacity:0.7">${escHtml(normLabel(topNT))}</span></div>
             </div>`;

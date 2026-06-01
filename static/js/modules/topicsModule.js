@@ -152,11 +152,11 @@
             if (el) found.push(el);
         }
         if (found.length) {
-            found[0].scrollIntoView({ block: 'center', behavior: 'smooth' });
-            found.forEach(el => {
-                el.classList.add('topic-trigger-flash');
-                setTimeout(() => el.classList.remove('topic-trigger-flash'), 3000);
-            });
+            const lines = found.map(el => el.closest('.verse-line')).filter(Boolean);
+            const firstLine = window.applyGroupedFlashToLines
+                ? window.applyGroupedFlashToLines(lines, 3000)
+                : lines[0];
+            if (firstLine) firstLine.scrollIntoView({ block: 'center', behavior: 'smooth' });
         } else {
             const lang = (typeof window.versionLang === 'function' && _scope && _scope.range)
                 ? window.versionLang(_scope.range.version) : 'no';
