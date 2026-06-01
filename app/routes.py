@@ -1029,7 +1029,10 @@ def api_search_leksikon():
         })
     for g in by_hw.values():
         g["entries"].sort(key=lambda e: e["dictionary_id"])
-    results = [by_hw[h] for h in order]
+    # Headwords present in the most dictionaries first (stable: ties keep
+    # relevance/insertion order).
+    results = sorted((by_hw[h] for h in order),
+                     key=lambda g: -len(g["entries"]))
     return jsonify({"type": "leksikon_search", "results": results,
                     "query": query, "total": len(rows)})
 

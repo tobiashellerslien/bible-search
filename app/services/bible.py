@@ -1269,12 +1269,15 @@ class BibleData:
             return []
         counts = self._ensure_topic_counts()
         sg_counts = self._ensure_subgroup_counts()
-        return [
+        results = [
             {"id": tid, "name": name,
              "verse_count": counts.get(tid, 0),
              "subgroup_count": sg_counts.get(tid, 0)}
             for tid, name in rows
         ]
+        # Most verse-rich subjects first (stable: ties keep bm25 relevance order).
+        results.sort(key=lambda r: -r["verse_count"])
+        return results
 
     def get_outline(self, book_usfm):
         row = self.db.execute(
