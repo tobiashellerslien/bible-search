@@ -7,24 +7,17 @@ services:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
       - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
-      - --entrypoints.web.http.redirections.entrypoint.to=websecure
-      - --entrypoints.web.http.redirections.entrypoint.scheme=https
-      - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
-      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
-      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
-      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
     ports:
       - "80:80"
-      - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - letsencrypt:/letsencrypt
 
   bible-search:
     image: ghcr.io/tobiashellerslien/bible-search:latest
     container_name: bible-search
     restart: unless-stopped
+    env_file:
+      - .env
     volumes:
       - ${DB_DIR}:/data
     environment:
@@ -33,8 +26,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.http.routers.bible-search.rule=Host(`${BIBELSOK_DOMAIN}`)
-      - traefik.http.routers.bible-search.entrypoints=websecure
-      - traefik.http.routers.bible-search.tls.certresolver=letsencrypt
+      - traefik.http.routers.bible-search.entrypoints=web
       - traefik.http.services.bible-search.loadbalancer.server.port=8421
   watchtower:
     image: nickfedor/watchtower
@@ -46,6 +38,3 @@ services:
       - WATCHTOWER_POLL_INTERVAL=300
       - WATCHTOWER_CLEANUP=true
     command: bible-search
-
-volumes:
-  letsencrypt:

@@ -15,4 +15,4 @@ ENV PORT=8421
 
 EXPOSE 8421
 
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8421} --workers ${WEB_CONCURRENCY:-2} --threads ${GUNICORN_THREADS:-2} --timeout ${GUNICORN_TIMEOUT:-120} --preload main:app"]
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8421} --workers ${WEB_CONCURRENCY:-2} --threads ${GUNICORN_THREADS:-2} --timeout ${GUNICORN_TIMEOUT:-120} main:app"]
