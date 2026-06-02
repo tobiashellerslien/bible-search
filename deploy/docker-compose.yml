@@ -22,7 +22,7 @@ services:
       - ${DB_DIR}:/data
     environment:
       - FLASK_ENV=production
-      - BIBLE_DB_PATH=/data/bible.db
+      - DB_PATH=/data/bible.db
     labels:
       - traefik.enable=true
       - traefik.http.routers.bible-search.rule=Host(`${BIBELSOK_DOMAIN}`)

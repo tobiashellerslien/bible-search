@@ -5,10 +5,16 @@ import sqlite3
 import threading
 from pathlib import Path
 
-_db_env = os.getenv("BIBLE_DB_PATH")
-DB_PATH = Path(_db_env) if _db_env else Path(__file__).resolve().parents[2] / "bible.db"
-if DB_PATH.is_dir():
-    DB_PATH = DB_PATH / "bible.db"
+def _resolve_db_path() -> Path:
+    """Locate bible.db from the DB_PATH env var (a file *or* a directory); fall
+    back to the repo-bundled copy for local dev. A directory gets `bible.db`
+    appended (WAL needs the dir writable)."""
+    env = os.getenv("DB_PATH")
+    path = Path(env) if env else Path(__file__).resolve().parents[2] / "bible.db"
+    return path / "bible.db" if path.is_dir() else path
+
+
+DB_PATH = _resolve_db_path()
 print(f"[bible] DB_PATH={DB_PATH} (exists={DB_PATH.exists()})")
 
 # ── Book metadata (used by query parser — kept in-process for speed) ──────────
