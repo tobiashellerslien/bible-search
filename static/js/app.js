@@ -3694,6 +3694,7 @@ window.toggleChapterExpand = async function(idx) {
         if (_csc && _csc.visible) {
             if (_csc.mode === 'all') await loadCardCompareAllData(idx);
             else await loadCardCompareData(idx);
+            if (_csc.alignMode && _csc.mode === 'single') _reRenderMainVerseText(idx);
             renderCompareBody(idx);
         }
         return;
@@ -3739,6 +3740,7 @@ window.toggleChapterExpand = async function(idx) {
         if (_cse && _cse.visible) {
             if (_cse.mode === 'all') await loadCardCompareAllData(idx);
             else await loadCardCompareData(idx);
+            if (_cse.alignMode && _cse.mode === 'single') _reRenderMainVerseText(idx);
             renderCompareBody(idx);
         }
     } catch {}
@@ -4886,6 +4888,10 @@ async function navigateCardToRef(cardIdx, ref, direction) {
         if (_cs && _cs.visible) {
             if (_cs.mode === 'all') await loadCardCompareAllData(cardIdx);
             else await loadCardCompareData(cardIdx);
+            // Compare data was nulled before rerenderCard, so the main pane was
+            // rendered unaligned. Re-align it now that the data is back so the
+            // persisted align toggle still lines up both panes.
+            if (_cs.alignMode && _cs.mode === 'single') _reRenderMainVerseText(cardIdx);
             renderCompareBody(cardIdx);
         }
     } catch {}
