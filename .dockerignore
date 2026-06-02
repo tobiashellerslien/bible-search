@@ -1,16 +1,19 @@
 __pycache__
 *.pyc
+*.db
 *.db-*
 .venv
 venv
 .git
 .gitignore
 .dockerignore
+.env
 
 migrations/
 temp_resources/
+deploy/
 
 README.md
 LICENSE
-CLAUSE.md
+CLAUDE.md
 todo.md
