@@ -1492,7 +1492,7 @@
             const y = chartH - barH;
             const cls = otTest(s.code) ? 'ot' : 'nt';
             const interactive = s.count > 0 ? ' style="cursor:pointer"' : ' style="pointer-events:none;opacity:0.35"';
-            bars += `<rect class="chart-bar ${cls}" x="${x}" y="${y}" width="${barW}" height="${Math.max(barH, 2)}"
+            bars += `<rect class="chart-bar ${cls}" x="${x}" y="${y}" width="${barW}" height="${barH}"
                 data-name="${attr(s.name)}" data-count="${s.count}" data-code="${attr(s.code)}"${interactive}/>`;
             bars += `<text class="chart-label"
                 transform="translate(${x + barW / 2},${chartH + 2}) rotate(90)"
