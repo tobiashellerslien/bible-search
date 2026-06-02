@@ -738,6 +738,25 @@ def api_commentary():
     entries = bible_data.get_commentary_entries(
         cid, q_book, q_ch, q_vs, q_ch_end, q_vs_end
     )
+    # Map each entry's coordinates back from the commentary's vsf to the user's
+    # display vsf, so labels and marked-verse matching line up with the verse
+    # numbers actually on screen (e.g. NB88 Joel 3:1, not the commentary's eng
+    # Joel 2:28). Chapter-level entries (verse_start is None) anchor on verse 1.
+    if src_vsf != dst_vsf:
+        conv = []
+        for e in entries:
+            ech, evs, eve = e.get("chapter"), e.get("verse_start"), e.get("verse_end")
+            if evs is None:
+                _, c, _ = bible_data.vsf.convert(dst_vsf, src_vsf, book, ech, 1)
+                conv.append({**e, "chapter": c})
+                continue
+            _, c1, v1 = bible_data.vsf.convert(dst_vsf, src_vsf, book, ech, evs)
+            if eve is None:
+                conv.append({**e, "chapter": c1, "verse_start": v1})
+            else:
+                _, _c2, v2 = bible_data.vsf.convert(dst_vsf, src_vsf, book, ech, eve)
+                conv.append({**e, "chapter": c1, "verse_start": v1, "verse_end": v2})
+        entries = conv
     payload = {"commentary": bible_data.commentaries[cid], "entries": entries}
     if request.args.get("include_intro") in ("1", "true", "yes"):
         # Books in the queried range — commentary range stays within a single

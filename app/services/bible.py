@@ -1446,8 +1446,14 @@ def parse_query(query):
 
 
 def _annotate_xrefs(bible_data, version_id, book, verses):
-    """Mutates each verse dict in-place to add has_xrefs: bool by checking
-    whether the verse (mapped to KJV versification) has any cross-references."""
+    """Mutates each verse dict in-place to add:
+      • has_xrefs: bool — whether the verse (mapped to KJV versification) has any
+        cross-references.
+      • ak: str "engChapter:engVerse" — the verse's eng/KJV-normalized coordinate,
+        used by compare-mode align to line up verses ACROSS versifications (e.g.
+        NB88 Ps 3:2 and NASB Ps 3:1 are both eng 3:1, so they align; NB88's title
+        verse 3:1 → eng 3:0 has no English counterpart and stands alone).
+    Both reuse the same single verse_to_kjv conversion."""
     if not verses:
         return
     chapters = [v["chapter"] for v in verses]
@@ -1455,6 +1461,7 @@ def _annotate_xrefs(bible_data, version_id, book, verses):
     for v in verses:
         kjv = bible_data.verse_to_kjv(version_id, book, v["chapter"], v["num"])
         v["has_xrefs"] = (kjv[1], kjv[2]) in xref_set
+        v["ak"] = f"{kjv[1]}:{kjv[2]}"
 
 
 def _resolve_block_core(bible_data, version_id, block):

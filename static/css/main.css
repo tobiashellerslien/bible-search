@@ -1841,6 +1841,10 @@
         .align-mode-toggle > span:first-child { white-space: nowrap; }
         .verse-align-row { display: block; }
         .verse-align-pre { display: block; }
+        /* Spacer = a verse the other version numbers but this one doesn't (e.g. a
+           Psalm superscription). Empty; height is set by equalizeVerseHeights to
+           match the opposite verse so surrounding rows stay aligned. */
+        .verse-align-spacer { display: block; }
 
         /* ── Error cards ── */
         .error-card { background: var(--error-bg); border-left: 3px solid var(--error); }

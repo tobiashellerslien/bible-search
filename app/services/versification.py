@@ -167,6 +167,18 @@ class Versifier:
             max_v_e = (src_max_verses or {}).get(ch_e) or 999
             _, c1, v1 = self.convert(src_vsf, dst_vsf, book, ch_s, 1)
             _, c2, v2 = self.convert(src_vsf, dst_vsf, book, ch_e, max_v_e)
+            # The chapter span didn't move: the whole src chapter(s) still live in
+            # the same dst chapter(s). For a whole-chapter / chapter-range request
+            # the *internal* verse renumbering is irrelevant (the user sees the
+            # entire chapter either way, and the renumbering is visible in the
+            # verse text itself), so keep the block as-is. This preserves the clean
+            # "Gen 1" / "Salmene 3" label and avoids tripping the compare-mode
+            # "different versification" hint when there's no chapter-boundary shift
+            # (e.g. Psalm superscriptions: NB88 3:1-9 ↔ KJV 3:0-8, same chapter).
+            # Only an actual boundary crossing (c1/c2 land in a different chapter,
+            # e.g. Joel) falls through to a verse_range / cross_chapter.
+            if c1 == ch_s and c2 == ch_e:
+                return block
             if c1 == c2:
                 return {
                     **block,

@@ -1419,7 +1419,8 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
         <div class="verse-text" id="main-verse-text-${idx}">`;
 
     blockPlacesRegistry[idx] = block.places || [];
-    html += renderVerseTextHtml(block.verses, showNums, mainShowNewlines, showHeadings, block.book, lang, ver, block.headings || [], block.footnotes || [], block.places || [], idx, alignMode);
+    const mainAlignSlots = alignMode ? _getAlignSlots(idx) : null;
+    html += renderVerseTextHtml(mainAlignSlots ? mainAlignSlots.main : block.verses, showNums, mainShowNewlines, showHeadings, block.book, lang, ver, block.headings || [], block.footnotes || [], block.places || [], idx, alignMode);
     html += '</div>';
 
     if (block.book && block.verses.length > 0) {
@@ -1507,7 +1508,9 @@ function renderCompareBody(idx) {
     // Float the hint inside .verse-text so it appears in the top-right corner
     // of the compare text without taking its own row (which would offset rows
     // vs the main pane). Verse text flows around it.
-    body.innerHTML = `<div class="verse-text${mappedClass}">${mappedHint}${renderVerseTextHtml(cs.data.verses, showNums, showNewlines, showHeadings, cs.data.book, compLang, cs.version, cs.data.headings || [], cs.data.footnotes || [], [], null, alignMode)}</div>`;
+    const slots = alignMode ? _getAlignSlots(idx) : null;
+    const compVerses = slots ? slots.comp : cs.data.verses;
+    body.innerHTML = `<div class="verse-text${mappedClass}">${mappedHint}${renderVerseTextHtml(compVerses, showNums, showNewlines, showHeadings, cs.data.book, compLang, cs.version, cs.data.headings || [], cs.data.footnotes || [], [], null, alignMode)}</div>`;
     if (alignMode) equalizeVerseHeights(idx);
 }
 
@@ -1535,7 +1538,8 @@ function _reRenderMainVerseText(idx) {
     const showNewlines = alignMode || toggleNewlines.checked;
     const ver = versionSelect.value;
     const lang = versionLang(ver);
-    mainVerseText.innerHTML = renderVerseTextHtml(block.verses, showNums, showNewlines, showHeadings, block.book, lang, ver, block.headings || [], block.footnotes || [], block.places || [], idx, alignMode);
+    const slots = alignMode ? _getAlignSlots(idx) : null;
+    mainVerseText.innerHTML = renderVerseTextHtml(slots ? slots.main : block.verses, showNums, showNewlines, showHeadings, block.book, lang, ver, block.headings || [], block.footnotes || [], block.places || [], idx, alignMode);
 }
 
 function equalizeVerseHeights(idx) {
@@ -1766,6 +1770,43 @@ document.addEventListener('click', e => {
 
 
 
+// Compare-mode align: merge the main and compare verse sequences by their
+// eng-normalized align key (`ak`, set by the backend) so verses line up across
+// different versifications. Returns padded {main, comp} lists of equal length
+// where a side that lacks a given verse gets a {spacer:true} placeholder (e.g.
+// NB88 numbers a Psalm's superscription as a verse but NASB doesn't, so NASB
+// gets a spacer opposite it and the actual verses below stay aligned). Falls
+// back to positional pairing for any verse missing an `ak`.
+function _akTuple(ak) {
+    if (!ak) return null;
+    const p = ak.split(':');
+    return [parseInt(p[0], 10), parseInt(p[1], 10)];
+}
+function buildAlignedSlots(mainVerses, compVerses) {
+    const SPACER = { spacer: true };
+    const main = [], comp = [];
+    let i = 0, j = 0;
+    while (i < mainVerses.length && j < compVerses.length) {
+        const am = _akTuple(mainVerses[i].ak);
+        const ac = _akTuple(compVerses[j].ak);
+        if (!am || !ac) { main.push(mainVerses[i]); comp.push(compVerses[j]); i++; j++; continue; }
+        const c = (am[0] - ac[0]) || (am[1] - ac[1]);
+        if (c === 0) { main.push(mainVerses[i]); comp.push(compVerses[j]); i++; j++; }
+        else if (c < 0) { main.push(mainVerses[i]); comp.push(SPACER); i++; }
+        else { main.push(SPACER); comp.push(compVerses[j]); j++; }
+    }
+    while (i < mainVerses.length) { main.push(mainVerses[i]); comp.push(SPACER); i++; }
+    while (j < compVerses.length) { main.push(SPACER); comp.push(compVerses[j]); j++; }
+    return { main, comp };
+}
+// Padded slot lists for align mode, or null when not applicable.
+function _getAlignSlots(idx) {
+    const cs = cardCompare[idx];
+    const block = mainData && mainData[idx];
+    if (!cs || !cs.alignMode || !block || !cs.data || !Array.isArray(cs.data.verses)) return null;
+    return buildAlignedSlots(block.verses || [], cs.data.verses || []);
+}
+
 function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookCode, lang, ver, headings = [], footnotes = [], places = [], cardIdx = null, alignMode = false) {
     const headingMap = {};
     headings.forEach(h => {
@@ -1794,8 +1835,16 @@ function renderVerseTextHtml(verses, showNums, showNewlines, showHeadings, bookC
     const isMultiChapter = verses.some(x => x.chapter !== verses[0]?.chapter);
 
     verses.forEach((v, vi) => {
-        // Positional index as align key — works across versifications where
-        // chapter:verse coords differ between main and compare (mapped compare).
+        // Spacer slot: this side has no verse at this aligned position (the other
+        // version numbers a verse here that this one doesn't, e.g. a Psalm title).
+        // Emit an empty row so the surrounding verses stay vertically aligned.
+        if (alignMode && v && v.spacer) {
+            html += `<div class="verse-align-row verse-align-spacer" data-key="i${vi}"><div class="verse-align-pre"></div></div>`;
+            return;
+        }
+        // Slot index as align key — main and compare are pre-merged into matching
+        // slots (with spacers) by buildAlignedSlots, so index i lines up by the
+        // verses' eng-normalized coordinate across differing versifications.
         if (alignMode) html += `<div class="verse-align-row" data-key="i${vi}"><div class="verse-align-pre">`;
 
         if (isMultiChapter && v.chapter !== lastChapter) {
