@@ -532,7 +532,14 @@ class _MaterializedCursor:
 
 class BibleData:
     def __init__(self, db_path=None):
-        raw = sqlite3.connect(str(db_path or DB_PATH), check_same_thread=False)
+        path = Path(db_path or DB_PATH)
+        if not path.exists():
+            # sqlite3.connect would silently create an empty file here, which then
+            # fails later with a cryptic "no such table" — fail loudly instead.
+            raise FileNotFoundError(
+                f"bible.db ikke funnet på {path} — sjekk DB_PATH og volum-mount"
+            )
+        raw = sqlite3.connect(str(path), check_same_thread=False)
         raw.execute("PRAGMA journal_mode=WAL")
         raw.execute("PRAGMA foreign_keys=ON")
         self._db_lock = threading.RLock()
