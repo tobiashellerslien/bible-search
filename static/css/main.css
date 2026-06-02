@@ -67,6 +67,12 @@
             overflow-x: clip;
         }
 
+        /* Reserve space for the vertical scrollbar permanently so the page
+           doesn't shift sideways when content grows tall enough to scroll. */
+        html {
+            scrollbar-gutter: stable;
+        }
+
         body {
             font-family: var(--font-ui);
             background: var(--bg);
@@ -823,6 +829,7 @@
         /* Bla panel: chapter/book grids can be tall — scroll inside. */
         .bla-panel.open {
             overflow: hidden auto;
+            scrollbar-gutter: stable;
         }
 
         /* ── Bla (browse) stepper ── */
@@ -2200,6 +2207,7 @@
         .modal-body {
             padding: 18px;
             overflow-y: auto;
+            scrollbar-gutter: stable;
             flex: 1;
             /* Don't propagate wheel scrolling to the page behind once the modal
                reaches its top/bottom limit. */
@@ -4081,6 +4089,7 @@
             min-height: 0;
             overflow-y: auto;
             overflow-x: hidden;
+            scrollbar-gutter: stable;
             padding: 44px 18px 24px 12px;
             display: flex;
             flex-direction: column;
