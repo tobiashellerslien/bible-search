@@ -4487,10 +4487,7 @@
         }
 
         }
-        /* In-view focus highlight on cards */
-        .verse-card.sidebar-focused {
-            box-shadow: 0 0 0 2px var(--accent-dim), var(--shadow);
-        }
+        /* In-view focus tracking only — no visual highlight */
 
         /* ── Verse panel close button ── */
         .verse-panel-close {
