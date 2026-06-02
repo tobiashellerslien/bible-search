@@ -3,6 +3,7 @@ import os
 import json
 import sqlite3
 import threading
+import unicodedata
 from pathlib import Path
 
 def _resolve_db_path() -> Path:
@@ -1756,6 +1757,32 @@ def parse_search_query(query):
     }
 
 
+# Norwegian å/æ/ø are distinct letters, NOT accented a/o — so we must NOT let the
+# FTS5 tokenizer's diacritic folding collapse å→a / ö→o into them (that made a
+# search for "a" wrongly hit "ånd"). We instead fold diacritics ourselves, keeping
+# å/æ/ø intact while still folding "foreign" accents (é→e, ñ→n, ü→u, ä→a, …), and
+# store the result in a `remove_diacritics 0` FTS index. Queries are normalized the
+# same way so both sides agree. The frontend highlighter mirrors this exact rule.
+_FTS_KEEP = set("åÅæÆøØ")
+
+
+def fts_normalize(text):
+    """Fold foreign diacritics to their base letter (é→e, à→a, ñ→n, …) while
+    preserving the Norwegian letters å/æ/ø. Used to build verses_fts and to
+    normalize search terms before they hit it. Must stay in sync with the
+    `diacriticPattern` helper in static/js/app.js."""
+    text = unicodedata.normalize("NFC", text)
+    out = []
+    for ch in text:
+        if ch in _FTS_KEEP:
+            out.append(ch)
+            continue
+        base = "".join(c for c in unicodedata.normalize("NFD", ch)
+                        if unicodedata.category(c) != "Mn")
+        out.append(base if base else ch)
+    return "".join(out)
+
+
 def _fts_escape(term):
     """Escape \" inside an FTS5 phrase literal."""
     return term.replace('"', '""')
@@ -1794,17 +1821,21 @@ def _build_group_sql(group_raw, excluded_raw, version_id, books, select_cols):
         else:
             fts_prefix.append(core)
 
-    # Build positive FTS5 terms (phrases + prefix words)
+    # Build positive FTS5 terms (phrases + prefix words). fts_normalize folds
+    # foreign diacritics to match how verses_fts is indexed (keeps å/æ/ø distinct).
+    # Prefix words are quoted ("word"*) so a term that collides with an FTS5
+    # keyword (OR/AND/NOT/NEAR) is searched as literal text instead of parsed as
+    # an operator — otherwise e.g. searching "OR" yields a syntax error.
     fts_positive = (
-        [f'"{_fts_escape(p)}"' for p in phrases]
-        + [f'{_fts_escape(c)}*' for c in fts_prefix]
+        [f'"{_fts_escape(fts_normalize(p))}"' for p in phrases]
+        + [f'"{_fts_escape(fts_normalize(c))}"*' for c in fts_prefix]
     )
 
     if fts_positive:
         # Use IN-subquery so SQLite drives the search from FTS (cheap inverted index).
         match_parts = list(fts_positive)
         for ep in excl_phrases:
-            match_parts.append(f'NOT "{_fts_escape(ep)}"')
+            match_parts.append(f'NOT "{_fts_escape(fts_normalize(ep))}"')
         where.append("v.id IN (SELECT rowid FROM verses_fts WHERE verses_fts MATCH ?)")
         params.append(" ".join(match_parts))
     else:
@@ -1828,9 +1859,10 @@ def _build_group_sql(group_raw, excluded_raw, version_id, books, select_cols):
             where.append("LOWER(v.text) NOT LIKE ? ESCAPE '\\'")
             params.append(f"%{_like_escape(core.lower())}%")
         else:
-            # -word, -word*, -*word → exclude via FTS5 prefix
+            # -word, -word*, -*word → exclude via FTS5 prefix (quoted so keyword
+            # collisions like -or / -and are treated as literal text)
             where.append("v.id NOT IN (SELECT rowid FROM verses_fts WHERE verses_fts MATCH ?)")
-            params.append(f"{_fts_escape(core.lower())}*")
+            params.append(f'"{_fts_escape(fts_normalize(core.lower()))}"*')
 
     sql = f"SELECT {select_cols} FROM verses v WHERE {' AND '.join(where)}"
     return sql, params
@@ -2043,12 +2075,14 @@ def quick_search(bible_data, version_id, query, limit=25):
         )
         return list(bible_data.db.execute(sql, (match_expr, version_id, limit + 1)))
 
-    and_expr = " ".join(f'"{_fts_escape(t)}"*' for t in tokens)
+    # Normalize to match verses_fts indexing (folds foreign diacritics, keeps å/æ/ø).
+    norm_tokens = [fts_normalize(t) for t in tokens]
+    and_expr = " ".join(f'"{_fts_escape(t)}"*' for t in norm_tokens)
     rows = _run(and_expr)
 
-    if not rows and len(tokens) > 1:
+    if not rows and len(norm_tokens) > 1:
         # Fallback: OR-of-prefixes catches single-typo / wrong-word cases.
-        or_expr = " OR ".join(f'"{_fts_escape(t)}"*' for t in tokens)
+        or_expr = " OR ".join(f'"{_fts_escape(t)}"*' for t in norm_tokens)
         rows = _run(or_expr)
 
     truncated = len(rows) > limit

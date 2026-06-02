@@ -3389,12 +3389,35 @@ function stripScopePrefix(query) {
     return query;
 }
 
+// Diacritic fold groups mirroring the backend `fts_normalize` (app/services/bible.py):
+// foreign accents fold to their base (à-ä→a, ç→c, è-ë→e, ì-ï→i, ñ→n, ò-ö→o, ù-ü→u,
+// ý/ÿ→y), but the Norwegian letters å/æ/ø are kept DISTINCT — they are their own
+// letters, not accented a/o — so e.g. a search for "a" must NOT highlight "ånd".
+// The 'i' regex flag handles uppercase variants, so only lowercase members are listed.
+const DIACRITIC_GROUPS = ['aàáâãä', 'cç', 'eèéêë', 'iìíîï', 'nñ', 'oòóôõö', 'uùúûü', 'yýÿ'];
+const DIACRITIC_OF = {};
+for (const grp of DIACRITIC_GROUPS) for (const ch of grp) DIACRITIC_OF[ch] = grp;
+
+// Build a regex source matching `str` diacritic-insensitively, so a literal query
+// letter also matches its accented FTS-equivalents (and vice-versa). Mirrors how
+// the FTS5 search folds diacritics — without this, e.g. a search for "a" matches
+// "ånd" but the literal highlight regex would miss it. Regex metacharacters in
+// non-folded chars are escaped.
+function diacriticPattern(str) {
+    let out = '';
+    for (const ch of str) {
+        const grp = DIACRITIC_OF[ch.toLowerCase()];
+        out += grp ? '[' + grp + ']' : ch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+    return out;
+}
+
 function highlightWords(htmlText, query) {
     const WBL = '(?<![a-zA-ZÀ-ɏ0-9_])';
     const WBR = '(?![a-zA-ZÀ-ɏ0-9_])';
     // Quoted phrases → exact word-boundary match
     for (const m of query.matchAll(/"([^"]+)"/g)) {
-        const esc = m[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const esc = diacriticPattern(m[1]);
         try {
             htmlText = htmlText.replace(new RegExp(WBL + '(' + esc + ')' + WBR, 'gi'), '<b style="color:var(--highlight)">$1</b>');
         } catch {}
@@ -3407,7 +3430,7 @@ function highlightWords(htmlText, query) {
         const hasTrailing = w.endsWith('*') && w.length > 1;
         const core = w.replace(/^\*+|\*+$/g, '');
         if (!core) continue;
-        const esc = core.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const esc = diacriticPattern(core);
         try {
             const wc = '[a-zA-ZÀ-ɏ0-9_]';
             let pattern;
@@ -4167,7 +4190,8 @@ function renderQuickEmpty() {
 
 function highlightTokens(text, tokens) {
     if (!tokens.length) return escHtmlFast(text);
-    const escaped = tokens.map(tok => tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    // Diacritic-insensitive to match the FTS5-folded quick_search results.
+    const escaped = tokens.map(diacriticPattern);
     const re = new RegExp(`(${escaped.join('|')})`, 'gi');
     return escHtmlFast(text).replace(re, '<mark>$1</mark>');
 }
