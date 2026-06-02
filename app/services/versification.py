@@ -58,8 +58,7 @@ class Versifier:
         except Exception:
             pass
 
-        n = len(self._forward)
-        print(f"Loaded {n} versification mappings.")
+        pass
 
     # ── Lookups for resource versification ────────────────────────────────────
     def translation_vsf(self, translation_id):

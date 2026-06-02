@@ -77,8 +77,8 @@ const I18N = {
         'info.license.text':
             '<li>Bibeltekst: <a href="https://www.bible.com" target="_blank" rel="noopener">YouVersion / bible.com</a> — lagret lokalt for rask søk. Alle rettigheter tilhører oversettelsenes opphavsrettighetsinnehavere; verktøyet er for personlig bruk.</li>'
             + '<li>Kryssreferanser &amp; stedsdata: <a href="https://www.openbible.info/" target="_blank" rel="noopener">OpenBible.info</a> (CC-BY 4.0). Stedene viser kun mest sannsynlige plassering — «There are almost certainly errors.»</li>'
-            + '<li>Outlines &amp; temaer: <a href="https://berean.bible/" target="_blank" rel="noopener">Berean Bible (BSB)</a> sitt topical/outline-prosjekt.</li>'
-            + '<li>Leksikon (Easton, Smith, Hitchcock): klassiske oppslagsverk i public domain.</li>'
+            + '<li>Outlines: <a href="https://berean.bible/" target="_blank" rel="noopener">Berean Bible (BSB)</a> sitt outline-prosjekt.</li>'
+            + '<li>Leksikon (Easton, Smith, Hitchcock), bibelkommentarer (Scofield, Matthew Henry) og temaer (Nave): klassiske verk i public domain.</li>'
             + '<li>Kart: satellittbilder © <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a> · gatekart © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> · rendering med <a href="https://leafletjs.com" target="_blank" rel="noopener">Leaflet</a>.</li>'
             + '<li>Åpen kildekode (MIT): <a href="https://github.com/tobiashellerslien/bible-search" target="_blank" rel="noopener">github.com/tobiashellerslien/bible-search</a> · <a href="https://bibel.tjelle.net/" target="_blank" rel="noopener" style="color:var(--text-muted)">konkurrerende tjeneste</a>.</li>',
         'feedback.title': 'Send tilbakemelding',

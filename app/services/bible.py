@@ -594,9 +594,6 @@ class BibleData:
                 }
         except sqlite3.OperationalError:
             pass  # Commentaries schema not yet applied
-        if self.commentaries:
-            print(f"Loaded {len(self.commentaries)} commentary source(s): "
-                  + ", ".join(c["code"] for c in self.commentaries.values()))
 
         # Dictionary (leksikon) metadata. Entries loaded on demand.
         self.dictionaries = {}
@@ -610,9 +607,6 @@ class BibleData:
                 }
         except sqlite3.OperationalError:
             pass  # Dictionary schema not yet applied
-        if self.dictionaries:
-            print(f"Loaded {len(self.dictionaries)} dictionary source(s): "
-                  + ", ".join(d["code"] for d in self.dictionaries.values()))
 
     # ── Versification helpers (TVTMS-driven via self.vsf) ─────────────────────
 
