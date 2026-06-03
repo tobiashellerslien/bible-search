@@ -977,9 +977,14 @@ window.addEventListener('popstate', async e => {
         if (window.AppSidebar && typeof window.AppSidebar.close === 'function') window.AppSidebar.close();
         if (window.AppModuleHost && typeof window.AppModuleHost.closeModule === 'function') window.AppModuleHost.closeModule();
         if (nav.kind === 'topic' && window.StudySearch && typeof window.StudySearch.restoreTopic === 'function') {
-            window.StudySearch.restoreTopic(nav.id, { query: nav.q, version: nav.version, subgroupId: nav.subgroupId });
+            window.StudySearch.restoreTopic(nav.id, { query: nav.q, version: nav.version, subgroupId: nav.subgroupId, depth: nav.depth });
         } else {
             await doStudySearch(nav.type, false);
+            // Re-expand the topic boxes that were open when we left the list, so
+            // the layout (and the scroll restore below) matches where we were.
+            if (window.StudySearch && typeof window.StudySearch.restoreOpenTopics === 'function') {
+                window.StudySearch.restoreOpenTopics(e.state.openTopicIds);
+            }
         }
         // Restore the scroll position stamped on this entry when we left it
         // (study results are cached, so the layout is back instantly).

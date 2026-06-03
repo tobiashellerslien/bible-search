@@ -311,6 +311,29 @@
         });
     }
 
+    // Ids of the currently-expanded topic boxes in the results list, so a
+    // "Se også" jump can stamp them onto the leaving history entry and Back can
+    // re-expand them (heights — hence scroll — come back from the detail cache).
+    function captureOpenTopicIds() {
+        if (!_topicRoot) return [];
+        const ids = [];
+        _topicRoot.querySelectorAll('.topic-node[open]').forEach(det => {
+            const id = Number(det.dataset.topicId);
+            if (id) ids.push(id);
+        });
+        return ids;
+    }
+
+    // Re-expand the given topic boxes after the list re-renders on Back. Setting
+    // `open` fires the wired toggle handler, which lazy-loads the subgroups.
+    function restoreOpenTopics(ids) {
+        if (!_topicRoot || !Array.isArray(ids) || !ids.length) return;
+        ids.forEach(id => {
+            const det = _topicRoot.querySelector(`.topic-node[data-topic-id="${id}"]`);
+            if (det && !det.open) det.open = true;
+        });
+    }
+
     function renderTopics(data, container, ctx) {
         _topicCtx = ctx;
         _topicRoot = container;
@@ -321,8 +344,23 @@
     }
 
     // Open a single topic alone in the study view (from a "Se også" link).
+    // `depth` is how many "Se også" steps deep we are within this study session
+    // (results list = 0). It drives whether the in-view "← Tilbake" button shows
+    // and is carried in the pushed history state so a Back/restore re-derives it.
     async function showTopic(topicId, opts) {
         opts = opts || {};
+        let depth;
+        if (opts.push !== false) {
+            const prevDepth = (history.state && history.state.studyNav && history.state.studyNav.depth) || 0;
+            depth = prevDepth + 1;
+        } else {
+            depth = opts.depth || 0;
+        }
+        // Capture the leaving results-list's expanded topics *before* we replace
+        // the DOM below, so Back can restore them.
+        const leavingSearch = opts.push !== false
+            && history.state && history.state.studyNav && history.state.studyNav.kind === 'search';
+        const leavingOpenIds = leavingSearch ? captureOpenTopicIds() : null;
         if (!_topicRoot || !_topicRoot.isConnected) {
             if (typeof window.buildStudyScaffold === 'function') {
                 _topicRoot = window.buildStudyScaffold('topics');
@@ -337,7 +375,15 @@
             _topicRoot.innerHTML = '';
             return;
         }
-        _topicRoot.innerHTML = `<div class="study-topics study-topics-single">${topicNodeHtml(detail, true)}</div>`;
+        // A back button takes us to the topic/list we arrived from. It simply
+        // steps history back, reusing the existing studyNav popstate restore
+        // (scroll + expansion come back from the cache).
+        const backHtml = depth > 0
+            ? `<button type="button" class="topics-back study-topic-back">${esc(tFn('sidebar.topics.back'))}</button>`
+            : '';
+        _topicRoot.innerHTML = `<div class="study-topics study-topics-single">${backHtml}${topicNodeHtml(detail, true)}</div>`;
+        const backBtn = _topicRoot.querySelector('.study-topic-back');
+        if (backBtn) backBtn.addEventListener('click', () => { history.back(); });
         const wrap = _topicRoot.querySelector('.study-topics');
         wireTopicNodes(wrap);
         const det = wrap.querySelector('.topic-node');
@@ -356,11 +402,14 @@
                 const url = (typeof window.buildStudyURL === 'function')
                     ? window.buildStudyURL('topics', q, version, topicId, opts.subgroupId)
                     : location.href;
-                // Stamp the leaving entry's scroll first so Back restores it,
-                // then push the topic entry with its own URL.
-                history.replaceState({ ...(history.state || {}), scrollY: window.scrollY }, '', location.href);
+                // Stamp the leaving entry's scroll (and, for the results list,
+                // its expanded topics) first so Back restores them, then push
+                // the topic entry with its own URL.
+                const stamp = { ...(history.state || {}), scrollY: window.scrollY };
+                if (leavingOpenIds) stamp.openTopicIds = leavingOpenIds;
+                history.replaceState(stamp, '', location.href);
                 history.pushState({ studyNav: {
-                    kind: 'topic', id: topicId, type: 'topics', subgroupId: opts.subgroupId, q, version,
+                    kind: 'topic', id: topicId, type: 'topics', subgroupId: opts.subgroupId, q, version, depth,
                 } }, '', url);
             } catch { /* ignore */ }
         }
@@ -372,7 +421,7 @@
         if (typeof window.buildStudyScaffold === 'function') {
             _topicRoot = window.buildStudyScaffold('topics', ctx && ctx.query);
         }
-        showTopic(id, { push: false, subgroupId: ctx && ctx.subgroupId });
+        showTopic(id, { push: false, subgroupId: ctx && ctx.subgroupId, depth: ctx && ctx.depth });
     }
 
     // ════════════════════════════════════════════════════════════════
@@ -384,5 +433,5 @@
         container.innerHTML = '';
     }
 
-    window.StudySearch = { render, showTopic, restoreTopic };
+    window.StudySearch = { render, showTopic, restoreTopic, restoreOpenTopics };
 })();
