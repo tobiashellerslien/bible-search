@@ -496,10 +496,11 @@
             -webkit-box-orient: vertical;
         }
         .quick-row .qr-text mark {
-            background: var(--accent-dim);
-            color: var(--accent);
-            padding: 0 2px;
-            border-radius: var(--radius-xs);
+            background: transparent;
+            color: inherit;
+            font-weight: 700;
+            font-style: italic;
+            padding: 0;
         }
         .quick-footer {
             padding: 8px 12px;

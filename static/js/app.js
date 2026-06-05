@@ -3473,7 +3473,7 @@ function highlightWords(htmlText, query) {
     for (const m of query.matchAll(/"([^"]+)"/g)) {
         const esc = diacriticPattern(m[1]);
         try {
-            htmlText = htmlText.replace(new RegExp(WBL + '(' + esc + ')' + WBR, 'gi'), '<b style="color:var(--highlight)">$1</b>');
+            htmlText = htmlText.replace(new RegExp(WBL + '(' + esc + ')' + WBR, 'gi'), '<b><i>$1</i></b>');
         } catch {}
     }
     // Plain words — strip exclusions, quoted pairs, operators, then apply per-wildcard highlighting.
@@ -3495,7 +3495,7 @@ function highlightWords(htmlText, query) {
                 // tro, tro*, *tro → whole word starting with core (prefix)
                 pattern = new RegExp(WBL + '(' + esc + wc + '*)' + WBR, 'gi');
             }
-            htmlText = htmlText.replace(pattern, '<b style="color:var(--highlight)">$1</b>');
+            htmlText = htmlText.replace(pattern, '<b><i>$1</i></b>');
         } catch {}
     }
     return htmlText;
