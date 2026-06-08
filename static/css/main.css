@@ -2865,15 +2865,15 @@
             .modal-panel { max-height: 80vh; }
             .stats-card-value { font-size: 1.1rem; }
             .header-right { gap: 5px; }
-            .header-btn { padding: 4px 7px; font-size: 0.75rem; }
+            .header-btn { padding: 4px 7px; font-size: 0.73rem; }
 
             .search-group #searchBtn { padding: 9px 10px; font-size: 0.8rem; }
 
             .display-bar { width: 100%; }
-            .display-bar-btn { flex: 1; padding: 5px 0; font-size: 0.72rem; }
+            .display-bar-btn { flex: 1; padding: 6px 0; font-size: 0.75rem; }
             .display-bar-label { display: none; }
             .display-bar-label-short { display: inline; }
-            .display-bar-icon { width: 14px; height: 14px; }
+            .display-bar-icon { width: 15px; height: 15px; }
 
             .search-wrap input,
             .search-highlight-overlay,
