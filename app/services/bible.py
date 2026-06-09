@@ -609,6 +609,18 @@ class BibleData:
         except sqlite3.OperationalError:
             pass  # Dictionary schema not yet applied
 
+        # Per-translation localized book names (e.g. Vietnamese). Keyed
+        # tid -> {usfm: name}. Empty for versions that use the default
+        # Norwegian/English names baked into USFM_TO_NAME / USFM_TO_ENG.
+        self.book_names = {}
+        try:
+            for tid, usfm, name in self.db.execute(
+                "SELECT translation_id, book_usfm, name FROM book_names"
+            ):
+                self.book_names.setdefault(tid, {})[usfm] = name
+        except sqlite3.OperationalError:
+            pass  # book_names table not yet applied
+
     # ── Versification helpers (TVTMS-driven via self.vsf) ─────────────────────
 
     def normalize_reference(self, translation_id, book_usfm, chapter, verse_start, verse_end=None):

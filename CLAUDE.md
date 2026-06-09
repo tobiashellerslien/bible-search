@@ -29,6 +29,10 @@ Dictionary (leksikon) tables: `dictionaries(id,code,name,short_name,format)`, `d
 
 BLB (Berean Literal Bible) is a local-only translation (id=9001), not on bible.com.
 
+Two low-key Vietnamese translations (`VIE2011` id=19, `VIE1925` id=193, `language='vi'`) added by `migrations/migrate_vietnamese.py` from scraped JSON in `temp_resources/bible_19`/`bible_193` (both versification `eng`). Intentionally semi-hidden: sorted to the bottom of the version picker (now scrollable so they fall below the fold), excluded from "all versions" compare (`api_all_versions`/`api_all_text_search` skip `language=='vi'`), and **never surface in input** (autocomplete/scoping/tab-complete fold `vi`→`no` via `inputLang()` in app.js — typing book names stays Norwegian/English). Vietnamese book names live in the DB (`book_names`), not in code, and show in reading-view labels via `name_local` (`bookName`/`translateLabel` handle `lang==='vi'`). Search uses the normal `verses_fts` path (tone-folded by `fts_normalize`, đ stays distinct).
+
+`book_names(translation_id,book_usfm,name)` — per-translation localized book names (generic; currently Vietnamese only). Loaded into `BibleData.book_names[tid][usfm]`; surfaced by `/api/books` as `name_local` (null for versions using the default Norwegian/English names in `USFM_TO_NAME`/`USFM_TO_ENG`).
+
 Study-search FTS5 indexes (built by `migrations/migrate_search_fts.py`, idempotent): `commentary_fts` (external content over `commentary_entries.body`, implicit rowid), `dictionary_fts` (over `dictionary_entries.headword`, content_rowid=`id` — leksikon search matches headword only), `topics_fts` (over `topics.name`, content_rowid=`id`). All `tokenize='unicode61'` (default diacritic folding — these are English study data, unlike `verses_fts` which uses `remove_diacritics 0` + Python-side normalization to keep Norwegian å/æ/ø distinct).
 
 `migrate_to_db.py`, `migrate_places.py`, and `migrations/*.py` = one-time migrations, do not re-run.

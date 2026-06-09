@@ -310,6 +310,14 @@ function versionLang(v) {
     const ver = _versionsMap.get(String(v));
     return ver ? ver.language : 'no';
 }
+// Language used for *input* (autocomplete, scoping, tab-complete, reference
+// detection). Vietnamese versions reuse the Norwegian/English book names for
+// typing — Vietnamese is display-only and never surfaces in search filters or
+// autofill, so we fold 'vi' → 'no' for all input-side parsing.
+function inputLang(v) {
+    const l = versionLang(v);
+    return l === 'vi' ? 'no' : l;
+}
 
 const BIBLEHUB_SLUGS = {
     GEN:'genesis',EXO:'exodus',LEV:'leviticus',NUM:'numbers',DEU:'deuteronomy',
@@ -524,7 +532,7 @@ function getUnknownPrefix(query) {
     const prefix = m[1].trim().toLowerCase();
     if (prefix === 'book') return null;
     if (VALID_GROUP_PREFIXES.has(prefix)) return null;
-    const lang = versionLang(versionSelect.value);
+    const lang = inputLang(versionSelect.value);
     const isBook = booksData.some(b =>
         (b.aliases && b.aliases.some(a => a === prefix)) ||
         bookName(b.code, lang).toLowerCase() === prefix ||
@@ -541,7 +549,7 @@ function getUnknownPrefix(query) {
 function looksLikeBibleReference(query) {
     const q = (query || '').trim().toLowerCase();
     if (!q || !/\d/.test(q)) return false;          // a reference needs a chapter number
-    const lang = versionLang(versionSelect.value);
+    const lang = inputLang(versionSelect.value);
     for (const b of booksData) {
         const names = [];
         if (b.aliases) names.push(...b.aliases);
@@ -605,6 +613,7 @@ function buildVersionPicker() {
     const list = document.getElementById('versionPickerList');
     if (!list) return;
     list.innerHTML = '';
+    let firstHiddenEl = null;
     allVersionsList.forEach(v => {
         const el = document.createElement('div');
         el.className = 'vp-item';
@@ -616,7 +625,16 @@ function buildVersionPicker() {
             closeVersionPicker();
         });
         list.appendChild(el);
+        if (!firstHiddenEl && v.language === 'vi') firstHiddenEl = el;
     });
+    // Low-key (Vietnamese) versions sit at the bottom: cap the list height so
+    // they fall below the fold and require a scroll to reach. Clamp to 70vh so
+    // the fold never pushes the list off short screens.
+    if (firstHiddenEl) {
+        const fold = firstHiddenEl.offsetTop;
+        const cap = Math.round(window.innerHeight * 0.7);
+        if (fold > 0) list.style.maxHeight = Math.min(fold, cap) + 'px';
+    }
     updateVersionPickerDisplay();
 }
 
@@ -4418,7 +4436,7 @@ function handleAutocomplete() {
 
     // If the token exactly matches a full book name, show only the scoped suggestion.
     // Use trimmed token so a trailing space (e.g. after Tab-completing a book) also triggers this.
-    const lang = versionLang(versionSelect.value);
+    const lang = inputLang(versionSelect.value);
     const exactToken = token.trim();
     const exactBook = exactToken.length > 0 && booksData.find(b => {
         const plural = bookName(b.code, lang).toLowerCase();
@@ -4501,7 +4519,7 @@ function handleAcKeydown(e) {
             // Second Tab: if current token is exactly a book name, convert to scoped
             const token = getCurrentToken().trim();
             if (token.length > 0) {
-                const lang = versionLang(versionSelect.value);
+                const lang = inputLang(versionSelect.value);
                 const matchedBook = booksData.find(b => {
                     const plural = bookName(b.code, lang).toLowerCase();
                     const singular = bookNameSingular(b.code, lang).toLowerCase();
@@ -4681,6 +4699,8 @@ function applyTheme(dark) {
     dmLight.classList.toggle('active', !dark);
     dmDark.classList.toggle('active', dark);
     localStorage.setItem('theme', dark ? 'dark' : 'light');
+    document.querySelector('meta[name="theme-color"]')
+        .setAttribute('content', dark ? '#1c1c1e' : '#f5f2ee');
     applyAccent(currentAccent);
 }
 
@@ -4725,6 +4745,11 @@ function bookName(code, lang) {
     if (!code) return '';
     const effectiveLang = lang || versionLang(versionSelect.value);
     if (effectiveLang === 'en' && ENG_NAMES[code]) return ENG_NAMES[code];
+    if (effectiveLang === 'vi') {
+        // Localized (Vietnamese) name comes from the DB via /api/books.
+        const bv = _booksMap.get(code);
+        if (bv && bv.name_local) return bv.name_local;
+    }
     const override = BOOK_DISPLAY_OVERRIDES_NO[code];
     if (override) return override;
     const b = _booksMap.get(code);
@@ -4772,6 +4797,15 @@ function translateLabel(label, bookCode, lang) {
     if (!bookCode) return label;
     const effectiveLang = lang || versionLang(versionSelect.value);
     if (effectiveLang === 'no') return label;
+    if (effectiveLang === 'vi') {
+        // Swap the Norwegian book prefix in the server label for the localized
+        // (Vietnamese) name from the DB, mirroring the English branch below.
+        const bv = _booksMap.get(bookCode);
+        const viName = bv && bv.name_local;
+        const norwName = bv ? bv.name : null;
+        if (viName && norwName && label.startsWith(norwName)) return viName + label.slice(norwName.length);
+        return label;
+    }
     const engName = BOOK_DISPLAY_OVERRIDES_EN_SINGULAR[bookCode] || ENG_NAMES[bookCode];
     if (!engName) return label;
     const b = _booksMap.get(bookCode);

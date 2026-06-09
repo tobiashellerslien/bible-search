@@ -360,11 +360,13 @@ def api_books():
     version_id = _resolve_version_id(bible_data, request.args.get("version"))
     if version_id is None:
         return jsonify({"books": [], "version": None})
+    local_names = bible_data.book_names.get(version_id, {})
     books_list = [
         {
             "code": code,
             "name": USFM_TO_NAME.get(code, code),
             "name_en": USFM_TO_ENG.get(code, code),
+            "name_local": local_names.get(code),
             "abbrev_no": USFM_TO_ABBREV_NO.get(code, code),
             "testament": USFM_TO_TESTAMENT.get(code, "OT"),
             "chapters": bible_data.book_chapters.get(version_id, {}).get(code, 0),
@@ -485,7 +487,10 @@ def api_all_versions():
     src_version_id = _resolve_version_id(bible_data, src_raw) if src_raw else None
     src_books = bible_data.book_verse_counts.get(src_version_id, {}) if src_version_id else {}
     all_results = {}
-    for vid in bible_data.translations:
+    for vid, meta in bible_data.translations.items():
+        # Low-key Vietnamese versions are excluded from the "all versions" aggregate.
+        if meta.get("language") == "vi":
+            continue
         per_version_blocks = blocks
         if src_version_id is not None and src_version_id != vid:
             per_version_blocks = [
@@ -525,7 +530,9 @@ def api_all_text_search():
     if not query:
         return jsonify({"error": "No query provided"}), 400
     all_results = {}
-    for version_id in bible_data.translations:
+    for version_id, meta in bible_data.translations.items():
+        if meta.get("language") == "vi":
+            continue
         results, _ = search_text(bible_data, version_id, query, per_book=None)
         if results:
             all_results[version_id] = results
