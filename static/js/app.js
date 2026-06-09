@@ -2428,9 +2428,9 @@ function mvbExternalUrls() {
     const groups = getMarkedVersesGroups();
     const first = groups[0];
     if (!first) return null;
-    const ilUrl = typeof interlinearUrl === 'function' ? interlinearUrl(first.book, first.chapter, first.vsStart) : null;
-    const crUrl = typeof biblerefUrl === 'function' ? biblerefUrl(first.book, first.chapter, first.vsStart) : null;
     const ver = versionSelect ? versionSelect.value : null;
+    const ilUrl = typeof interlinearUrl === 'function' ? interlinearUrl(first.book, first.chapter, first.vsStart, ver) : null;
+    const crUrl = typeof biblerefUrl === 'function' ? biblerefUrl(first.book, first.chapter, first.vsStart, ver) : null;
     const yvVerses = groups.flatMap(g => {
         const vs = [];
         for (let i = g.vsStart; i <= g.vsEnd; i++) vs.push({ chapter: g.chapter, num: i });
@@ -2573,8 +2573,8 @@ function _extUrlsForBlock(idx) {
     const ch = b.verses[0].chapter;
     const single = b.verses.length === 1;
     const ver = versionSelect ? versionSelect.value : null;
-    const ilUrl = typeof interlinearUrl === 'function' ? interlinearUrl(b.book, ch, single ? b.verses[0].num : null) : null;
-    const crUrl = typeof biblerefUrl === 'function' ? biblerefUrl(b.book, ch, single ? b.verses[0].num : null) : null;
+    const ilUrl = typeof interlinearUrl === 'function' ? interlinearUrl(b.book, ch, single ? b.verses[0].num : null, ver) : null;
+    const crUrl = typeof biblerefUrl === 'function' ? biblerefUrl(b.book, ch, single ? b.verses[0].num : null, ver) : null;
     const yvUrl = (typeof youversionUrl === 'function' && ver) ? youversionUrl(b.book, ch, b.verses, ver, !!b.is_chapter) : null;
     return { ilUrl, crUrl, yvUrl };
 }
@@ -4966,9 +4966,36 @@ function updateUrlFromCards(push) {
     } catch {}
 }
 
-function interlinearUrl(bookCode, chapter, verseNum) {
+// Psalms in the Norwegian translations B2011/NB88/BGO follow Hebrew
+// versification — the superscription counts as verse 1 (or 1-2) — while
+// BibleHub and BibleRef use English/KJV versification (superscription
+// unnumbered). Map: Psalm chapter -> number of superscription verses to strip.
+const PSALM_SUPERSCRIPTION_OFFSET = {
+    3:1, 4:1, 5:1, 6:1, 7:1, 8:1, 9:1, 12:1, 18:1, 19:1, 20:1, 21:1, 22:1, 30:1,
+    31:1, 34:1, 36:1, 38:1, 39:1, 40:1, 41:1, 42:1, 44:1, 45:1, 46:1, 47:1, 48:1, 49:1,
+    51:2, 52:2, 53:1, 54:2, 55:1, 56:1, 57:1, 58:1, 59:1, 60:2, 61:1, 62:1, 63:1, 64:1,
+    65:1, 67:1, 68:1, 69:1, 70:1, 75:1, 76:1, 77:1, 80:1, 81:1, 83:1, 84:1, 85:1, 88:1,
+    89:1, 92:1, 102:1, 108:1, 140:1, 142:1
+};
+const HEBREW_PSALM_VERSIONS = new Set(['29', '102', '2216']); // B2011, NB88, BGO
+
+// Convert a displayed verse number to its English-versification equivalent for
+// the external (BibleHub/BibleRef) links. Returns the adjusted verse, or null
+// when the verse is part of the superscription (unnumbered in English) so the
+// caller falls back to a chapter-level link.
+function toEnglishVerse(version, bookCode, chapter, verseNum) {
+    if (verseNum == null || bookCode !== 'PSA') return verseNum;
+    if (!HEBREW_PSALM_VERSIONS.has(String(version))) return verseNum;
+    const off = PSALM_SUPERSCRIPTION_OFFSET[chapter] || 0;
+    if (!off) return verseNum;
+    const adj = verseNum - off;
+    return adj >= 1 ? adj : null;
+}
+
+function interlinearUrl(bookCode, chapter, verseNum, version) {
     const slug = BIBLEHUB_SLUGS[bookCode];
     if (!slug) return null;
+    verseNum = toEnglishVerse(version, bookCode, chapter, verseNum);
     return verseNum != null
         ? `https://biblehub.com/interlinear/${slug}/${chapter}-${verseNum}.htm`
         : `https://biblehub.com/interlinear/${slug}/${chapter}.htm`;
@@ -4984,10 +5011,11 @@ function youversionUrl(bookCode, chapter, verses, versionId, isChapter) {
     return `${base}.${verses[0].num}-${verses[verses.length - 1].num}`;
 }
 
-function biblerefUrl(bookCode, chapter, verseNum) {
+function biblerefUrl(bookCode, chapter, verseNum, version) {
     const engName = ENG_NAMES[bookCode];
     if (!engName) return null;
     const slug = engName.replace(/ /g, '-');
+    verseNum = toEnglishVerse(version, bookCode, chapter, verseNum);
     return verseNum != null
         ? `https://www.bibleref.com/${slug}/${chapter}/${slug}-${chapter}-${verseNum}.html`
         : `https://www.bibleref.com/${slug}/${chapter}/${slug}-chapter-${chapter}.html`;
