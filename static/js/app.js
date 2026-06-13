@@ -436,8 +436,8 @@ function bookTotalVerses(code) {
 
 const COLOR_PRESETS = [
     { name: 'Blue',   l: '#2870e8', lh: '#1d5cc8', ld: 'rgba(40,112,232,0.12)',   d: '#5aafff', dh: '#4a9eee', dd: 'rgba(90,175,255,0.12)' },
-    { name: 'Red',    l: '#b53232', lh: '#922222', ld: 'rgba(181,50,50,0.12)',    d: '#e06060', dh: '#c94444', dd: 'rgba(224,96,96,0.12)' },
     { name: 'Purple', l: '#7c3aed', lh: '#6d28d9', ld: 'rgba(124,58,237,0.12)',  d: '#a78bfa', dh: '#8b5cf6', dd: 'rgba(167,139,250,0.12)' },
+    { name: 'Red',    l: '#b53232', lh: '#922222', ld: 'rgba(181,50,50,0.12)',    d: '#e06060', dh: '#c94444', dd: 'rgba(224,96,96,0.12)' },
 ];
 
 // ── Page title ──

@@ -508,11 +508,12 @@
 </div>
 
 <!-- Ekstern popup: anchored under #mvbExternal on PC, bottom-sheet on mobile -->
+<!-- icon attrib: "https://www.flaticon.com/free-icons/external-link" created by Alfan Subekti - Flaticon -->
 <div id="externalPopup" class="external-popup" data-state="closed" aria-hidden="true">
     <div class="external-popup-inner">
-        <a class="external-link" id="extInterlinear" href="#" target="_blank" rel="noopener"><img src="{{ url_for('static', filename='images/biblehub.png') }}" class="external-link-logo" alt="BibleHub"><span>Grunntekst</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>
-        <a class="external-link" id="extBibleref" href="#" target="_blank" rel="noopener"><img src="{{ url_for('static', filename='images/bibleref.png') }}" class="external-link-logo" alt="BibleRef"><span>BibleRef</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>
-        <a class="external-link" id="extSource" href="#" target="_blank" rel="noopener"><span>Kilde</span><span class="ext-icon" aria-hidden="true">&#x2197;</span></a>
+        <a class="external-link" id="extInterlinear" href="#" target="_blank" rel="noopener"><img src="{{ url_for('static', filename='images/biblehub.png') }}" class="external-link-logo" alt="BibleHub"><span>Grunntekst</span><img class="ext-icon" src="{{ url_for('static', filename='images/external-small.png') }}" alt=""></a>
+        <a class="external-link" id="extBibleref" href="#" target="_blank" rel="noopener"><img src="{{ url_for('static', filename='images/bibleref.png') }}" class="external-link-logo" alt="BibleRef"><span>BibleRef</span><img class="ext-icon" src="{{ url_for('static', filename='images/external-small.png') }}" alt=""></a>
+        <a class="external-link" id="extSource" href="#" target="_blank" rel="noopener"><span>Kilde</span><img class="ext-icon" src="{{ url_for('static', filename='images/external-small.png') }}" alt=""></a>
     </div>
 </div>
 

@@ -6225,9 +6225,12 @@
         }
         .external-link .ext-icon {
             margin-left: auto;
-            font-size: 0.78rem;
-            opacity: 0.7;
+            width: 12px;
+            height: 12px;
+            flex-shrink: 0;
+            filter: brightness(0) opacity(0.6);
         }
+        [data-theme="dark"] .external-link .ext-icon { filter: brightness(0) invert(1) opacity(0.7); }
         /* Mobile: sheet sitting ABOVE MVB (like AppModuleHost), not from screen bottom */
         .external-popup.external-popup-mobile {
             position: fixed;
