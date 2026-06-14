@@ -412,13 +412,10 @@
         }
         html += `</div></div>`;
 
-        // Full-width description below title.
-        if (place.comment) {
-            html += `<div class="popup-comment">${esc(place.comment)}</div>`;
-        }
-
-        // Two-column body: optional thumb on left, meta on right.
-        html += `<div class="popup-body">`;
+        // Content block: a floated thumbnail (if any) with description +
+        // metadata flowing around and below it, so short content fills the
+        // whitespace beside the image and there are no empty columns.
+        html += `<div class="popup-content">`;
 
         if (hasThumb) {
             const bg = t.placeholder
@@ -440,7 +437,10 @@
             </div>`;
         }
 
-        html += `<div class="popup-info">`;
+        // Description flows around the floated thumbnail.
+        if (place.comment) {
+            html += `<div class="popup-comment">${esc(place.comment)}</div>`;
+        }
 
         // Meta rows (placemark + aliases)
         const aliases = (place.aliases || []).filter(a => a && a !== place.name);
@@ -484,8 +484,7 @@
             html += `<div class="popup-confrow">${confChunks.map(c => `<div class="popup-confrow-item">${c}</div>`).join('')}</div>`;
         }
 
-        html += `</div>`; // .popup-info
-        html += `</div>`; // .popup-body
+        html += `</div>`; // .popup-content
 
         // Full-width actions row: two pills side by side.
         const hasLinks = !!(geometryCentroid(place.geometry) || place.wikidata_id || place.wikipedia_url);
@@ -718,7 +717,7 @@
         const sz = _map.getSize();
         // Cap to map width minus the tool column + breathing room, so the popup
         // close X never lands under the fullscreen button on small/low-res maps.
-        popup.options.maxWidth = Math.round(Math.min(460, Math.max(220, sz.x - 80)));
+        popup.options.maxWidth = Math.round(Math.min(340, Math.max(200, sz.x - 70)));
         popup.options.maxHeight = Math.round(Math.max(140, sz.y - 96));
     }
 

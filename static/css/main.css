@@ -3405,8 +3405,8 @@
             font-size: 0.85rem;
             margin: 10px 12px;
             line-height: 1.45;
-            min-width: 200px;
-            max-width: 300px;
+            min-width: 180px;
+            max-width: 280px;
         }
         .map-popup-wrap .leaflet-popup-content-wrapper { border-radius: var(--radius-sm); }
         /* Theme Leaflet's white popup chrome so themed text (pills, comment,
@@ -3492,7 +3492,6 @@
             flex-shrink: 0;
         }
         .map-popup .popup-comment {
-            margin-top: 6px;
             font-size: 0.84rem;
             color: var(--text);
             opacity: 0.92;
@@ -3503,42 +3502,41 @@
            A previous `width: auto !important` here was bypassing that and
            letting wide rows (the actions buttons, long meta text) overflow past
            the popup wrapper. We keep a max-width as a belt-and-suspenders cap. */
-        .map-popup-wrap .leaflet-popup-content { margin: 12px; max-width: 360px; box-sizing: border-box; }
+        .map-popup-wrap .leaflet-popup-content { margin: 10px; max-width: 320px; box-sizing: border-box; }
         .map-popup-wrap .leaflet-popup-scrolled {
             max-height: none !important;
             overflow: visible !important;
         }
         .map-popup {
             font-size: 0.88rem;
-            min-width: 220px;
-            max-width: 360px;
+            min-width: 200px;
+            max-width: 320px;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
         }
-        .map-popup.map-popup-with-thumb { min-width: 280px; }
-        /* Two-column row: optional fixed-width thumb on the left, meta column on
-           the right. Without a thumb the meta column fills the popup width. */
-        .map-popup .popup-body {
-            display: flex;
-            gap: 10px;
-            align-items: flex-start;
+        .map-popup.map-popup-with-thumb { min-width: 240px; }
+        /* Content block: a floated thumbnail (when present) with description +
+           metadata flowing around and below it. The clearfix makes the block
+           contain the float's height so the actions/refs rows below start on a
+           clean full-width line. */
+        .map-popup .popup-content {
+            text-align: left;
         }
-        .map-popup .popup-info {
-            flex: 1 1 0;
-            min-width: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+        .map-popup .popup-content::after {
+            content: "";
+            display: block;
+            clear: both;
         }
+        /* Space consecutive in-flow text blocks, but not the first block that
+           sits beside the floated thumb (its preceding sibling is the thumb). */
+        .map-popup .popup-content > *:not(.popup-thumb-col) + * { margin-top: 6px; }
         .map-popup.map-popup-with-thumb .popup-thumb-col {
-            flex: 0 0 130px;
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
+            float: left;
+            width: 96px;
+            margin: 1px 10px 4px 0;
         }
-        /* Reset top-margin inside columns so the gap is driven by flex gap only. */
-        .map-popup .popup-info > *,
+        /* Reset top-margin so vertical rhythm is driven only by our rules. */
         .map-popup > * { margin-top: 0 !important; }
 
         .map-popup .popup-thumb {
@@ -3561,11 +3559,13 @@
         }
         .map-popup .popup-thumb .thumb-sat-badge {
             position: absolute;
-            top: 5px;
-            right: 5px;
+            top: 4px;
+            right: 4px;
             background: rgba(0,0,0,0.45);
             color: #fff;
             border: 1px solid rgba(255,255,255,0.4);
+            font-size: 0.58rem;
+            padding: 1px 4px;
         }
         /* Credit overlay anchored to the image's bottom-left corner. */
         .map-popup .popup-thumb-credit {
@@ -3577,7 +3577,7 @@
             border-radius: var(--radius-xs);
             background: rgba(0, 0, 0, 0.55);
             color: #fff;
-            font-size: 0.66rem;
+            font-size: 0.62rem;
             line-height: 1.25;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -3593,17 +3593,17 @@
             .map-popup .popup-thumb-credit a:hover { text-decoration-color: #fff; }
         }
 
-        /* Meta + confidence inside info column (description lives full-width
-           above the body — see the .popup-comment rule near the header). */
+        /* Meta + confidence. Plain block flow (NOT flex) so the text wraps
+           around and continues beneath the floated thumbnail instead of
+           forming a shrunken BFC column beside it. */
         .map-popup .popup-meta {
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
+            display: block;
             font-size: 0.82rem;
             color: var(--text);
             line-height: 1.35;
             overflow-wrap: anywhere;
         }
+        .map-popup .popup-meta-row + .popup-meta-row { margin-top: 3px; }
         .map-popup .popup-conf-votes { color: var(--text-muted); font-weight: 500; }
         .map-popup .popup-meta-label {
             color: var(--text-muted);
@@ -3616,12 +3616,11 @@
         }
         /* Sikkerhet + Presisjon stacked one-per-line */
         .map-popup .popup-confrow {
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
+            display: block;
             font-size: 0.82rem;
         }
         .map-popup .popup-confrow-item { display: block; }
+        .map-popup .popup-confrow-item + .popup-confrow-item { margin-top: 3px; }
         .map-popup .popup-conf-num { font-weight: 700; }
         .map-popup .popup-conf-disputed { color: #e8590c; font-weight: 600; }
 
@@ -3642,8 +3641,10 @@
             box-sizing: border-box;
             text-align: center;
             white-space: normal;
-            line-height: 1.2;
+            line-height: 1.15;
             overflow-wrap: anywhere;
+            padding: 4px 8px;
+            font-size: 0.78rem;
         }
 
         /* Fullscreen image modal launched from the popup thumbnail */
