@@ -22,6 +22,7 @@ from .services.bible import (
     identify_book,
     is_reference_query,
     linkify_dictionary_refs,
+    linkify_history_refs,
     parse_canonical_path,
     parse_query,
     parse_search_query,
@@ -29,6 +30,7 @@ from .services.bible import (
     ref_label,
     resolve_block,
     search_commentaries,
+    search_history,
     search_leksikon,
     search_text,
     strip_scope_from_query,
@@ -863,6 +865,104 @@ def api_leksikon():
     return jsonify({"entries": entries})
 
 
+@bp.get("/api/history")
+def api_history():
+    bible_data = _bible_data()
+    book = request.args.get("book", "").upper()
+    if not book:
+        return jsonify({"error": "Missing book"}), 400
+
+    def _maybe_int(name, default=None):
+        v = request.args.get(name)
+        if v in (None, ""):
+            return default
+        try:
+            return int(v)
+        except ValueError:
+            return default
+
+    chapter = _maybe_int("chapter")
+    if chapter is None:
+        return jsonify({"error": "Missing chapter"}), 400
+    chapter_end = _maybe_int("chapter_end")
+    verse_start = _maybe_int("verse_start")
+    verse_end = _maybe_int("verse_end")
+    window = _maybe_int("window", 10)
+    if window is None or window < 0:
+        window = 10
+    window = min(window, 100)  # guard the ±-selector
+
+    # History refs (Ussher/BibleData) are eng vsf. Translate the user-vsf window
+    # to eng before lookup, then remap each direct entry's triggered_by back so
+    # chip labels match the displayed verses (mirrors /api/leksikon).
+    version_id = _resolve_version_id(bible_data, request.args.get("version"))
+    tx_vsf = bible_data.vsf.translation_vsf(version_id) if version_id is not None else "eng"
+    non_eng = (tx_vsf != "eng")
+
+    ch_end_eff = chapter_end if chapter_end is not None else chapter
+    if non_eng:
+        s_v = verse_start if verse_start is not None else 1
+        e_v = verse_end if verse_end is not None else 999
+        _, q_ch_s, _ = bible_data.vsf.to_eng(tx_vsf, book, chapter, s_v)
+        _, q_ch_e, _ = bible_data.vsf.to_eng(tx_vsf, book, ch_end_eff, e_v)
+        lo_ch, hi_ch = min(q_ch_s, q_ch_e), max(q_ch_s, q_ch_e)
+        data = bible_data.get_history_for_range(book, lo_ch, None, hi_ch, None, window=window)
+    else:
+        data = bible_data.get_history_for_range(
+            book, chapter, verse_start, chapter_end, verse_end, window=window,
+        )
+
+    if non_eng:
+        # Remap each direct entry's triggered_by eng→tx_vsf and filter to the
+        # user window (year-based nearby/epochs are passage-independent).
+        ch_s_user, ch_e_user = chapter, ch_end_eff
+        kept_direct = []
+        for entry in data.get("direct", []):
+            kept = []
+            for t in entry.get("triggered_by", []):
+                ch = t.get("chapter")
+                ch_e = t.get("chapter_end") if t.get("chapter_end") is not None else ch
+                vs_s = t.get("verse_start")
+                vs_e = t.get("verse_end") if t.get("verse_end") is not None else vs_s
+                _, m_ch_s, m_vs_s = bible_data.vsf.from_eng(tx_vsf, book, ch, vs_s)
+                _, m_ch_e, m_vs_e = bible_data.vsf.from_eng(tx_vsf, book, ch_e, vs_e)
+                a = m_ch_s * 1000 + m_vs_s
+                b = m_ch_e * 1000 + m_vs_e
+                u_s = ch_s_user * 1000 + (verse_start if verse_start is not None else 0)
+                u_e = ch_e_user * 1000 + (verse_end if verse_end is not None else 999)
+                if min(a, b) > u_e or max(a, b) < u_s:
+                    continue
+                kept.append({"chapter": m_ch_s, "verse_start": m_vs_s,
+                             "verse_end": m_vs_e, "chapter_end": m_ch_e})
+            if kept:
+                entry["triggered_by"] = kept
+                kept_direct.append(entry)
+        data["direct"] = kept_direct
+
+    # Linkify inline scripture refs in every body so the front-end can show the
+    # same verse-preview popup as commentaries/leksikon.
+    for bucket in ("direct", "epochs"):
+        for entry in data.get(bucket, []):
+            entry["body"] = linkify_history_refs(entry.get("body"))
+    for period in data.get("periods", []):
+        for entry in period.get("nearby", []):
+            entry["body"] = linkify_history_refs(entry.get("body"))
+
+    return jsonify(data)
+
+
+@bp.get("/api/history/epoch/<int:epoch_id>")
+def api_history_epoch(epoch_id):
+    bible_data = _bible_data()
+    data = bible_data.get_history_epoch(epoch_id)
+    if not data:
+        return jsonify({"error": "Not found"}), 404
+    data["epoch"]["body"] = linkify_history_refs(data["epoch"].get("body"))
+    for entry in data.get("entries", []):
+        entry["body"] = linkify_history_refs(entry.get("body"))
+    return jsonify(data)
+
+
 @bp.get("/api/topics")
 def api_topics():
     bible_data = _bible_data()
@@ -1071,6 +1171,44 @@ def api_search_topics():
         return jsonify({"type": "topic_search", "results": [], "query": query})
     results = bible_data.search_topics_by_name(query)
     return jsonify({"type": "topic_search", "results": results,
+                    "query": query, "total": len(results)})
+
+
+@bp.get("/api/search/history")
+def api_search_history():
+    bible_data = _bible_data()
+    query = request.args.get("q", "")
+
+    def _signed_year(name):
+        v = request.args.get(name)
+        if v in (None, ""):
+            return None
+        try:
+            return int(v)
+        except ValueError:
+            return None
+
+    year_from = _signed_year("year_from")   # signed (f.Kr. negative)
+    year_to = _signed_year("year_to")
+    if year_from is not None and year_to is not None and year_from > year_to:
+        year_from, year_to = year_to, year_from
+    if not query.strip():
+        return jsonify({"type": "history_search", "results": [], "query": query,
+                        "total": 0})
+    rows = search_history(bible_data, query, year_from=year_from, year_to=year_to)
+    # Flat chronological listing; linkify bodies + give a kind label.
+    KIND_LABEL = {"annals": "Annaler", "event": "Hendelse", "epoch": "Epoke"}
+    results = []
+    for r in rows:
+        results.append({
+            "id": r["id"], "kind": r["kind"],
+            "kind_label": KIND_LABEL.get(r["kind"], r["kind"]),
+            "title": r["title"], "body": linkify_history_refs(r["body"]),
+            "year_start": r["year_start"], "year_label": r["year_label"],
+            "event_type": r["event_type"],
+        })
+    results.sort(key=lambda e: (e["year_start"] is None, e["year_start"] or 0))
+    return jsonify({"type": "history_search", "results": results,
                     "query": query, "total": len(results)})
 
 

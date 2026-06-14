@@ -1663,8 +1663,10 @@
         .tray-label-short { display: none; }
         .tray-label-long { display: inline; }
         @media (max-width: 700px) {
-            .study-tray-inner { gap: 2px; }
-            .tray-btn { padding: 6px 2px; min-width: 0; }
+            /* Too many modules to fit one row at phone widths — wrap to 2 rows. */
+            .study-tray-inner { gap: 2px; flex-wrap: wrap; }
+            .tray-btn { padding: 6px 2px; min-width: 0; flex: 1 1 calc(25% - 2px); }
+            .study-tray[data-open="true"] { max-height: 260px; }
             .tray-btn-emoji { font-size: 1.25rem; }
             .tray-btn-label {
                 font-size: clamp(0.52rem, 2.3vw, 0.7rem);
@@ -4183,6 +4185,27 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+        /* Title + muted subtitle (e.g. "Historie" + "Annals of the World"). */
+        .sidebar-module-titlewrap {
+            flex: 1 1 auto;
+            min-width: 0;
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            overflow: hidden;
+        }
+        .sidebar-module-titlewrap .sidebar-module-title { flex: 0 0 auto; }
+        .sidebar-module-subtitle {
+            flex: 1 1 auto;
+            min-width: 0;
+            color: var(--text-muted);
+            font-weight: 400;
+            font-size: 0.74rem;
+            font-style: italic;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
         .sidebar-module-actions {
             display: inline-flex;
             gap: 2px;
@@ -4802,8 +4825,9 @@
                 flex-shrink: 0;
             }
             #mvbOpen { padding: 0 8px; }
-            /* Layer 3 labels: scale to fit (kept inside button bounds so neighbors don't overlap) */
-            .mvb-module-btn { padding: 6px 2px; min-width: 0; }
+            /* Layer 3: with 7 modules, wrap to 2 rows (4 + 3) instead of cramming. */
+            .mvb-modules { flex-wrap: wrap; row-gap: 2px; }
+            .mvb-module-btn { padding: 6px 2px; min-width: 0; flex: 1 1 calc(25% - 4px); }
             .mvb-module-emoji { font-size: 1.25rem; }
             .mvb-module-label {
                 font-size: clamp(0.52rem, 2.3vw, 0.7rem);
@@ -5257,6 +5281,16 @@
         .commentary-scofield a.scofield-ref:hover { text-decoration: underline; }
 
         }
+        /* History refs read clearly as links (always underlined) so they stand
+           out from the surrounding Annals prose. */
+        a.history-ref {
+            color: var(--accent);
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            cursor: pointer;
+            font-weight: 500;
+            white-space: nowrap;
+        }
         /* Inline reference preview popup (Scofield + M. Henry refs) */
         .ref-preview-popup {
             position: fixed;
@@ -5407,7 +5441,8 @@
 
 
         /* ── Leksikon module ── */
-        .sidebar-module[data-module-id="leksikon"]:not([data-collapsed="true"]) .sidebar-module-body {
+        .sidebar-module[data-module-id="leksikon"]:not([data-collapsed="true"]) .sidebar-module-body,
+        .sidebar-module[data-module-id="history"]:not([data-collapsed="true"]) .sidebar-module-body {
             max-height: none;
         }
         .leksikon-module {
@@ -5577,6 +5612,404 @@
             background: var(--accent-dim);
         }
 
+        }
+
+
+        /* ── Historisk kontekst-modul ── */
+        .history-module {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            font-family: var(--font-ui);
+            min-height: 0;
+        }
+        .history-scope-label {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            padding: 0 2px;
+        }
+        .history-scope-label:empty { display: none; }
+        /* Source credit: shown in the PC sidebar header (module subtitle). On
+           mobile the drawer has no header, so surface it at the top of the body. */
+        .history-source { display: none; }
+        .module-host-body .history-source {
+            display: block;
+            font-size: 0.74rem;
+            font-style: italic;
+            color: var(--text-muted);
+            padding: 0 2px;
+            flex: none;
+        }
+        .history-loading,
+        .history-empty {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 14px 4px;
+        }
+        /* Referenced-period chips — click to read the period (drill-down) */
+        .history-epochs:empty { display: none; }
+        .history-epochs-inner {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 5px;
+            padding: 8px 10px;
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+        }
+        .history-epochs-label {
+            font-size: 0.74rem;
+            font-weight: 600;
+            color: var(--accent);
+            margin-right: 2px;
+        }
+        .history-epoch-chip {
+            font-family: var(--font-ui);
+            font-size: 0.74rem;
+            color: var(--text);
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-pill);
+            padding: 2px 9px;
+            cursor: pointer;
+        }
+        @media (hover: hover) {
+        .history-epoch-chip:hover { border-color: var(--accent); color: var(--accent); }
+        }
+        .history-epoch-years { color: var(--text-muted); }
+        .history-epoch-more { font-size: 0.72rem; color: var(--text-muted); }
+        .history-body {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .history-section-label {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            padding: 0 2px;
+        }
+        .history-section-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .history-expand-all {
+            font-family: var(--font-ui);
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-pill);
+            padding: 1px 10px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        @media (hover: hover) {
+        .history-expand-all:hover { color: var(--accent); border-color: var(--accent); }
+        }
+        .history-direct {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        /* Expandable entry boxes (year as title) — same chrome as leksikon boxes. */
+        .history-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+        }
+        .history-box-summary {
+            list-style: none;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 6px;
+            padding: 8px 12px;
+        }
+        .history-box-summary::-webkit-details-marker { display: none; }
+        .history-box-summary::after {
+            content: '';
+            width: 5px; height: 5px;
+            border: solid currentColor;
+            border-width: 0 1.3px 1.3px 0;
+            opacity: 0.5;
+            margin-left: auto;
+            align-self: center;
+            transform: rotate(-45deg);
+            transition: transform 0.18s ease;
+            flex-shrink: 0;
+        }
+        .history-box[open] > .history-box-summary::after { transform: rotate(45deg); }
+        @media (hover: hover) {
+        .history-box-summary:hover { background: var(--accent-dim); }
+        }
+        /* Extra top padding so the summary never crowds the reference chips below. */
+        .history-box-body { padding: 8px 12px 10px; }
+        .history-year {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--accent);
+            white-space: nowrap;
+        }
+        .history-year--unknown { color: var(--text-muted); font-weight: 600; }
+        .history-delta {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            font-variant-numeric: tabular-nums;
+        }
+        .history-type {
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-pill);
+            padding: 0 7px;
+        }
+        .history-entry-title {
+            font-size: 0.84rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .history-entry-body {
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: var(--text);
+            font-family: var(--font-serif, var(--font-ui));
+        }
+        .history-entry-body p { margin: 0.3em 0; }
+        .history-entry-body p:first-child { margin-top: 0; }
+        .history-entry-body em { font-style: italic; }
+        .history-trigger-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin: 0 0 6px;
+        }
+        .history-trigger-chip {
+            font-family: 'Lora', Georgia, serif;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-pill);
+            padding: 1px 8px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        @media (hover: hover) {
+        .history-trigger-chip:hover {
+            color: var(--text);
+            border-color: var(--text-muted);
+            background: var(--accent-dim);
+        }
+        }
+        /* Nearby-in-time — a distinct expandable *field* (tinted panel), not a card.
+           The entry cards inside it stay white so the hierarchy reads clearly. */
+        .history-nearby {
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--card-bg);
+            overflow: hidden;
+            margin-top: 4px;
+        }
+        .history-nearby > summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 9px 12px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--accent);
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .history-nearby > summary::-webkit-details-marker { display: none; }
+        .history-nearby-title { flex: 1; }
+        .history-nearby-period { font-weight: 600; opacity: 0.85; }
+        .history-nearby > summary::after {
+            content: '';
+            width: 5px; height: 5px;
+            border: solid currentColor;
+            border-width: 0 1.3px 1.3px 0;
+            opacity: 0.7;
+            transform: rotate(-45deg);
+            transition: transform 0.18s ease;
+            flex-shrink: 0;
+        }
+        .history-nearby[open] > summary::after { transform: rotate(45deg); }
+        @media (hover: hover) {
+        .history-nearby > summary:hover { background: var(--accent-dim); }
+        }
+        .history-nearby-controls {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .history-nearby-body {
+            padding: 6px 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .history-nearby-rows {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .history-nearby-rows:empty { display: none; }
+        .history-nearby-sentinel { height: 1px; }
+        /* Period selector — which referenced era's surrounding context to show */
+        .history-period-selector {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 5px;
+            padding: 2px 0;
+        }
+        .history-period-label { font-size: 0.74rem; color: var(--text-muted); }
+        .history-period-btn {
+            font-family: inherit;
+            font-size: 0.74rem;
+            color: var(--text-muted);
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-pill);
+            padding: 1px 9px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .history-period-btn.active {
+            color: var(--accent-text, #fff);
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+        /* Epoch drill-down view */
+        .history-epoch-detail { display: flex; flex-direction: column; gap: 8px; }
+        .history-back {
+            align-self: flex-start;
+            font-family: inherit;
+            font-size: 0.8rem;
+            color: var(--accent);
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-pill);
+            padding: 3px 12px;
+            cursor: pointer;
+        }
+        @media (hover: hover) {
+        .history-back:hover { background: var(--accent-dim); }
+        }
+        .history-epoch-detail-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 6px;
+        }
+        .history-epoch-detail-body {
+            border-left: 3px solid var(--accent);
+            padding-left: 10px;
+        }
+        .history-window-selector {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 2px 0 4px;
+        }
+        .history-window-label { font-size: 0.74rem; color: var(--text-muted); }
+        .history-win-btn {
+            font-family: inherit;
+            font-size: 0.74rem;
+            color: var(--text-muted);
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-pill);
+            padding: 1px 9px;
+            cursor: pointer;
+        }
+        .history-win-btn.active {
+            color: var(--accent-text, #fff);
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+        .history-show-all {
+            font-family: inherit;
+            font-size: 0.78rem;
+            color: var(--accent);
+            background: transparent;
+            border: 1px dashed var(--border);
+            border-radius: var(--radius-sm);
+            padding: 6px;
+            cursor: pointer;
+        }
+        @media (hover: hover) {
+        .history-show-all:hover { background: var(--accent-dim); }
+        }
+        /* History study-search: flat chronological list + year filter bar */
+        .study-history {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .study-history-entry { border-left: 3px solid var(--border); }
+        .study-year-filter {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 2px 2px;
+            font-family: var(--font-ui);
+        }
+        .syf-label { font-size: 0.8rem; color: var(--text-muted); }
+        .syf-num {
+            width: 64px;
+            font-family: inherit;
+            font-size: 0.82rem;
+            padding: 4px 6px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--card-bg);
+            color: var(--text);
+        }
+        .syf-era {
+            font-family: inherit;
+            font-size: 0.8rem;
+            padding: 4px 4px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--card-bg);
+            color: var(--text);
+        }
+        .syf-dash { color: var(--text-muted); }
+        .syf-apply, .syf-clear {
+            font-family: inherit;
+            font-size: 0.8rem;
+            padding: 4px 12px;
+            border-radius: var(--radius-pill);
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-muted);
+        }
+        .syf-apply {
+            color: var(--accent-text, #fff);
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+        @media (hover: hover) {
+        .syf-clear:hover { color: var(--text); border-color: var(--text-muted); }
         }
 
 
@@ -6154,6 +6587,27 @@
                 -webkit-overflow-scrolling: touch;
                 padding-bottom: 8px;
             }
+            .module-host-body .history-module {
+                position: absolute;
+                top: 0;
+                right: 0;
+                bottom: 0;
+                left: 0;
+                padding: 0 12px var(--safe-area-bottom, 0px);
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                min-height: 0;
+                flex: none;
+            }
+            .module-host-body .history-body {
+                flex: 1 1 0;
+                min-height: 0;
+                overflow-y: auto;
+                overscroll-behavior: contain;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 8px;
+            }
             /* Disable native vertical pan/scroll on the module-host body so the
                JS drag-to-dismiss handler can claim downward gestures in the
                header area. Re-enable pan-y on the known scrollable lists, and
@@ -6163,6 +6617,7 @@
             .module-host-body .commentary-entries,
             .module-host-body .topics-tree,
             .module-host-body .leksikon-entries,
+            .module-host-body .history-body,
             .module-host-body .outline-body { touch-action: pan-y; }
             .module-host-body .map-module-root,
             .module-host-body .map-module-root * { touch-action: auto; }

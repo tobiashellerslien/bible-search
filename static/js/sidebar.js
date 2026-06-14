@@ -145,10 +145,13 @@ window.AppModuleBus = (function () {
 
         const header = document.createElement('div');
         header.className = 'sidebar-module-header';
+        const titleHtml = entry.def.subtitle
+            ? `<span class="sidebar-module-titlewrap"><span class="sidebar-module-title">${escapeHtml(entry.def.title || entry.def.id)}</span><span class="sidebar-module-subtitle">${escapeHtml(entry.def.subtitle)}</span></span>`
+            : `<span class="sidebar-module-title">${escapeHtml(entry.def.title || entry.def.id)}</span>`;
         header.innerHTML = `
             <span class="sidebar-module-drag" title="Flytt" aria-label="Flytt">⋮⋮</span>
             ${entry.def.icon ? `<span class="sidebar-module-icon" aria-hidden="true">${entry.def.icon}</span>` : ''}
-            <span class="sidebar-module-title">${escapeHtml(entry.def.title || entry.def.id)}</span>
+            ${titleHtml}
             <span class="sidebar-module-actions">
                 <span class="sidebar-module-collapse" aria-hidden="true">
                     <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 4 L6 8 L10 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>

@@ -5,7 +5,7 @@
 // markup/CSS, and navigates via window.searchFromXref / CommentaryModule.openAtRef.
 //
 // Entry point: window.StudySearch.render(type, data, container, ctx)
-//   type      : 'commentary' | 'topics' | 'leksikon'
+//   type      : 'commentary' | 'topics' | 'leksikon' | 'history'
 //   data      : the /api/search/<type> response
 //   container : DOM element to render into
 //   ctx       : { query, version }
@@ -425,11 +425,57 @@
     }
 
     // ════════════════════════════════════════════════════════════════
+    //  HISTORY  (flat chronological list of annals/events/epochs)
+    // ════════════════════════════════════════════════════════════════
+    function renderHistoryBody(body) {
+        if (!body) return '';
+        const anchors = [];
+        const work = body.replace(/<a class="history-ref"[^>]*>[\s\S]*?<\/a>/g, (m) => {
+            anchors.push(m);
+            return '@@R' + (anchors.length - 1) + '@@';
+        });
+        let html = esc(work)
+            .replace(/_([^_\n]+)_/g, '<em>$1</em>')
+            .replace(/\n{2,}/g, '</p><p>')
+            .replace(/\n/g, '<br>');
+        html = html.replace(/@@R(\d+)@@/g, (_m, i) => anchors[Number(i)] || '');
+        return `<p>${html}</p>`;
+    }
+
+    function renderHistory(data, container, ctx) {
+        const parts = ['<div class="study-history">'];
+        for (const r of data.results) {
+            const yr = r.year_label
+                ? `<span class="history-year">${esc(r.year_label)}</span>`
+                : `<span class="history-year history-year--unknown">ukjent år</span>`;
+            const kind = `<span class="history-type">${esc(r.kind_label || r.kind)}</span>`;
+            const etype = (r.event_type && r.event_type !== r.kind_label)
+                ? `<span class="history-type">${esc(r.event_type)}</span>` : '';
+            const title = r.title ? `<span class="history-entry-title">${esc(r.title)}</span>` : '';
+            parts.push(`<div class="history-entry history-entry--${esc(r.kind)} study-history-entry">`
+                + `<div class="history-entry-head">${yr}${kind}${etype}${title}</div>`
+                + `<div class="history-entry-body">${renderHistoryBody(r.body)}</div>`
+                + `</div>`);
+        }
+        parts.push('</div>');
+        container.innerHTML = parts.join('');
+        if (window.RefPreviewPopup) {
+            window.RefPreviewPopup.bind(container, 'a.history-ref', {
+                getVersion: () => getVersion(ctx),
+                onOpen: (ref, label) => {
+                    if (typeof window.searchFromXref === 'function') window.searchFromXref(label);
+                },
+            });
+        }
+    }
+
+    // ════════════════════════════════════════════════════════════════
     function render(type, data, container, ctx) {
         if (!data || !Array.isArray(data.results)) { container.innerHTML = ''; return; }
         if (type === 'commentary') return renderCommentary(data, container, ctx);
         if (type === 'leksikon') return renderLeksikon(data, container, ctx);
         if (type === 'topics') return renderTopics(data, container, ctx);
+        if (type === 'history') return renderHistory(data, container, ctx);
         container.innerHTML = '';
     }
 

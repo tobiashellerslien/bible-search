@@ -366,6 +366,55 @@ def linkify_dictionary_refs(body):
 
     return _REF_RE.sub(repl, body)
 
+
+# Inline refs in the Ussher Annals / BibleData event prose are USFM-style codes
+# ("GEN 1:1", "1KI 6:1-3", "ACT 13:16"), unlike the Norwegian/abbreviated tokens
+# linkify_dictionary_refs handles. Wrap the resolvable ones in history-ref anchors
+# (single data-ref to the start verse drives the same RefPreviewPopup); apocrypha
+# and unknown codes stay as plain, non-clickable text.
+_HISTORY_REF_RE = re.compile(r"\b([1-3I]?[A-Z]{2,3})\s+(\d+):(\d+)(?:\s*[–-]\s*\d+)?")
+_HISTORY_APOC = {"1MA", "2MA", "3MA", "SIR", "TOB", "WIS", "2ES", "APC"}
+_HISTORY_CODE_FIX = {"IKI": "1KI", "JUD": "JDG"}
+
+
+def linkify_history_refs(body):
+    """Wrap inline USFM-style scripture refs in a history body with <a> anchors."""
+    if not body:
+        return body
+
+    def repl(m):
+        code = m.group(1).upper()
+        if code in _HISTORY_APOC:
+            return m.group(0)
+        code = _HISTORY_CODE_FIX.get(code, code)
+        if code not in USFM_TO_TESTAMENT:
+            return m.group(0)
+        return (f'<a class="history-ref" data-ref="{code}.{m.group(2)}.{m.group(3)}">'
+                f'{m.group(0)}</a>')
+
+    return _HISTORY_REF_RE.sub(repl, body)
+
+
+def _hist_year_label(s):
+    """Signed Ussher year → 'NNN f.Kr.' / 'NNN e.Kr.' (no year 0)."""
+    if s is None:
+        return None
+    return f"{-s} f.Kr." if s < 0 else f"{s} e.Kr."
+
+
+def _hist_span_label(a, b):
+    """Compact label for a signed-year span (one era suffix when both ends share it)."""
+    if a is None:
+        return None
+    if b is None or b == a:
+        return _hist_year_label(a)
+    if a < 0 and b < 0:
+        return f"{-a}–{-b} f.Kr."
+    if a > 0 and b > 0:
+        return f"{a}–{b} e.Kr."
+    return f"{_hist_year_label(a)}–{_hist_year_label(b)}"
+
+
 _OT = ["GEN","EXO","LEV","NUM","DEU","JOS","JDG","RUT","1SA","2SA","1KI","2KI",
        "1CH","2CH","EZR","NEH","EST","JOB","PSA","PRO","ECC","SNG",
        "ISA","JER","LAM","EZK","DAN","HOS","JOL","AMO","OBA","JON","MIC",
@@ -608,6 +657,15 @@ class BibleData:
                 }
         except sqlite3.OperationalError:
             pass  # Dictionary schema not yet applied
+
+        # Historical-context data (Ussher's Annals + BibleData Event/Epoch).
+        # Entries are queried on demand; just record whether the schema exists.
+        self.has_history = False
+        try:
+            self.db.execute("SELECT 1 FROM history_entries LIMIT 1")
+            self.has_history = True
+        except sqlite3.OperationalError:
+            pass  # history schema not yet applied (migrate_history.py)
 
         # Per-translation localized book names (e.g. Vietnamese). Keyed
         # tid -> {usfm: name}. Empty for versions that use the default
@@ -952,6 +1010,171 @@ class BibleData:
 
         results.sort(key=lambda e: (e["headword"], e["dictionary_id"]))
         return results
+
+    def get_history_for_range(self, book_usfm, ch_start, vs_start=None,
+                              ch_end=None, vs_end=None, window=10, nearby_cap=None):
+        """Historical context (Ussher's Annals + BibleData Event/Epoch) for a
+        passage. Returns:
+            direct   – annals/event entries whose refs overlap the passage
+            anchored_years – the Ussher years those direct entries sit on
+            periods  – anchored years clustered into eras (gap > 75 yr splits);
+                       each carries its own ±window nearby list (only when a year
+                       is anchored — never guessed), sorted most-referenced first
+            epochs   – epoch spans containing an anchored year ("you are here")
+        All years are signed (f.Kr. negative) on Ussher's chronology."""
+        empty = {"direct": [], "anchored_years": [], "periods": [],
+                 "epochs": [], "window": window}
+        if not getattr(self, "has_history", False):
+            return empty
+        if ch_end is None:
+            ch_end = ch_start
+        q_start = ch_start * 1000 + (vs_start if vs_start is not None else 0)
+        q_end = ch_end * 1000 + (vs_end if vs_end is not None else 999)
+
+        # Direct hits: refs overlap the passage. Epochs are spans, not points —
+        # they're handled separately, so exclude them here.
+        sql = (
+            "SELECT he.id, he.kind, he.title, he.body, he.year_start, he.year_label, "
+            "       he.event_type, he.location, he.paragraph_nr, "
+            "       r.chapter, r.verse_start, r.verse_end, r.chapter_end "
+            "FROM history_entries he JOIN history_refs r ON r.entry_id = he.id "
+            "WHERE r.book_usfm = ? AND he.kind != 'epoch' "
+            "  AND (r.chapter * 1000 + r.verse_start) <= ? "
+            "  AND (r.chapter_end * 1000 + r.verse_end) >= ? "
+            "ORDER BY he.year_start, he.paragraph_nr, he.id"
+        )
+        by_id, order = {}, []
+        for (eid, kind, title, body, ys, ylabel, etype, loc, para,
+             ch, vs_s, vs_e, ch_e) in self.db.execute(sql, (book_usfm, q_end, q_start)):
+            trig = {"chapter": ch, "verse_start": vs_s,
+                    "verse_end": vs_e, "chapter_end": ch_e}
+            if eid not in by_id:
+                by_id[eid] = {
+                    "id": eid, "kind": kind, "title": title, "body": body,
+                    "year_start": ys, "year_label": ylabel,
+                    "event_type": etype, "location": loc, "paragraph_nr": para,
+                    "triggered_by": [],
+                }
+                order.append(eid)
+            by_id[eid]["triggered_by"].append(trig)
+        direct = [by_id[i] for i in order]
+
+        anchored = sorted({e["year_start"] for e in direct if e["year_start"] is not None})
+        if not anchored:
+            return {"direct": direct, "anchored_years": [], "periods": [],
+                    "epochs": [], "window": window}
+
+        # A passage can reference years from wildly different eras (e.g. Matt 24
+        # cites Noah's flood AND the AD 70 fall of Jerusalem). Cluster the anchored
+        # years into "periods" (a gap > PERIOD_GAP starts a new cluster) so the
+        # "nearby-in-time" context for each can be browsed separately instead of
+        # one mixed soup. Each period carries its own ±window nearby list.
+        PERIOD_GAP = 75
+        clusters = [[anchored[0]]]
+        for y in anchored[1:]:
+            if y - clusters[-1][-1] > PERIOD_GAP:
+                clusters.append([y])
+            else:
+                clusters[-1].append(y)
+
+        direct_ids = set(by_id)
+
+        def _direct_count(cl):
+            lo_c, hi_c = min(cl), max(cl)
+            return sum(1 for d in direct if d["year_start"] is not None
+                       and lo_c <= d["year_start"] <= hi_c)
+
+        periods = []
+        for cl in clusters:
+            lo, hi = min(cl) - window, max(cl) + window
+            nb = []
+            for (eid, kind, title, body, ys, ylabel, etype, loc, para) in self.db.execute(
+                "SELECT id, kind, title, body, year_start, year_label, event_type, "
+                "location, paragraph_nr FROM history_entries "
+                "WHERE kind != 'epoch' AND year_start IS NOT NULL "
+                "  AND year_start BETWEEN ? AND ? "
+                "ORDER BY year_start, paragraph_nr, id",
+                (lo, hi),
+            ):
+                if eid in direct_ids:
+                    continue
+                nearest = min(cl, key=lambda a: abs(ys - a))
+                delta = ys - nearest
+                if abs(delta) > window:
+                    continue
+                nb.append({
+                    "id": eid, "kind": kind, "title": title, "body": body,
+                    "year_start": ys, "year_label": ylabel, "event_type": etype,
+                    "location": loc, "paragraph_nr": para, "delta": delta,
+                })
+            # Chronological (earliest year first), then source order within a year.
+            nb.sort(key=lambda e: (e["year_start"], e["paragraph_nr"] or 0))
+            if nearby_cap is not None:
+                nb = nb[:nearby_cap]
+            y0, y1 = min(cl), max(cl)
+            periods.append({
+                "label": _hist_span_label(y0, y1),
+                "year_start": y0, "year_end": y1,
+                "direct_count": _direct_count(cl),
+                "nearby": nb,
+            })
+        # Most-referenced period first (default selection), then chronological.
+        periods.sort(key=lambda p: (-p["direct_count"], p["year_start"]))
+
+        # Epochs containing an anchored year. Pull candidates intersecting the
+        # anchored range, then keep only those that actually contain an anchor.
+        epochs = []
+        for (eid, title, body, y0, y1, ylabel, etype) in self.db.execute(
+            "SELECT id, title, body, year_start, year_end, year_label, event_type "
+            "FROM history_entries WHERE kind = 'epoch' "
+            "  AND year_start IS NOT NULL AND year_end IS NOT NULL "
+            "  AND year_start <= ? AND year_end >= ?",
+            (max(anchored), min(anchored)),
+        ):
+            if any(y0 <= a <= y1 for a in anchored):
+                epochs.append({
+                    "id": eid, "title": title, "body": body,
+                    "year_start": y0, "year_end": y1,
+                    "year_label": ylabel, "event_type": etype,
+                })
+        # Most specific (shortest) spans first.
+        epochs.sort(key=lambda e: (e["year_end"] - e["year_start"], e["year_start"]))
+
+        return {"direct": direct, "anchored_years": anchored,
+                "periods": periods, "epochs": epochs, "window": window}
+
+    def get_history_epoch(self, epoch_id, limit=400):
+        """An epoch plus the annals/event entries whose year falls inside its
+        span (for the "read this period" drill-down). Returns {epoch, entries}
+        or None if the id isn't an epoch."""
+        if not getattr(self, "has_history", False):
+            return None
+        row = self.db.execute(
+            "SELECT id, title, body, year_start, year_end, year_label, event_type "
+            "FROM history_entries WHERE id = ? AND kind = 'epoch'",
+            (epoch_id,),
+        ).fetchone()
+        if not row:
+            return None
+        eid, title, body, y0, y1, ylabel, etype = row
+        epoch = {"id": eid, "title": title, "body": body, "year_start": y0,
+                 "year_end": y1, "year_label": ylabel, "event_type": etype}
+        entries = []
+        if y0 is not None and y1 is not None:
+            for (e_id, kind, e_title, e_body, ys, e_ylabel, e_etype, loc, para) in self.db.execute(
+                "SELECT id, kind, title, body, year_start, year_label, event_type, "
+                "location, paragraph_nr FROM history_entries "
+                "WHERE kind != 'epoch' AND year_start IS NOT NULL "
+                "  AND year_start BETWEEN ? AND ? "
+                "ORDER BY year_start, paragraph_nr, id LIMIT ?",
+                (y0, y1, limit),
+            ):
+                entries.append({
+                    "id": e_id, "kind": kind, "title": e_title, "body": e_body,
+                    "year_start": ys, "year_label": e_ylabel, "event_type": e_etype,
+                    "location": loc, "paragraph_nr": para,
+                })
+        return {"epoch": epoch, "entries": entries}
 
     def get_place_full(self, place_id):
         """Full place row plus all place_verses references across the whole Bible.
@@ -2001,6 +2224,43 @@ def search_leksikon(bible_data, query, limit=300):
         {"entry_id": eid, "dictionary_id": did, "headword": hw,
          "title": title, "body": body}
         for eid, did, hw, title, body in rows
+    ]
+
+
+def search_history(bible_data, query, year_from=None, year_to=None, limit=300):
+    """Full-text search over history titles+bodies (history_fts), optionally
+    filtered to a signed-year window [year_from, year_to] (f.Kr. negative).
+    Returns flat rows ordered by relevance: {id, kind, title, body, year_start,
+    year_label, event_type, paragraph_nr}."""
+    expr, err = study_match_expr(query)
+    if err or not expr:
+        return []
+    where = ["history_fts MATCH ?"]
+    params = [expr]
+    if year_from is not None:
+        where.append("he.year_start >= ?")
+        params.append(year_from)
+    if year_to is not None:
+        where.append("he.year_start <= ?")
+        params.append(year_to)
+    sql = (
+        "SELECT he.id, he.kind, he.title, he.body, he.year_start, he.year_label, "
+        "       he.event_type, he.paragraph_nr "
+        "FROM history_fts JOIN history_entries he ON he.id = history_fts.rowid "
+        f"WHERE {' AND '.join(where)} "
+        "ORDER BY bm25(history_fts) "
+        "LIMIT ?"
+    )
+    params.append(limit)
+    try:
+        rows = bible_data.db.execute(sql, params).fetchall()
+    except sqlite3.OperationalError:
+        return []  # history_fts not built yet
+    return [
+        {"id": eid, "kind": kind, "title": title, "body": body,
+         "year_start": ys, "year_label": ylabel, "event_type": etype,
+         "paragraph_nr": para}
+        for eid, kind, title, body, ys, ylabel, etype, para in rows
     ]
 
 

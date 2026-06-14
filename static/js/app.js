@@ -240,7 +240,13 @@ const I18N = {
         'search.scope.commentary': 'Bibelkommentar',
         'search.scope.topics': 'Temaer',
         'search.scope.leksikon': 'Leksikon',
+        'search.scope.history': 'Historie',
         'search.scope.englishOnly': 'Disse søkene fungerer kun på engelsk.',
+        'search.history.yearLabel': 'Tidsrom:',
+        'search.history.yearFrom': 'fra',
+        'search.history.yearTo': 'til',
+        'search.history.yearApply': 'Bruk',
+        'search.history.yearClear': 'Nullstill',
         'searchResults.studyLoading': 'Søker…',
         'searchResults.studyCount': '{0} treff',
         'searchResults.studyNoResults': 'Ingen treff',
@@ -884,7 +890,11 @@ window.buildStudyURL = buildStudyURL;
 // Back/Forward into a study search (or a scope re-toggle) restores instantly
 // instead of re-hitting the API and losing scroll/expansion state.
 const studyResultCache = new Map();
-function studyCacheKey(type, q, version) { return `${type}|${q}|${version}`; }
+function studyCacheKey(type, q, version) {
+    let k = `${type}|${q}|${version}`;
+    if (type === 'history') k += `|${studyYearFrom ?? ''}|${studyYearTo ?? ''}`;
+    return k;
+}
 
 // Read server-injected boot state (set on /bibel/... and /sok routes). Returns
 // {q, v, noindex} or null if absent.
@@ -1428,6 +1438,7 @@ function buildCardHtml(block, idx, showNums, showNewlines, showHeadings, lang, v
                 <div class="study-tray-inner">
                     <button class="tray-btn" data-module="map"${mapDisabled ? ' disabled aria-disabled="true"' : ` onclick="openMapForBlock(${idx},null)"`} title="${mapTitle}"><img class="tray-btn-emoji tray-btn-emoji-img" src="/static/images/map.png" alt=""><span class="tray-btn-label">${mapLabel}</span></button>
                     <button class="tray-btn" data-module="commentary" onclick="openCommentaryForBlock(${idx})" title="${escAttr(t('sidebar.commentary.title'))}"><img class="tray-btn-emoji tray-btn-emoji-img" src="/static/images/pen.png" alt=""><span class="tray-btn-label"><span class="tray-label-long">Kommentar</span><span class="tray-label-short">Komment.</span></span></button>
+                    <button class="tray-btn" data-module="history" onclick="openHistoryForBlock(${idx})" title="Historisk kontekst (Ussher's Annaler)"><img class="tray-btn-emoji tray-btn-emoji-img" src="/static/images/history.png" alt=""><span class="tray-btn-label">Historie</span></button>
                     <button class="tray-btn" data-module="leksikon" onclick="openLeksikonForBlock(${idx})" title="${escAttr(t('sidebar.leksikon.title'))}"><img class="tray-btn-emoji tray-btn-emoji-img" src="/static/images/lexicon.png" alt=""><span class="tray-btn-label">Leksikon</span></button>
                     <button class="tray-btn" data-module="topics"${block.has_topics ? ` onclick="openTopicsForBlock(${idx})"` : ' disabled aria-disabled="true"'} title="${escAttr(block.has_topics ? t('sidebar.topics.title') : t('card.study.topics.empty'))}"><img class="tray-btn-emoji tray-btn-emoji-img" src="/static/images/themes.png" alt=""><span class="tray-btn-label">Tema</span></button>
                     <button class="tray-btn" data-module="outline" onclick="openOutlineForBlock(${idx})" title="${escAttr(t('sidebar.outline.title'))}"><img class="tray-btn-emoji tray-btn-emoji-img" src="/static/images/outline.png" alt=""><span class="tray-btn-label">Outline</span></button>
@@ -2832,6 +2843,13 @@ function initMarkedVersesBar() {
         _mvbInvoke('outline', () => window.OutlineModule.showForMarkedVerses(_mvbMarkedAsRefs()));
     });
 
+    const historyBtn = document.getElementById('mvbHistory');
+    if (historyBtn) historyBtn.addEventListener('click', () => {
+        if (historyBtn.disabled) return;
+        if (!window.HistoryModule || !markedVerses.size) return;
+        _mvbInvoke('history', () => window.HistoryModule.showForMarkedVerses(_mvbMarkedAsRefs()));
+    });
+
     const extBtn = document.getElementById('mvbExternal');
     if (extBtn) extBtn.addEventListener('click', (e) => {
         if (extBtn.disabled) return;
@@ -3154,7 +3172,7 @@ function renderTextSearch(results, query, bookTotals) {
 // A small dropdown next to the statistics button lets the user redirect the
 // current query into one of the study datasets instead of the bible text.
 // Non-persistent: a fresh search resets to bible search.
-const STUDY_SCOPES = ['bible', 'commentary', 'topics', 'leksikon'];
+const STUDY_SCOPES = ['bible', 'commentary', 'topics', 'leksikon', 'history'];
 
 // opts: { excludeBible, block, triggerLabel }
 //   excludeBible — omit the "Bibeltekst" option (used in the zero-results state,
@@ -3169,8 +3187,9 @@ function scopeMenuHtml(active, opts) {
         commentary: t('search.scope.commentary'),
         topics: t('search.scope.topics'),
         leksikon: t('search.scope.leksikon'),
+        history: t('search.scope.history'),
     };
-    const scopes = opts.excludeBible ? ['commentary', 'topics', 'leksikon'] : STUDY_SCOPES;
+    const scopes = opts.excludeBible ? ['commentary', 'topics', 'leksikon', 'history'] : STUDY_SCOPES;
     const triggerLabel = opts.triggerLabel
         || (activeKey === 'bible' ? t('search.scope.button') : labels[activeKey]);
     const optsHtml = scopes.map(k => {
@@ -3273,7 +3292,12 @@ function selectSearchScope(type) {
     doStudySearch(type);
 }
 
-const _STUDY_ENDPOINT = { commentary: 'commentary', topics: 'topics', leksikon: 'leksikon' };
+const _STUDY_ENDPOINT = { commentary: 'commentary', topics: 'topics', leksikon: 'leksikon', history: 'history' };
+
+// History study-search year filter (signed years; f.Kr. negative). Module-level
+// so it survives re-renders and feeds both the cache key and the fetch URL.
+let studyYearFrom = null;
+let studyYearTo = null;
 
 // Build the study-search results scaffold (controls bar + body) and return the
 // body element. Sets view state + wires the scope picker. Exposed on window so
@@ -3287,11 +3311,69 @@ function buildStudyScaffold(type) {
             <div class="search-result-count"></div>
             <div class="search-controls-actions">${scopeMenuHtml(type)}</div>
         </div>
+        ${type === 'history' ? historyYearFilterHtml() : ''}
         <div class="study-results" id="studyResults"></div>`;
     wireScopeMenu(resultsWrapper);
+    if (type === 'history') wireHistoryYearFilter(resultsWrapper);
     return resultsWrapper.querySelector('#studyResults');
 }
 window.buildStudyScaffold = buildStudyScaffold;
+
+// History study-search year filter: two number inputs + f.Kr./e.Kr. per field.
+// Years are stored signed (f.Kr. negative). Deliberately separate from the
+// search syntax so a plain word search stays a word search.
+function _yearFieldHtml(signed, idPrefix, placeholder) {
+    const era = (signed != null && signed > 0) ? 'AD' : 'BC';
+    const num = signed != null ? Math.abs(signed) : '';
+    return `<input type="number" min="1" inputmode="numeric" class="syf-num" id="${idPrefix}Num" placeholder="${escAttr(placeholder)}" value="${num}">`
+        + `<select class="syf-era" id="${idPrefix}Era">`
+        + `<option value="BC"${era === 'BC' ? ' selected' : ''}>f.Kr.</option>`
+        + `<option value="AD"${era === 'AD' ? ' selected' : ''}>e.Kr.</option></select>`;
+}
+
+function historyYearFilterHtml() {
+    return `<div class="study-year-filter" id="studyYearFilter">
+        <span class="syf-label">${escHtml(t('search.history.yearLabel'))}</span>
+        ${_yearFieldHtml(studyYearFrom, 'syfFrom', t('search.history.yearFrom'))}
+        <span class="syf-dash">–</span>
+        ${_yearFieldHtml(studyYearTo, 'syfTo', t('search.history.yearTo'))}
+        <button type="button" class="syf-apply" id="syfApply">${escHtml(t('search.history.yearApply'))}</button>
+        <button type="button" class="syf-clear" id="syfClear">${escHtml(t('search.history.yearClear'))}</button>
+    </div>`;
+}
+
+function _readYearField(idPrefix) {
+    const numEl = document.getElementById(idPrefix + 'Num');
+    const eraEl = document.getElementById(idPrefix + 'Era');
+    if (!numEl) return null;
+    const raw = numEl.value.trim();
+    if (raw === '') return null;
+    const n = parseInt(raw, 10);
+    if (!Number.isFinite(n) || n <= 0) return null;
+    return (eraEl && eraEl.value === 'AD') ? n : -n;
+}
+
+function wireHistoryYearFilter(root) {
+    const apply = root.querySelector('#syfApply');
+    const clear = root.querySelector('#syfClear');
+    const run = () => {
+        let from = _readYearField('syfFrom');
+        let to = _readYearField('syfTo');
+        if (from != null && to != null && from > to) { const tmp = from; from = to; to = tmp; }
+        studyYearFrom = from;
+        studyYearTo = to;
+        doStudySearch('history');
+    };
+    if (apply) apply.addEventListener('click', run);
+    if (clear) clear.addEventListener('click', () => {
+        studyYearFrom = null;
+        studyYearTo = null;
+        doStudySearch('history');
+    });
+    root.querySelectorAll('.syf-num').forEach(inp => {
+        inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') run(); });
+    });
+}
 
 // Render a study-search response into the (already-built) scaffold. Bails if
 // the user has navigated away while an async fetch was in flight.
@@ -3352,7 +3434,12 @@ async function doStudySearch(type, push = true) {
 
     let data;
     try {
-        const resp = await fetch(`/api/search/${_STUDY_ENDPOINT[type]}?q=${encodeURIComponent(query)}&version=${encodeURIComponent(version)}`);
+        let url = `/api/search/${_STUDY_ENDPOINT[type]}?q=${encodeURIComponent(query)}&version=${encodeURIComponent(version)}`;
+        if (type === 'history') {
+            if (studyYearFrom != null) url += `&year_from=${studyYearFrom}`;
+            if (studyYearTo != null) url += `&year_to=${studyYearTo}`;
+        }
+        const resp = await fetch(url);
         data = await resp.json();
     } catch (err) {
         const body = resultsWrapper.querySelector('#studyResults');
@@ -5163,6 +5250,14 @@ window.openOutlineForBlock = function(idx) {
     _trayToggle('outline', idx, () => {
         if (window.OutlineModule && typeof window.OutlineModule.showForBlock === 'function') {
             window.OutlineModule.showForBlock(idx);
+        }
+    });
+};
+
+window.openHistoryForBlock = function(idx) {
+    _trayToggle('history', idx, () => {
+        if (window.HistoryModule && typeof window.HistoryModule.showForBlock === 'function') {
+            window.HistoryModule.showForBlock(idx);
         }
     });
 };
