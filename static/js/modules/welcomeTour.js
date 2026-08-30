@@ -172,9 +172,15 @@
 
     window.WelcomeTour = { start };
 
-    // Auto-start on first visit, after DOM is ready and a brief delay so layout settles
+    // Auto-start on first visit, after DOM is ready and a brief delay so layout settles.
+    // If the "viktig info" popup hasn't been seen yet, it takes priority — app.js
+    // triggers the tour itself once that popup is dismissed for the first time.
+    function importantInfoSeen() {
+        try { return localStorage.getItem('importantInfoSeen') === '1'; } catch { return false; }
+    }
     function autoStart() {
         if (seen()) return;
+        if (!importantInfoSeen()) return;
         setTimeout(() => start(), 800);
     }
     if (document.readyState === 'loading') {

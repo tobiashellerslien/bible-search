@@ -16,7 +16,7 @@
     <link rel="icon" type="image/svg+xml" href="/static/images/favicon.svg?v=20260526" />
     <link rel="shortcut icon" href="/static/images/favicon.ico?v=20260526" />
     <link rel="manifest" href="/static/images/site.webmanifest?v=20260526" />
-    
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{{ og_title }}</title>
@@ -50,7 +50,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.css">
     <script src="https://cdn.jsdelivr.net/npm/driver.js@1.3.1/dist/driver.js.iife.js" defer></script>
 
-    
+
     <!-- PWA -->
     <link rel="apple-touch-icon" sizes="180x180" href="/static/images/apple-touch-icon.png?v=20260526" />
     <meta name="apple-mobile-web-app-title" content="Bibelsøk" />
@@ -107,7 +107,7 @@
 </head>
 <body>
 
-<!-- attrib icons: 
+<!-- attrib icons:
 "https://www.flaticon.com/free-icons/question" "question icons">Question icons created by Muhammad Ali - Flaticon
 "https://www.flaticon.com/free-icons/settings" "settings icons">Settings icons created by Freepik - Flaticon
 "https://www.flaticon.com/free-icons/comment" "comment icons">Comment icons created by Ilham Fitrotul Hayat - Flaticon
@@ -262,6 +262,9 @@
             <p class="empty-verse-text" data-i18n="empty.verse.text"></p>
             <footer class="empty-verse-ref" data-i18n="empty.verse.ref"></footer>
         </blockquote>
+        <div class="empty-actions">
+            <button class="btn btn-secondary" type="button" onclick="showImportantInfo()">Viktig info</button>
+        </div>
     </div>
 </div>
 
@@ -387,6 +390,52 @@
                 <div class="feedback-actions">
                     <button class="btn btn-primary" id="feedbackSendBtn" type="button" data-i18n="feedback.send">Send</button>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Important info modal -->
+<div class="modal-overlay" id="importantInfoModal">
+    <div class="modal-panel" style="max-width:520px;">
+        <div class="modal-header">
+            <span>Viktig info</span>
+            <button class="modal-close" id="importantInfoClose">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- IMPORTANT_INFO_TEXT: skriv inn teksten som skal vises i popupen her -->
+            <div class="help-section">
+                <p class="info-text"><strong>Kort fortalt: Jeg avslutter arbeidet med bibelsøk.no og går videre til et nytt, felles prosjekt: <a href="https://bibeldykk.no" target="_blank" rel="noopener">bibeldykk.no</a>.</strong></p>
+            </div>
+            <div class="help-section">
+                <h3>Hva skjer?</h3>
+                <p class="info-text">
+                    Jeg har gått over til å jobbe på et annet prosjekt: <a href="https://bibeldykk.no" target="_blank" rel="noopener">bibeldykk.no</a> sammen med kompisen min Benjamin Tjelle.
+                </p>
+                <p class="info-text">
+                    Bibeldykk.no er også et bibelsøk og bibelstudieverktøy, opprinnelig basert på dette prosjektet (Bibelsøk), med mange av de samme funksjonene, men også flere nye. Han har blant annet også jobbet for å få til lisensavtaler for de ulike bibelversjonene, noe dette prosjektet ikke har.
+                </p>
+                <p class="info-text">
+                    I stedet for å lage hvert vårt verktøy som gjorde nesten det samme, slår vi oss heller sammen om å lage hele Norges bibelstudieplattform!
+                </p>
+                <p class="info-text">
+                    Jeg er veldig glad i Bibelsøk, og har satt utrolig mye pris på tilbakemeldingene fra dere, og at andre også har hatt glede av dette. Men gleder meg også til å jobbe videre med dette nye prosjektet.
+                </p>
+            </div>
+            <div class="help-section">
+                <h3>Tilbakemelding</h3>
+                <p class="info-text">
+                    Jeg håper å kunne bringe noe av funksjonaliteten dere liker fra Bibelsøk over i Bibeldykk. Hvis dere har noen ting dere er spesielt glad i med Bibelsøk, send gjerne en tilbakemelding med knappen øverst til høyre, der dere skriver det til meg, så får jeg mer peiling på hva jeg skal prøve å ta med videre.
+                </p>
+            </div>
+            <div class="help-section">
+                <h3>Fremtiden til bibelsøk.no</h3>
+                <p class="info-text">
+                    Kommer nok til å la bibelsøk.no ligge ute på nett i en stund fremover, men kommer sikkert til å ta den ned en gang på nyåret. Og kommer altså ikke til å jobbe videre med dette.
+                </p>
+                <p class="info-text">
+                    Men jeg håper at dere alle etter hvert beveger dere over til Bibeldykk. Igjen, takk for støtten, og Gud velsigne dere!
+                </p>
             </div>
         </div>
     </div>

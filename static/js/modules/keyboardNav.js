@@ -31,7 +31,8 @@ document.addEventListener('keydown', e => {
     const searchInput = document.getElementById('searchInput');
 
     if (e.key === 'Escape') {
-        if (document.getElementById('helpModal').classList.contains('open')) document.getElementById('helpModal').classList.remove('open');
+        if (document.getElementById('importantInfoModal').classList.contains('open')) document.getElementById('importantInfoClose').click();
+        else if (document.getElementById('helpModal').classList.contains('open')) document.getElementById('helpModal').classList.remove('open');
         else if (document.getElementById('statsModal').classList.contains('open')) document.getElementById('statsModal').classList.remove('open');
         else if (document.getElementById('settingsModal').classList.contains('open')) document.getElementById('settingsModal').classList.remove('open');
         else if (autocompleteDropdown.classList.contains('open')) closeAutocomplete();

@@ -3891,7 +3891,7 @@ async function executeAllVersions(label) {
 // MutationObserver so every open/close path (X button, overlay click, Escape,
 // programmatic) is covered without touching each call site.
 (function () {
-    const MODAL_IDS = ['helpModal', 'settingsModal', 'statsModal', 'feedbackModal', 'mapModal'];
+    const MODAL_IDS = ['helpModal', 'settingsModal', 'statsModal', 'feedbackModal', 'mapModal', 'importantInfoModal'];
     let suppress = false; // true while we mutate history ourselves
 
     function anyModalOpen() {
@@ -4234,6 +4234,35 @@ document.addEventListener('click', e => {
         if (window.WelcomeTour) window.WelcomeTour.start({ force: true });
     }
 });
+
+// ── Important info popup (shown once on first visit, before the welcome tour;
+// reopenable anytime via the "Viktig info" button under the empty-state verse) ──
+const IMPORTANT_INFO_SEEN_KEY = 'importantInfoSeen';
+function importantInfoSeen() {
+    try { return localStorage.getItem(IMPORTANT_INFO_SEEN_KEY) === '1'; } catch { return false; }
+}
+function markImportantInfoSeen() {
+    try { localStorage.setItem(IMPORTANT_INFO_SEEN_KEY, '1'); } catch {}
+}
+window.showImportantInfo = function() {
+    document.getElementById('importantInfoModal').classList.add('open');
+};
+function closeImportantInfo() {
+    document.getElementById('importantInfoModal').classList.remove('open');
+    // First time seeing it: mark seen and hand off to the welcome tour (which
+    // waits for this before auto-starting on first visit).
+    if (!importantInfoSeen()) {
+        markImportantInfoSeen();
+        if (window.WelcomeTour) setTimeout(() => window.WelcomeTour.start(), 300);
+    }
+}
+document.getElementById('importantInfoClose').addEventListener('click', closeImportantInfo);
+document.getElementById('importantInfoModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('importantInfoModal')) closeImportantInfo();
+});
+if (!importantInfoSeen()) {
+    document.getElementById('importantInfoModal').classList.add('open');
+}
 
 // ── Settings ──
 window.openSettings = function() { document.getElementById('settingsModal').classList.add('open'); };
