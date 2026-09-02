@@ -1,5 +1,8 @@
 # Bibelsøk
 
+<img width="1184" height="650" alt="image" src="https://github.com/user-attachments/assets/6327cc6a-5d8c-452c-bab1-d0cdba4c80b4" />
+
+
 En rask og kraftig bibelsøkeapp. Slå opp vers etter referanse, søk i hele teksten med avanserte operatorer, og sammenlign oversettelser side om side. Bruker lokale kopier av bibler. Inspirert av [biblegateway.com](https://biblegateway.com).
 
 ## Søk-syntaks
